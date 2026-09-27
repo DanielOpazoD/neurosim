@@ -10,6 +10,7 @@ import {
 import { classifyHead, inTemporalWindow, skullThicknessAt, vesselAt } from '../src/anatomy/head';
 import { ANATOMIA_OJO } from '../src/anatomy/params';
 import { buildReferenceCase } from '../src/domain/referenceCase';
+import { dist, type Vec3 } from '../src/core/vec3';
 
 describe('ojo de referencia N1', () => {
   const rng = new SeededRandom(0x0c12ab);
@@ -48,6 +49,41 @@ describe('ojo de referencia N1', () => {
     expect(ext - int).toBeCloseTo(2 * eyes.der.duraMm, 6);
     expect(ext).toBeGreaterThan(4);
     expect(ext).toBeLessThan(7);
+  });
+
+  it('ancla la ampolla en 3 mm y ensancha la vaina proximal', () => {
+    expect(trueOnsdMm(eyes.der, 3, 'interno')).toBeCloseTo(4.6, 6);
+    expect(trueOnsdMm(eyes.izq, 3, 'interno')).toBeCloseTo(4.7, 6);
+    expect(trueOnsdMm(eyes.der, 1.5, 'interno')).toBeGreaterThan(trueOnsdMm(eyes.der, 3, 'interno'));
+    expect(trueOnsdMm(eyes.der, 3, 'interno')).toBeGreaterThan(trueOnsdMm(eyes.der, 10, 'interno'));
+  });
+
+  it('clasifica la lámina cribosa en la inserción y conserva la pared lateral', () => {
+    const insertion = nerveCenterline(eyes.der, 0);
+    expect(classifyEyeLocal(eyes.der, insertion)).toBe('laminaCribosa');
+    expect(classifyEyeLocal(eyes.der, [0, 0, -eyes.der.globeRadiusMm + 0.2])).toBe('paredGlobo');
+  });
+
+  it('aplica tortuosidad y mirada a la línea central del nervio', () => {
+    const g = eyes.der;
+    const s = 20;
+    const bend = 1 - Math.exp(-s / 18);
+    const noTortuosity: Vec3 = [
+      -(1.2 + ANATOMIA_OJO.params.nerveNasalBendMm.value * bend),
+      -0.4 * bend,
+      -(g.globeRadiusMm + s),
+    ];
+    expect(dist(nerveCenterline(g, s), noTortuosity)).toBeLessThanOrEqual(
+      ANATOMIA_OJO.params.tortuosityAmpMm.value + 1e-9,
+    );
+    const gaze = { ...g, gazeAngleRad: 0.3 };
+    expect(nerveCenterline(gaze, s)[0] - nerveCenterline(g, s)[0]).toBeCloseTo(s * Math.sin(0.3), 6);
+  });
+
+  it('mantiene el centro del nervio clasificable en toda la profundidad N1', () => {
+    for (const s of [2, 5, 10, 20]) {
+      expect(classifyEyeLocal(eyes.der, nerveCenterline(eyes.der, s))).toBe('nervioOptico');
+    }
   });
 });
 

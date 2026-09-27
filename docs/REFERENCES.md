@@ -23,6 +23,14 @@ del motor.
 - **silverman-3d-onsd-2026** — Reconstrucción 3D de la vaina del nervio
   óptico: excentricidad sustancial (eje mayor/menor ≈ 2) y curvatura; la
   DVNO axial puede sobrestimar.
+- **hansen-helmke-1997** — Hansen HC, Helmke K. The subarachnoid space
+  surrounding the optic nerves. An ultrasound study of the optic nerve sheath.
+  Surg Radiol Anat 1996;18:323-8.
+- **killer-2003** — Killer HE et al. Architecture of arachnoid trabeculae,
+  pillars, and septa in the subarachnoid space of the human optic nerve.
+  Br J Ophthalmol 2003;87:777-81.
+- **jonas-lamina-2003** — Jonas JB et al. Lamina cribrosa thickness and
+  spatial relationships. Invest Ophthalmol Vis Sci 2004;45:2660-5.
 - **plan-simulador-2026** — Plan del simulador de neurosonografía
   (documento de trabajo del usuario): fixture N1, decisiones de alcance.
 - **szabo-diagnostic-ultrasound-2014** — Szabo, _Diagnostic Ultrasound
