@@ -14,6 +14,14 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
     frame: s.currentFrame,
     measurements: s.measurements,
     settings: s.settings,
+    instructor: s.teachingMode
+      ? {
+          mapMmHg: sim.patient.physiology.mapMmHg,
+          paco2MmHg: sim.patient.physiology.paco2MmHg,
+          icpMmHg: sim.patient.physiology.icpMmHg,
+          hemodynamics: sim.physStateAt(0).hemo,
+        }
+      : undefined,
     errores: errors(),
   };
 }

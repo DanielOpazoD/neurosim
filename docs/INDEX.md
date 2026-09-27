@@ -23,6 +23,7 @@
 | LIM-16 | Color Kasai reducido                | `src/doppler/color.ts`                                     |
 | LIM-17 | Movimiento tisular reducido         | —                                                          |
 | LIM-18 | Windkessel reducido                 | —                                                          |
+| LIM-19 | Hemodinámica estática               | —                                                          |
 | LIM-01 | Patología                           | —                                                          |
 | LIM-02 | Lindegaard                          | —                                                          |
 | LIM-03 | DVNO y PIC                          | —                                                          |
@@ -70,6 +71,8 @@
 | DEC-25 | La docencia distingue ángulo real tridimensional, ángulo                | —                          |
 | DEC-26 | La onda arterial se genera con un Windkessel de dos elementos           | —                          |
 | DEC-27 | La agenda cardíaca conserva intervalos RR deterministas con             | —                          |
+| DEC-28 | La presión crítica de cierre se acopla al Windkessel y a la             | —                          |
+| DEC-29 | La autorregulación de Lassen y la reactividad al CO₂ actúan             | —                          |
 
 ## Parámetros registrados
 
@@ -78,5 +81,5 @@
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
 | `doppler`            |         31 |
-| `fisiologia`         |         28 |
+| `fisiologia`         |         34 |
 | `fisica-ultrasonido` |         28 |

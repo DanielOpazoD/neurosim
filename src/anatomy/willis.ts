@@ -1,18 +1,24 @@
 import type { Side, WillisVariant } from '../domain/contracts';
 import type { Vessel } from './head';
 import { ANATOMIA_CABEZA } from './params';
-import { arterialShapeMean, FISIOLOGIA } from '../physiology/params';
+import { FISIOLOGIA } from '../physiology/params';
 
 const HEAD = ANATOMIA_CABEZA.params;
 const PHYS = FISIOLOGIA.params;
 
 const FLOW_SCALE_ML_MIN = 0.6;
-const M1_MEAN_CMS = PHYS.edvCms.value + (PHYS.psvCms.value - PHYS.edvCms.value) * arterialShapeMean();
-
-function velocityForFlow(flowMlMin: number, radiusMm: number): { psvCms: number; edvCms: number } {
+function velocityForFlow(
+  flowMlMin: number,
+  radiusMm: number,
+): {
+  meanCms: number;
+  psvCms: number;
+  edvCms: number;
+} {
   const meanCms = flowMlMin / (Math.PI * radiusMm * radiusMm * FLOW_SCALE_ML_MIN);
-  const scale = M1_MEAN_CMS > 0 ? meanCms / M1_MEAN_CMS : 0;
+  const scale = meanCms / 55;
   return {
+    meanCms,
     psvCms: PHYS.psvCms.value * scale,
     edvCms: PHYS.edvCms.value * scale,
   };

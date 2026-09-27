@@ -4,7 +4,14 @@
  */
 import { classifyEye } from '../anatomy/eye';
 import { classifyHead } from '../anatomy/head';
-import type { AcquisitionSettings, AcquiredFrame, Side, Station, WillisVariant } from '../domain/contracts';
+import type {
+  AcquisitionSettings,
+  AcquiredFrame,
+  BasalPhysiology,
+  Side,
+  Station,
+  WillisVariant,
+} from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { renderColorDoppler } from '../doppler/color';
 import { buildReferenceCase } from '../domain/referenceCase';
@@ -27,6 +34,7 @@ export interface RenderRequest {
   readonly cardiacPhase: number;
   readonly respiratoryPhase: number;
   readonly flowModulation: number;
+  readonly physiology?: BasalPhysiology;
   readonly color: boolean;
 }
 
@@ -57,6 +65,7 @@ export function renderCase(seed: number, willisVariant: WillisVariant = 'normal'
 }
 
 export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderResponse {
+  if (req.physiology) sim.setPhysiology(req.physiology);
   const poseInput: PoseInput = {
     side: req.side,
     station: req.station,
@@ -103,6 +112,7 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
             64,
             64,
             req.flowModulation,
+            sim.physStateAt(req.t).hemo,
           );
           return { vel, pow, variance, w: 64 as const, h: 64 as const };
         })()

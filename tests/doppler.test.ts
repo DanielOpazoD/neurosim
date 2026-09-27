@@ -125,6 +125,54 @@ describe('PW integrado sobre la ACM del caso N1', () => {
     expect(correctedPsv).toBeGreaterThan(90 * 0.85);
     expect(correctedPsv).toBeLessThan(90 * 1.15);
   }, 30000);
+
+  it('aumenta PI y reduce EDV cuando la PIC sube a 30 mmHg', () => {
+    const basal = buildReferenceCase();
+    const highIcp = buildReferenceCase();
+    highIcp.setPhysiology({ ...highIcp.patient.physiology, icpMmHg: 30 });
+    const measure = (sim: ReturnType<typeof buildReferenceCase>) => {
+      const head = sim.head;
+      const chain = new PwDopplerChain(head, sim.patient.seed);
+      const wc = head.windowCenter.der;
+      const m1 = head.vessels.find((v) => v.id === 'm1-der')!;
+      const target = m1.points[2]!;
+      const dir = normalize(sub(target, wc));
+      chain.setGate({
+        center: target,
+        beamDir: dir,
+        lateral: normalize([-dir[2], 0, dir[0]]),
+        elevation: normalize([dir[1] * dir[2], dir[2] * dir[2] + dir[0] * dir[0], -dir[1] * dir[0]]),
+        lengthMm: 6,
+        lateralSigmaMm: 2.5,
+        elevationSigmaMm: 5,
+        pulseSigmaMm: 0.8,
+        apertureAngleSigmaRad: 0.04,
+        transmission: 0.5,
+      });
+      chain.begin(6000, 2e6, 20, 100, 0);
+      let t = 0;
+      for (let step = 0; step < 47; step++) {
+        chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+        chain.flush();
+        t += 0.064;
+      }
+      const trace = observedTrace(chain.spectral.columns, {
+        f0Hz: 2e6,
+        angleCorrectionRad: 0,
+        invert: false,
+        fftSize: chain.spectral.fftSize,
+        wallFilterHz: 100,
+      });
+      const beats = sim.cardiac.beatsIn(trace[0]!.t, trace[trace.length - 1]!.t);
+      return summarizeBeats(measureBeats(trace, beats));
+    };
+    const n1 = measure(basal);
+    const pic30 = measure(highIcp);
+    expect(n1).not.toBeNull();
+    expect(pic30).not.toBeNull();
+    expect(pic30!.pi).toBeGreaterThan(n1!.pi + 0.25);
+    expect(Math.abs(pic30!.edvCms)).toBeLessThan(Math.abs(n1!.edvCms));
+  }, 60000);
 });
 
 describe('color Doppler Kasai sobre M1 derecha', () => {

@@ -88,6 +88,10 @@ export class PwController {
     return insonationAngles(this.sim.head, gate.center, gate.beamDir, gate.lateral, gate.elevation);
   }
 
+  hemodynamics() {
+    return this.sim.physStateAt(0).hemo;
+  }
+
   step(clock: SimulationClock, elapsed: number): void {
     const s = this.state;
     if (!s.pwOn || s.station !== 'temporal' || s.frozen) return;

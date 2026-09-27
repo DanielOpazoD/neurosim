@@ -101,3 +101,9 @@
 27. **DEC-27** — La agenda cardíaca conserva intervalos RR deterministas con
     HRV y arritmia sinusal respiratoria; la respiración modula el flujo y añade
     desplazamiento cerebral a la señal material.
+28. **DEC-28** — La presión crítica de cierre se acopla al Windkessel y a la
+    presión intracraneal antes de sintetizar IQ: la pulsatilidad y el PI emergen
+    de `PP/(PAM−CrCP)`, no de una tabla de medición independiente.
+29. **DEC-29** — La autorregulación de Lassen y la reactividad al CO₂ actúan
+    como factores latentes del flujo medio. La PIC modifica CrCP, la forma de
+    onda y el DVNO, mientras la cadena Doppler conserva la misma adquisición.
