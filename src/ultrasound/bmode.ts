@@ -25,12 +25,15 @@ import { lateralFwhmMm, probeBeamSpec, sigmaFromFwhm, sidelobeLevelDb } from './
 import type { ScanGeometry } from './probe';
 import { scatterComplex } from './speckle';
 import { FISICA_US } from './params';
+import { SeededRandom } from '../core/random';
 
 export interface BModeFrame {
   readonly width: number;
   readonly height: number;
   /** Envoltura en dB (0 = máximo de referencia). */
   readonly db: Float32Array;
+  /** Magnitud IQ antes de PSF, TGC y compresión logarítmica. */
+  readonly iqMagnitude: Float32Array;
   readonly depthMm: number;
   readonly scan: ScanGeometry;
 }
@@ -106,7 +109,12 @@ export function renderBMode(
   scan: ScanGeometry,
   settings: AcquisitionSettings,
   seedLabel: string,
-  opts: { axialStepMm?: number; extraAttenuationDb?: number; speckle?: boolean } = {},
+  opts: {
+    axialStepMm?: number;
+    extraAttenuationDb?: number;
+    speckle?: boolean;
+    electronicNoise?: boolean;
+  } = {},
 ): BModeFrame {
   const f0 = settings.frequencyMhz;
   const minAxialStepMm = 0.08; // resolución mínima del muestreo axial
@@ -120,6 +128,12 @@ export function renderBMode(
   const seed = `speckle-${seedLabel}`;
   const beam = probeBeamSpec(settings.transducer, settings);
   const cRef = FISICA_US.params.soundSpeedMs.value;
+  const outputAmplitude = 10 ** (settings.outputPowerDb / 20);
+  const noiseFloor =
+    opts.electronicNoise === false || opts.speckle === false
+      ? 0
+      : FISICA_US.params.eyeScleraRefIq.value * 10 ** (-FISICA_US.params.bmodeNoiseSnrDb.value / 20);
+  const noiseRng = new SeededRandom(`${seed}-electronic-noise`);
 
   const specularPow = (m: Material): number => (m.id === 'hueso' || m.id === 'duraVaina' ? 2.2 : 1.2);
 
@@ -191,8 +205,9 @@ export function renderBMode(
       // DEC-19: ensanchamiento lateral por apertura, foco y lóbulos laterales.
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
       const k = (zi * width + li) * 2;
-      iQ[k] = re * attLin;
-      iQ[k + 1] = im * attLin;
+      const noiseStd = noiseFloor;
+      iQ[k] = re * outputAmplitude * attLin + noiseRng.gaussian() * noiseStd;
+      iQ[k + 1] = im * outputAmplitude * attLin + noiseRng.gaussian() * noiseStd;
 
       prevMat = matId;
       prevM = m;
@@ -251,9 +266,13 @@ export function renderBMode(
   const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / f0 / dz); // en muestras
   const out = new Float32Array(width * height);
   const tmp = new Float32Array(width * height);
+  const iqMagnitude = new Float32Array(width * height);
 
   // convolución axial de la magnitud compleja
   const env = (idx: number) => Math.hypot(iQ[2 * idx]!, iQ[2 * idx + 1]!);
+  for (let idx = 0; idx < iqMagnitude.length; idx++) {
+    iqMagnitude[idx] = env(idx);
+  }
   const kernA = gaussKernel(sigmaAxial);
   for (let li = 0; li < width; li++) {
     for (let zi = 0; zi < height; zi++) {
@@ -305,7 +324,7 @@ export function renderBMode(
     }
   }
 
-  return { width, height, db: outBuf, depthMm: settings.depthMm, scan };
+  return { width, height, db: outBuf, iqMagnitude, depthMm: settings.depthMm, scan };
 }
 
 function isThinStrongMaterial(id: MaterialId): boolean {

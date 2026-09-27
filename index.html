@@ -114,6 +114,15 @@
       #bmode {
         aspect-ratio: 4 / 3;
       }
+      .acousticLabel {
+        color: var(--acc);
+        font: 12px monospace;
+        margin-top: 5px;
+        text-align: right;
+      }
+      .acousticLabel.warn {
+        color: var(--warn);
+      }
       #spectral {
         aspect-ratio: 4 / 1.4;
         margin-top: 8px;
@@ -226,6 +235,7 @@
       </div>
       <div class="panel">
         <canvas id="bmode" width="640" height="480"></canvas>
+        <div id="acousticLabel" class="acousticLabel"></div>
         <canvas id="spectral" width="640" height="224"></canvas>
       </div>
       <div class="panel">
@@ -243,6 +253,10 @@
         <label class="ctl"
           ><span>Rango dinámico <b id="drV"></b></span>
           <input id="dr" type="range" min="30" max="90" step="5"
+        /></label>
+        <label class="ctl"
+          ><span>Potencia <b id="outputPowerV"></b></span>
+          <input id="outputPower" type="range" min="-20" max="0" step="1"
         /></label>
         <label class="ctl"
           ><span>Densidad de líneas</span>

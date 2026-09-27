@@ -133,6 +133,7 @@ export function renderColorDoppler(
       paco2MmHg: FISIOLOGIA.params.paco2MmHg.value,
       icpMmHg: FISIOLOGIA.params.icpMmHg.value,
     });
+  const outputAmplitude = 10 ** (settings.outputPowerDb / 20);
   const wallVelocityCms = (SOUND_SPEED_MS * settings.wallFilterHz * 100) / (2 * f0Hz);
   const elevation = elevationDirection(pose);
   const attenuationCache = new Map<number, number>();
@@ -192,8 +193,8 @@ export function renderColorDoppler(
           // kasaiVelocityCms conserva el signo positivo hacia la sonda.
           const range = scatterer.rangeMm - (scatterer.velocityTowardCms * 10 * k) / settings.prfHz;
           const phase = scatterer.phase + phaseScale * range;
-          re[k] = re[k]! + scatterer.amplitude * transmission * Math.cos(phase);
-          im[k] = im[k]! + scatterer.amplitude * transmission * Math.sin(phase);
+          re[k] = re[k]! + outputAmplitude * scatterer.amplitude * transmission * Math.cos(phase);
+          im[k] = im[k]! + outputAmplitude * scatterer.amplitude * transmission * Math.sin(phase);
         }
         const noise = DOPPLER.params.colorNoiseRel.value * DOPPLER.params.amplitudSangre.value * transmission;
         re[k] = re[k]! + noiseRng.gaussian() * noise;

@@ -54,6 +54,8 @@ export interface GateEquipment {
   f0Hz: number;
   /** Ganancia espectral (factor lineal aplicado a señal y ruido). */
   gain: number;
+  /** Amplitud de emisión relativa; el ruido no se escala con ella. */
+  outputAmplitude: number;
 }
 
 interface Scatterer {
@@ -110,7 +112,7 @@ export class SampleVolumeIQ {
   private tick = 0;
   private gate: GateGeometry | null = null;
   private transmissionNow = Number.NaN;
-  private equipment: GateEquipment = { prfHz: 4000, f0Hz: 2e6, gain: 1 };
+  private equipment: GateEquipment = { prfHz: 4000, f0Hz: 2e6, gain: 1, outputAmplitude: 1 };
   private halfAxial = 4;
   private halfLateral = 5;
   private halfElev = 6;
@@ -510,7 +512,7 @@ export class SampleVolumeIQ {
           s.amp += s.dAmp;
           s.rampLeft--;
         }
-        const a = s.amp * s.w;
+        const a = s.amp * s.w * this.equipment.outputAmplitude;
         sr += a * cr;
         si += a * ci;
       }

@@ -5,8 +5,10 @@
 import type { ReferenceCase } from '../domain/referenceCase';
 import { errors } from '../core/errorLog';
 import type { AppState } from './state';
+import { acousticOutput } from '../ultrasound/acousticOutput';
 
 export function exportPayload(sim: ReferenceCase, s: AppState): object {
+  const mode = s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode';
   return {
     case: sim.patient.label,
     seed: sim.patient.seed,
@@ -14,6 +16,16 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
     frame: s.currentFrame,
     measurements: s.measurements,
     settings: s.settings,
+    acousticOutput: acousticOutput({
+      transducer: s.settings.transducer,
+      station: s.station,
+      mode,
+      frequencyMhz: s.settings.frequencyMhz,
+      focusMm: s.settings.focusMm,
+      prfHz: s.settings.prfHz,
+      gateMm: s.settings.gateMm,
+      outputPowerDb: s.settings.outputPowerDb,
+    }),
     instructor: s.teachingMode
       ? {
           mapMmHg: sim.patient.physiology.mapMmHg,

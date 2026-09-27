@@ -90,6 +90,8 @@ export interface AcquisitionSettings {
   readonly baseline: number;
   /** Ganancia específica del Doppler espectral, dB. */
   readonly dopplerGainDb: number;
+  /** Potencia acústica relativa al máximo de salida, dB [-20,0]. */
+  readonly outputPowerDb: number;
   /** Inversión de la paleta de color. */
   readonly invertColor: boolean;
 }

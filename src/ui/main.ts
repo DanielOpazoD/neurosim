@@ -28,6 +28,7 @@ import {
 } from '../app/renderClient';
 import type { RenderResponse } from '../app/renderRequest';
 import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
+import { acousticOutput } from '../ultrasound/acousticOutput';
 
 const WILLIS_VARIANTS: readonly WillisVariant[] = [
   'normal',
@@ -141,6 +142,7 @@ function setStation(station: Station, side: Side): void {
     wf: s.settings.wallFilterHz,
     ang: s.settings.angleCorrectionDeg,
     base: s.settings.baseline,
+    outputPower: s.settings.outputPowerDb,
   };
   for (const [id, value] of Object.entries(values)) $<HTMLInputElement>(id).value = String(value);
   for (const id of Object.keys(values)) {
@@ -193,6 +195,22 @@ function drawFrame(response: RenderResponse): void {
   }
   drawCaliperMarks(bCtx, s);
   drawScale(bCtx, sim, s, s.currentFrame);
+}
+
+function updateAcousticLabel(): void {
+  const output = acousticOutput({
+    transducer: s.settings.transducer,
+    station: s.station,
+    mode: s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode',
+    frequencyMhz: s.settings.frequencyMhz,
+    focusMm: s.settings.focusMm,
+    prfHz: s.settings.prfHz,
+    gateMm: s.settings.gateMm,
+    outputPowerDb: s.settings.outputPowerDb,
+  });
+  const el = $('acousticLabel');
+  el.textContent = `MI ${output.mi.toFixed(2)}  ${output.tiKind} ${output.ti.toFixed(2)}`;
+  el.classList.toggle('warn', output.ocularLimitExceeded);
 }
 
 function drawCineFrame(): void {
@@ -252,6 +270,7 @@ function frameLoop(now: number): void {
     }
     drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
     updateReadouts($('readouts'), s, pw);
+    updateAcousticLabel();
   } catch (err) {
     logError('frame', err);
   }
@@ -272,6 +291,7 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
   ['wf', 'wfV', (v: number) => setSetting('wallFilterHz', v), (v: number) => `${v} Hz`],
   ['ang', 'angV', (v: number) => setSetting('angleCorrectionDeg', v), (v: number) => `${v}°`],
   ['base', 'baseV', (v: number) => setSetting('baseline', v), (v: number) => `${Math.round(v * 100)}%`],
+  ['outputPower', 'outputPowerV', (v: number) => setSetting('outputPowerDb', v), (v: number) => `${v} dB`],
   [
     'map',
     'mapV',
