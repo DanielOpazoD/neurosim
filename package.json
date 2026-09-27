@@ -15,6 +15,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "golden:update": "GOLDEN_UPDATE=1 vitest run tests/validation/golden.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
     "docs:index": "node scripts/docs-index.mjs",
     "provenance:check": "node scripts/provenance-check.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run provenance:check",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9.13.0",

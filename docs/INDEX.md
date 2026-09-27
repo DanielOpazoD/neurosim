@@ -53,6 +53,7 @@
 | DEC-13 | Registro por dominio — anatomía, física US, Doppler y fisiología se     | —                          |
 | DEC-14 | Los errores en tiempo de ejecución se registran y se exportan;          | —                          |
 | DEC-15 | El render B-mode/color corre en Worker; el hilo principal solo          | —                          |
+| DEC-16 | Las pruebas E2E cubren el flujo docente completo pero no                | —                          |
 
 ## Parámetros registrados
 

@@ -15,7 +15,7 @@ const allowed = {
   ui: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler', 'domain', 'app']),
 } as const;
 
-const anatomyPhysiologyDataModules = new Set(['physiology/params.ts']);
+const anatomyPhysiologyDataModule = 'physiology/params.ts';
 
 function filesUnder(path: string): string[] {
   const result: string[] = [];
@@ -78,11 +78,11 @@ function edges(): Array<{
 
 describe('fronteras de capas', () => {
   it('respeta la matriz de dependencias documentada', () => {
-    const violations = edges().filter(({ from, to, destination, typeOnly }) => {
+    const violations = edges().filter(({ from, to, file, destination, typeOnly }) => {
       if (from === to) return false;
       if (from === 'anatomy' && to === 'domain' && !typeOnly) return true;
       if (from === 'anatomy' && to === 'physiology') {
-        return !anatomyPhysiologyDataModules.has(destination);
+        return !(file === 'src/anatomy/head.ts' && destination === anatomyPhysiologyDataModule);
       }
       if (allowed[from as keyof typeof allowed].has(to)) return false;
       return true;
@@ -92,7 +92,7 @@ describe('fronteras de capas', () => {
 
   it('reserva las referencias al entorno del navegador para src/ui', () => {
     const browserReference =
-      /(?<![\w.])(?:document|window)\s*(?:\.|\[)|\bHTMLCanvasElement\b|\brequestAnimationFrame\b/;
+      /(?<![\w.])(?:document|window)\s*(?:\.|\[)|\bHTMLCanvasElement\b|\bCanvasRenderingContext2D\b|\bOffscreenCanvas\b|\bImageData\b|\bnavigator\b|\blocalStorage\b|\brequestAnimationFrame\b/;
     const violations = filesUnder(root)
       .filter((file) => browserReference.test(readFileSync(file, 'utf8')))
       .filter((file) => firstLayer(file) !== 'ui');

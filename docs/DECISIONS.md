@@ -44,3 +44,5 @@
 15. **DEC-15** — El render B-mode/color corre en Worker; el hilo principal solo
     dibuja, mide y reproduce audio; el resultado es bit-idéntico al camino
     síncrono.
+16. **DEC-16** — Las pruebas E2E cubren el flujo docente completo pero no
+    gatean `check` local; gatean CI.
