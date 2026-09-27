@@ -94,7 +94,7 @@ describe('PW integrado sobre la ACM del caso N1', () => {
     // 3 s de adquisición en bloques de 64 ms.
     let t = 0;
     for (let step = 0; step < 47; step++) {
-      chain.step({ t, cardiacPhase: sim.cardiac.phaseAt(t), heartRateBpm: 70 }, [0, 0, 0], 0.064);
+      chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
       chain.flush();
       t += 0.064;
     }

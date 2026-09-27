@@ -90,3 +90,9 @@
     corrección de velocidad se compara con el factor
     `cos(θ_real)/cos(θ_user)` sin cambiar la medición adquirida ni ocultar la
     geometría elevacional.
+26. **DEC-26** — La onda arterial se genera con un Windkessel de dos elementos
+    integrado hasta estado estable; el reflujo breve y su rebote producen la
+    incisura dicrota sin dibujar una envolvente independiente.
+27. **DEC-27** — La agenda cardíaca conserva intervalos RR deterministas con
+    HRV y arritmia sinusal respiratoria; la respiración modula el flujo y añade
+    desplazamiento cerebral a la señal material.

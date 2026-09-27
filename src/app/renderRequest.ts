@@ -25,6 +25,8 @@ export interface RenderRequest {
   readonly press?: number;
   readonly t: number;
   readonly cardiacPhase: number;
+  readonly respiratoryPhase: number;
+  readonly flowModulation: number;
   readonly color: boolean;
 }
 
@@ -100,6 +102,7 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
             req.cardiacPhase,
             64,
             64,
+            req.flowModulation,
           );
           return { vel, pow, variance, w: 64 as const, h: 64 as const };
         })()

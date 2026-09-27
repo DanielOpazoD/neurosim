@@ -10,9 +10,14 @@ siguiente existe todavía por diseño del plan:
   equivalente al corte configurado.
 
 - **LIM-17 · Movimiento tisular reducido**: el tejido combina pulsación radial
-  de pared y pulsación cerebral anterior uniforme; no hay respiración todavía,
-  reservada para PR 18. El temblor de mano es determinista para una semilla,
-  pero todavía no está acoplado a la pose visual de la sonda.
+  de pared, pulsación cerebral anterior uniforme y desplazamiento respiratorio;
+  no hay reflexiones de onda ni acoplamiento PIC. El temblor de mano es
+  determinista para una semilla, pero todavía no está acoplado a la pose visual
+  de la sonda.
+
+- **LIM-18 · Windkessel reducido**: la onda usa dos elementos y no modela
+  reflexiones de onda, reservorios venosos ni autorregulación; el índice de
+  pulsatilidad se conserva aproximadamente uniforme entre territorios.
 
 - **LIM-01 · Patología**: sin casos con PIC elevada, vasoespasmo, ni parada
   circulatoria. La señal ausente NO acredita cese circulatorio (ni en el

@@ -55,6 +55,7 @@ function cellScatterers(
   ci: number,
   cardiacPhase: number,
   heartRateBpm: number,
+  flowModulation: number,
   primaryVessel: Vessel,
 ): ColorScatterer[] {
   const rng = new SeededRandom((seed ^ hash3(zi, ci, 0, 0x4b534149)) >>> 0);
@@ -73,7 +74,7 @@ function cellScatterers(
     let velocityTowardCms = 0;
     let amplitude = MATERIALS.tejidoCerebral.scatterAmp * 60;
     if (closest) {
-      const velocity = flow.velocityAt(closest.point, cardiacPhase);
+      const velocity = flow.velocityAt(closest.point, cardiacPhase, flowModulation);
       velocityTowardCms = -(velocity[0] * axial[0] + velocity[1] * axial[1] + velocity[2] * axial[2]) / 10;
       amplitude = DOPPLER.params.amplitudSangre.value;
     } else {
@@ -111,6 +112,7 @@ export function renderColorDoppler(
   cardiacPhase: number,
   rows: number,
   cols: number,
+  flowModulation = 1,
 ): [Float32Array, Float32Array, Float32Array] {
   const vel = new Float32Array(rows * cols).fill(Number.NaN);
   const pow = new Float32Array(rows * cols);
@@ -159,6 +161,7 @@ export function renderColorDoppler(
         ci,
         cardiacPhase,
         heartRateBpm,
+        flowModulation,
         primaryVessel,
       );
       const re = new Float32Array(ensemble);

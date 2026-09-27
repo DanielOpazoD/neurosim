@@ -206,8 +206,7 @@ function frameLoop(now: number): void {
             offsetMm: s.offsetMm,
             rotDeg: s.rotDeg,
             press: s.press,
-            t: clock.t,
-            cardiacPhase: sim.cardiac.phaseAt(clock.t),
+            ...sim.physStateAt(clock.t),
             color: s.station === 'temporal',
           })
           .then((response) => {

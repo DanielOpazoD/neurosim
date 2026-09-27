@@ -112,11 +112,7 @@ export class PwController {
       const pose = currentPose(this.sim, s);
       chain.setGate(this.gateGeometry(pose));
       chain.step(
-        {
-          t: clock.t,
-          cardiacPhase: this.sim.cardiac.phaseAt(clock.t),
-          heartRateBpm: this.sim.patient.physiology.heartRateBpm,
-        },
+        this.sim.physStateAt(clock.t),
         handTremorVelocityMmS(clock.t, this.sim.patient.seed),
         elapsed,
       );

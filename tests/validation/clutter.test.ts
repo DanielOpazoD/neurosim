@@ -10,7 +10,7 @@ describe('clutter tisular determinista', () => {
   it('es periódico, de media casi nula y menor de 3 mm/s', () => {
     const sim = buildReferenceCase();
     const point = add(sim.head.skullCenter, [0, 0, 0]);
-    const period = 60 / sim.patient.physiology.heartRateBpm;
+    const period = sim.respiration.periodS;
     const first = tissueVelocityMmS({
       head: sim.head,
       point,
@@ -93,11 +93,7 @@ describe('clutter tisular determinista', () => {
       chain.begin(6000, 2e6, 20, wallFilterHz, 0);
       let t = 0;
       for (let i = 0; i < 32; i += 1) {
-        chain.step(
-          { t, cardiacPhase: sim.cardiac.phaseAt(t), heartRateBpm: sim.patient.physiology.heartRateBpm },
-          [0, 0, 0],
-          0.064,
-        );
+        chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
         chain.flush();
         t += 0.064;
       }

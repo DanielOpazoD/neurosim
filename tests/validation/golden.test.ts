@@ -49,7 +49,7 @@ function pwHash(): string {
   chain.begin(6000, 2e6, 20, 100, 0);
   let t = 0;
   while (t < 1) {
-    chain.step({ t, cardiacPhase: sim.cardiac.phaseAt(t), heartRateBpm: 70 }, [0, 0, 0], 0.064);
+    chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
     chain.flush();
     t += 0.064;
   }

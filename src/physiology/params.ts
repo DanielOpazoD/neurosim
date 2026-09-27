@@ -3,6 +3,7 @@
  * Los valores clínicos del manifiesto se referencian desde este registro.
  */
 import { defineParameters } from '../core/evidence';
+import { windkesselShapeTable } from './windkessel';
 
 export const FISIOLOGIA = defineParameters('fisiologia', {
   psvCms: {
@@ -77,21 +78,77 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     sources: ['plan-simulador-2026'],
     note: 'PIC basal del fixture N1.',
   },
-  upstrokePhase: {
-    value: 0.09,
+  ejectionFraction: {
+    value: 0.3,
     unit: 'fracción de ciclo',
-    range: [0.05, 0.15],
-    evidence: 'estimado',
+    range: [0.2, 0.4],
+    evidence: 'consenso',
     sources: ['plan-simulador-2026'],
-    note: 'Duración relativa del ascenso sistólico.',
+    note: 'Fracción temporal de eyección sistólica.',
   },
-  decayTau: {
-    value: 0.35,
-    unit: 'fracción de ciclo',
-    range: [0.2, 0.6],
+  windkesselTauS: {
+    value: 0.18,
+    unit: 's',
+    range: [0.1, 2],
+    evidence: 'consenso',
+    sources: ['westerhof-windkessel-2009'],
+    note: 'Constante RC del Windkessel arterial de dos elementos.',
+  },
+  backflowFraction: {
+    value: 0.12,
+    unit: 'fracción',
+    range: [0, 0.3],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Constante de decaimiento diastólico normalizada.',
+    note: 'Flujo inverso relativo durante el cierre valvular.',
+  },
+  backflowDurationFraction: {
+    value: 0.03,
+    unit: 'fracción de ciclo',
+    range: [0.01, 0.08],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Duración relativa del flujo inverso y la incisura.',
+  },
+  respiratoryRatePerMin: {
+    value: 14,
+    unit: 'rpm',
+    range: [8, 24],
+    evidence: 'consenso',
+    sources: ['plan-simulador-2026'],
+    note: 'Frecuencia respiratoria basal del adulto.',
+  },
+  respFlowModulation: {
+    value: 0.03,
+    unit: 'fracción',
+    range: [0, 0.1],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Modulación respiratoria multiplicativa de la velocidad ACM.',
+  },
+  respBrainShiftMm: {
+    value: 0.1,
+    unit: 'mm',
+    range: [0, 0.3],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Desplazamiento cerebral respiratorio aproximado.',
+  },
+  hrvSd: {
+    value: 0.02,
+    unit: 'fracción de RR',
+    range: [0, 0.06],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Desviación estándar relativa de los intervalos RR.',
+  },
+  rsaAmplitude: {
+    value: 0.04,
+    unit: 'fracción de RR',
+    range: [0, 0.1],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Amplitud de arritmia sinusal respiratoria.',
   },
   laminarProfile: {
     value: 0.85,
@@ -134,28 +191,28 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     note: 'EDV del P1/P2 usado por el fixture.',
   },
   qM1MlMin: {
-    value: 234.5153846181403,
+    value: 237.76109636899673,
     unit: 'ml/min',
     range: [180, 300],
     evidence: 'derivado',
     sources: ['plan-simulador-2026'],
-    note: 'Q = vMedia·πr²·0,6, con vMedia M1 = 35 + (90−35)·media(arterialShape) y rM1=1,5 mm.',
+    note: 'Derivado con media Windkessel 0,38292: Q = vMedia·πr²·0,6, rM1=1,5 mm.',
   },
   qA2MlMin: {
-    value: 91.32649876906984,
+    value: 92.63789745628456,
     unit: 'ml/min',
     range: [60, 130],
     evidence: 'derivado',
     sources: ['aium-tcd-guia', 'plan-simulador-2026'],
-    note: 'Q terminal A2 derivado de la forma de onda A1 de referencia y rA2=1,0 mm.',
+    note: 'Q terminal A2 derivado de la media Windkessel y la onda A1 de referencia, rA2=1,0 mm.',
   },
   qP2MlMin: {
-    value: 86.47672952342693,
+    value: 87.58748421149778,
     unit: 'ml/min',
     range: [55, 125],
     evidence: 'derivado',
     sources: ['aium-tcd-guia', 'plan-simulador-2026'],
-    note: 'Q terminal P2 derivado de la forma de onda P1 de referencia y rP2=1,1 mm.',
+    note: 'Q terminal P2 derivado de la media Windkessel y la onda P1 de referencia, rP2=1,1 mm.',
   },
   basilarPsvCms: {
     value: 55,
@@ -175,14 +232,17 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
   },
 });
 
+export const arterialShapeTable = windkesselShapeTable({
+  periodS: 60 / FISIOLOGIA.params.heartRateBpm.value,
+  ejectionFraction: FISIOLOGIA.params.ejectionFraction.value,
+  tauS: FISIOLOGIA.params.windkesselTauS.value,
+  backflowFraction: FISIOLOGIA.params.backflowFraction.value,
+  backflowDurationFraction: FISIOLOGIA.params.backflowDurationFraction.value,
+});
+
 /** Media numérica de la onda normalizada usada para derivar los caudales. */
-export function arterialShapeMean(samples = 1_000_000): number {
-  const upstroke = FISIOLOGIA.params.upstrokePhase.value;
-  const decay = FISIOLOGIA.params.decayTau.value;
+export function arterialShapeMean(): number {
   let sum = 0;
-  for (let i = 0; i < samples; i += 1) {
-    const phase = (i + 0.5) / samples;
-    sum += phase < upstroke ? phase / upstroke : Math.exp(-(phase - upstroke) / decay);
-  }
-  return sum / samples;
+  for (const value of arterialShapeTable) sum += value;
+  return sum / arterialShapeTable.length;
 }

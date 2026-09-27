@@ -14,7 +14,7 @@ describe('persistencia de sangre en la puerta', () => {
       let t = 0;
       let next = 5;
       while (t < 30) {
-        chain.step({ t, cardiacPhase: sim.cardiac.phaseAt(t), heartRateBpm: 70 }, [0, 0, 0], 0.064);
+        chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
         chain.flush();
         t += 0.064;
         if (t >= next) {
