@@ -4,6 +4,8 @@ export default defineConfig({
   server: { port: 6620 },
   build: { target: 'es2022' },
   test: {
+    include: ['tests/**/*.test.ts'],
+    exclude: ['e2e/**'],
     coverage: {
       provider: 'v8',
       include: ['src/**'],

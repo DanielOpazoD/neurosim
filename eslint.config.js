@@ -6,7 +6,7 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.mjs'],
+    files: ['src/**/*.ts', 'tests/**/*.ts', 'e2e/**/*.ts', 'playwright.config.ts', 'scripts/**/*.mjs'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
@@ -14,7 +14,7 @@ export default [
     },
   },
   {
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'playwright.config.ts'],
     languageOptions: {
       globals: {
         console: 'readonly',

@@ -26,3 +26,11 @@ desviación exista y quedará rojo automáticamente cuando el estimador se corri
 `tests/parameters.test.ts` comprueba que cada conjunto de parámetros carga,
 que sus fuentes están en `docs/REFERENCES.md`, que cada aproximación aparece
 en `docs/APPROXIMATIONS.md` y que no hay ids duplicados.
+
+## E2E
+
+Las pruebas E2E de Playwright cubren el flujo docente completo en Chromium:
+carga sin errores, B-mode ocular, Doppler temporal/PW, congelación y
+exportación. Ejecuta `npm run test:e2e`; si falta el navegador, instala Chromium
+con `npm run test:e2e:install`. No forman parte de `npm run check` local por su
+coste, pero se ejecutan en un job separado de CI.
