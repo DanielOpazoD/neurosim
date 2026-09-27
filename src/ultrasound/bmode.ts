@@ -143,14 +143,14 @@ export function renderBMode(
   const tmp = new Float32Array(width * height);
 
   // convolución axial de la magnitud compleja
-  const env = (idx: number) => Math.hypot(iQ[2 * idx], iQ[2 * idx + 1]);
+  const env = (idx: number) => Math.hypot(iQ[2 * idx]!, iQ[2 * idx + 1]!);
   const kernA = gaussKernel(sigmaAxial);
   for (let li = 0; li < width; li++) {
     for (let zi = 0; zi < height; zi++) {
       let acc = 0;
       for (let t = -kernA.r; t <= kernA.r; t++) {
         const zz = Math.min(height - 1, Math.max(0, zi + t));
-        acc += env(zz * width + li) * kernA.w[t + kernA.r];
+        acc += env(zz * width + li) * kernA.w[t + kernA.r]!;
       }
       tmp[zi * width + li] = acc;
     }
@@ -170,7 +170,7 @@ export function renderBMode(
       let acc = 0;
       for (let t = -kern.r; t <= kern.r; t++) {
         const ll = Math.min(width - 1, Math.max(0, li + t));
-        acc += tmp[zi * width + ll] * kern.w[t + kern.r];
+        acc += tmp[zi * width + ll]! * kern.w[t + kern.r]!;
       }
       outBuf[zi * width + li] = acc;
     }
