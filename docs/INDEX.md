@@ -54,6 +54,7 @@
 | DEC-14 | Los errores en tiempo de ejecución se registran y se exportan;          | —                          |
 | DEC-15 | El render B-mode/color corre en Worker; el hilo principal solo          | —                          |
 | DEC-16 | Las pruebas E2E cubren el flujo docente completo pero no                | —                          |
+| DEC-17 | `noUncheckedIndexedAccess` está activo; `!` se permite solo             | —                          |
 
 ## Parámetros registrados
 

@@ -56,7 +56,7 @@ function sampledBoxGaussianFwhm(boxSamples: number, sigmaSamples: number, pitch:
   for (let i = -radius; i <= radius; i++) {
     for (let j = 0; j < boxSamples; j++) {
       const d = i - first - j;
-      values[i + radius] += Math.exp(-(d * d) / (2 * sigmaSamples * sigmaSamples));
+      values[i + radius] = values[i + radius]! + Math.exp(-(d * d) / (2 * sigmaSamples * sigmaSamples));
     }
   }
   const db = values.map((value) => 20 * Math.log10(value));

@@ -48,3 +48,7 @@ clínica del modelo, se declara en el conjunto de dominio correspondiente con
 umbrales de visualización y otros valores de implementación o tuning no son
 parámetros; permanecen como constantes nombradas cuando corresponde. Esta es
 la decisión `DEC-13`.
+
+Con `noUncheckedIndexedAccess` activo, `!` solo se permite en bucles indexados
+acotados y tablas constantes, donde el límite garantiza que el índice existe
+(`DEC-17`).

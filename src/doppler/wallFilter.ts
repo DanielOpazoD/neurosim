@@ -108,7 +108,7 @@ export class WallFilterStage {
   /** Filtra en el sitio. */
   process(re: Float32Array, im: Float32Array, n = re.length): void {
     for (let i = 0; i < n; i++) {
-      const xr = re[i];
+      const xr = re[i]!;
       const yr =
         this.b0 * xr + this.b1 * this.x1r + this.b2 * this.x2r - this.a1 * this.y1r - this.a2 * this.y2r;
       this.x2r = this.x1r;
@@ -116,7 +116,7 @@ export class WallFilterStage {
       this.y2r = this.y1r;
       this.y1r = yr;
       re[i] = yr;
-      const xi = im[i];
+      const xi = im[i]!;
       const yi =
         this.b0 * xi + this.b1 * this.x1i + this.b2 * this.x2i - this.a1 * this.y1i - this.a2 * this.y2i;
       this.x2i = this.x1i;

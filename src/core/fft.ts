@@ -33,13 +33,13 @@ export class FFT {
   forward(re: Float32Array, im: Float32Array): void {
     const n = this.n;
     for (let i = 0; i < n; i++) {
-      const j = this.rev[i];
+      const j = this.rev[i]!;
       if (j > i) {
-        let t = re[i];
-        re[i] = re[j];
+        let t = re[i]!;
+        re[i] = re[j]!;
         re[j] = t;
-        t = im[i];
-        im[i] = im[j];
+        t = im[i]!;
+        im[i] = im[j]!;
         im[j] = t;
       }
     }
@@ -49,16 +49,16 @@ export class FFT {
       for (let start = 0; start < n; start += size) {
         for (let k = 0; k < half; k++) {
           const idx = k * tableStep;
-          const wr = this.cosT[idx];
-          const wi = -this.sinT[idx];
+          const wr = this.cosT[idx]!;
+          const wi = -this.sinT[idx]!;
           const a = start + k;
           const b = a + half;
-          const tr = re[b] * wr - im[b] * wi;
-          const ti = re[b] * wi + im[b] * wr;
-          re[b] = re[a] - tr;
-          im[b] = im[a] - ti;
-          re[a] += tr;
-          im[a] += ti;
+          const tr = re[b]! * wr - im[b]! * wi;
+          const ti = re[b]! * wi + im[b]! * wr;
+          re[b] = re[a]! - tr;
+          im[b] = im[a]! - ti;
+          re[a] = re[a]! + tr;
+          im[a] = im[a]! + ti;
         }
       }
     }
