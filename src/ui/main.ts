@@ -80,6 +80,7 @@ const gpuPipeline = GlBmodePipeline.create(gpuCanvas);
 const gpuAvailable = gpuPipeline !== null && isWebGL2Available();
 const rendererParam = new URLSearchParams(window.location.search).get('renderer');
 if (gpuAvailable && rendererParam === 'gpu') s.renderer = 'gpu';
+document.body.dataset.renderer = s.renderer;
 let lastRender = 0;
 let lastT = performance.now();
 let renderInFlight = false;
@@ -494,6 +495,7 @@ rendererControl.hidden = !gpuAvailable;
 rendererInput.value = s.renderer;
 rendererInput.addEventListener('change', () => {
   s.renderer = rendererInput.value as 'cpu' | 'gpu';
+  document.body.dataset.renderer = s.renderer;
 });
 const volumeInput = $('volume') as HTMLInputElement;
 const volumeValue = $('volumeV');
