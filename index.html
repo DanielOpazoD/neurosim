@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>neurosono-sim — N1</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #14161a;
+        --panel: #1d2126;
+        --line: #2c3138;
+        --txt: #d7dde3;
+        --dim: #8b939c;
+        --acc: #4da3ff;
+        --warn: #e8b44a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--txt);
+        font:
+          13px/1.45 -apple-system,
+          'Segoe UI',
+          system-ui,
+          sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+      header h1 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0;
+      }
+      header .sub {
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+      }
+      button,
+      .tab {
+        background: #262b31;
+        color: var(--txt);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font: inherit;
+      }
+      button:hover {
+        border-color: var(--acc);
+      }
+      button.on {
+        background: #173a5e;
+        border-color: var(--acc);
+        color: #cfe6ff;
+      }
+      main {
+        display: grid;
+        grid-template-columns: 220px 1fr 300px;
+        gap: 10px;
+        padding: 10px 14px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .panel h2 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--dim);
+        margin: 0 0 8px;
+      }
+      label.ctl {
+        display: block;
+        margin: 8px 0;
+        font-size: 12px;
+      }
+      label.ctl span {
+        display: flex;
+        justify-content: space-between;
+        color: var(--dim);
+      }
+      label.ctl b {
+        color: var(--txt);
+        font-weight: 500;
+      }
+      input[type='range'] {
+        width: 100%;
+        accent-color: var(--acc);
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        background: #000;
+        border-radius: 6px;
+      }
+      #bmode {
+        aspect-ratio: 4 / 3;
+      }
+      #spectral {
+        aspect-ratio: 4 / 1.4;
+        margin-top: 8px;
+      }
+      .readouts {
+        font-variant-numeric: tabular-nums;
+      }
+      .readouts div {
+        display: flex;
+        justify-content: space-between;
+        padding: 3px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .readouts div:last-child {
+        border-bottom: 0;
+      }
+      .meas {
+        color: var(--acc);
+      }
+      .note {
+        color: var(--dim);
+        font-size: 11px;
+        margin-top: 8px;
+      }
+      .pospad {
+        width: 100%;
+        aspect-ratio: 1;
+        background: #0b0d0f;
+        border-radius: 6px;
+        cursor: crosshair;
+        touch-action: none;
+      }
+      kbd {
+        background: #262b31;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0 4px;
+        font: 11px monospace;
+      }
+      .btnrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      footer {
+        color: var(--dim);
+        font-size: 11px;
+        padding: 6px 14px 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>neurosono-sim</h1>
+      <span class="sub">Adulto de referencia N1 · solo exploración normal</span>
+      <div class="tabs">
+        <button class="tab" data-station="ojo" data-side="der">Ojo der</button>
+        <button class="tab" data-station="ojo" data-side="izq">Ojo izq</button>
+        <button class="tab" data-station="temporal" data-side="der">Temporal der</button>
+        <button class="tab" data-station="temporal" data-side="izq">Temporal izq</button>
+      </div>
+    </header>
+    <main>
+      <div class="panel">
+        <h2>Sonda</h2>
+        <canvas id="pospad" class="pospad" width="220" height="220"></canvas>
+        <label class="ctl"
+          ><span>Inclinación <b id="tiltV">0°</b></span>
+          <input id="tilt" type="range" min="-35" max="35" step="1" value="0"
+        /></label>
+        <label class="ctl"
+          ><span>Barrido lateral <b id="shiftV">0 mm</b></span>
+          <input id="shift" type="range" min="-18" max="18" step="0.5" value="0"
+        /></label>
+        <label class="ctl"
+          ><span>Rotación marcador <b id="rotV">0°</b></span>
+          <input id="rot" type="range" min="-90" max="90" step="5" value="0"
+        /></label>
+        <label class="ctl"
+          ><span>Presión <b id="pressV">30%</b></span>
+          <input id="press" type="range" min="0" max="100" step="5" value="30"
+        /></label>
+        <div class="btnrow">
+          <button id="freeze">Congelar <kbd>Esp</kbd></button>
+          <button id="cine" disabled>Cine</button>
+        </div>
+      </div>
+      <div class="panel">
+        <canvas id="bmode" width="640" height="480"></canvas>
+        <canvas id="spectral" width="640" height="224"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Equipo</h2>
+        <label class="ctl"
+          ><span>Ganancia <b id="gainV"></b></span> <input id="gain" type="range" min="-20" max="30" step="1"
+        /></label>
+        <label class="ctl"
+          ><span>Profundidad <b id="depthV"></b></span>
+          <input id="depth" type="range" min="30" max="110" step="5"
+        /></label>
+        <label class="ctl"
+          ><span>Foco <b id="focusV"></b></span> <input id="focus" type="range" min="5" max="60" step="1"
+        /></label>
+        <label class="ctl"
+          ><span>Rango dinámico <b id="drV"></b></span>
+          <input id="dr" type="range" min="30" max="90" step="5"
+        /></label>
+        <div class="pwonly">
+          <label class="ctl"
+            ><span>PRF <b id="prfV"></b></span>
+            <input id="prf" type="range" min="1000" max="10000" step="250"
+          /></label>
+          <label class="ctl"
+            ><span>Puerta <b id="gateV"></b></span> <input id="gate" type="range" min="2" max="15" step="0.5"
+          /></label>
+          <label class="ctl"
+            ><span>Filtro pared <b id="wfV"></b></span>
+            <input id="wf" type="range" min="0" max="800" step="25"
+          /></label>
+          <label class="ctl"
+            ><span>Corrección angular <b id="angV"></b></span>
+            <input id="ang" type="range" min="0" max="75" step="1"
+          /></label>
+          <label class="ctl"
+            ><span>Línea base <b id="baseV"></b></span>
+            <input id="base" type="range" min="0.1" max="0.9" step="0.05"
+          /></label>
+        </div>
+        <div class="btnrow">
+          <button id="pw">PW <kbd>P</kbd></button>
+          <button id="audio">Audio</button>
+          <button id="caliper">Caliper <kbd>C</kbd></button>
+          <button id="dvno">DVNO 3 mm</button>
+          <button id="export">Exportar</button>
+        </div>
+        <h2 style="margin-top: 12px">Medidas</h2>
+        <div id="readouts" class="readouts">
+          <div><span>—</span><span>—</span></div>
+        </div>
+        <div class="note" id="hint"></div>
+      </div>
+    </main>
+    <footer>
+      neurosono-sim · simulador docente, no es un dispositivo médico · DVNO interna por defecto; TAMax =
+      integral de la envolvente real.
+    </footer>
+    <script type="module" src="/src/ui/main.ts"></script>
+  </body>
+</html>
