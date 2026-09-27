@@ -66,3 +66,9 @@
     eliminación de la envolvente mesencefálica legacy cambia la proporción de
     cisterna/tejido que ve la caja PW, por lo que su golden puede cambiar; la
     precedencia de `vesselDistance` mantiene M1 como `vaso`.
+22. **DEC-22** — El polígono de Willis se representa como un grafo de
+    segmentos continuos: los flujos terminales se propagan aguas arriba,
+    `flowSign` orienta la dirección anatómica de la polilínea y la ley de
+    Murray se usa como verificación, no como generador de radios. Las
+    comunicantes normales tienen flujo cero; las variantes de aplasia A1 y
+    ACP fetal redistribuyen el caudal de forma explícita.

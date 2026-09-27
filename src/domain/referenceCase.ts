@@ -5,7 +5,7 @@
  * construcción.
  */
 import { SeededRandom } from '../core/random';
-import type { PatientState } from './contracts';
+import type { PatientState, WillisVariant } from './contracts';
 import { MANIFEST } from './manifest';
 import { buildReferenceEyes, type EyeGeometry } from '../anatomy/eye';
 import { buildReferenceHead, type HeadGeometry } from '../anatomy/head';
@@ -19,12 +19,16 @@ export interface ReferenceCase {
   readonly head: HeadGeometry;
   readonly cardiac: CardiacCycle;
   readonly flow: CerebralFlow;
+  readonly willisVariant: WillisVariant;
 }
 
 /** Semilla fija del adulto de referencia N1. */
 export const REFERENCE_SEED = 0x0c12ab;
 
-export function buildReferenceCase(seed: number = REFERENCE_SEED): ReferenceCase {
+export function buildReferenceCase(
+  seed: number = REFERENCE_SEED,
+  willisVariant: WillisVariant = 'normal',
+): ReferenceCase {
   const rng = new SeededRandom(seed);
   const physiology: BasalPhysiology = MANIFEST.case.physiology;
   const patient: PatientState = {
@@ -34,8 +38,8 @@ export function buildReferenceCase(seed: number = REFERENCE_SEED): ReferenceCase
     physiology,
   };
   const eyes = buildReferenceEyes(rng.fork('eyes'), MANIFEST.case.dvnoIntMm);
-  const head = buildReferenceHead(rng.fork('head'));
+  const head = buildReferenceHead(rng.fork('head'), willisVariant);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, rng.fork('cardiac'));
   const flow = new CerebralFlow(head, physiology);
-  return { patient, eyes, head, cardiac, flow };
+  return { patient, eyes, head, cardiac, flow, willisVariant };
 }

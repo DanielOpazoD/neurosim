@@ -8,6 +8,9 @@ import type { Vec3 } from '../core/vec3';
 /** Lado anatómico del paciente (marco levógiro: +x = izquierda del paciente). */
 export type Side = 'izq' | 'der';
 
+/** Variante anatómica del polígono de Willis para docencia. */
+export type WillisVariant = 'normal' | 'aplasiaA1Der' | 'aplasiaA1Izq' | 'pcaFetalDer' | 'pcaFetalIzq';
+
 /** Región de exploración: órbita ocular o ventana transtemporal. */
 export type Station = 'ojo' | 'temporal';
 

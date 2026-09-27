@@ -15,12 +15,11 @@
 import { MATERIALS, type MaterialId } from './materials';
 import { add, clamp, dist, dot, length, normalize, scale, sub, type Vec3 } from '../core/vec3';
 import type { SeededRandom } from '../core/random';
-import type { Side } from '../domain/contracts';
+import type { Side, WillisVariant } from '../domain/contracts';
 import { ANATOMIA_CABEZA } from './params';
-import { FISIOLOGIA } from '../physiology/params';
+import { buildWillisVessels } from './willis';
 
 const HEAD = ANATOMIA_CABEZA.params;
-const PHYS = FISIOLOGIA.params;
 
 /** Un vaso tubular: línea central por segmentos + radio local. */
 export interface Vessel {
@@ -28,8 +27,10 @@ export interface Vessel {
   readonly side: Side | 'media';
   readonly points: readonly Vec3[];
   readonly radiusMm: number;
-  /** Flujo basal medio hacia la sonda ipsilateral (+) o alejándose (−). */
+  /** +1 orienta el flujo de points[0] hacia el último; −1 invierte esa dirección. */
   readonly flowSign: 1 | -1;
+  /** Flujo medio del segmento, ml/min, positivo en la orientación anatómica. */
+  readonly flowMlMin: number;
   /** Velocidad sistólica pico de referencia, cm/s. */
   readonly psvCms: number;
   /** Velocidad telediastólica de referencia, cm/s. */
@@ -126,7 +127,7 @@ export function vesselFlowDir(v: Vessel, p: Vec3): Vec3 {
  * Ventana temporal: sobre el arco cigomático, anterior a la oreja; centros
  * calculados sobre el elipsoide. `windowQuality` estable por paciente.
  */
-export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
+export function buildReferenceHead(rng: SeededRandom, variant: WillisVariant = 'normal'): HeadGeometry {
   const skullCenter: Vec3 = [HEAD.skullCenterXmm.value, HEAD.skullCenterYmm.value, HEAD.skullCenterZmm.value];
   const skullRadii: Vec3 = [HEAD.skullRadiusXmm.value, HEAD.skullRadiusYmm.value, HEAD.skullRadiusZmm.value];
   const r = rng.fork('head');
@@ -151,82 +152,6 @@ export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
     ];
   };
 
-  const vessels: Vessel[] = [];
-  for (const s of [1, -1] as const) {
-    const side: Side = s === 1 ? 'izq' : 'der';
-    // ACI terminal → M1 lateral (hacia la sonda ipsilateral).
-    vessels.push({
-      id: `m1-${side}`,
-      side,
-      radiusMm: HEAD.m1RadiusMm.value,
-      flowSign: 1,
-      psvCms: PHYS.psvCms.value,
-      edvCms: PHYS.edvCms.value,
-      points: [
-        [s * HEAD.m1OriginXmm.value, HEAD.m1OriginYmm.value, HEAD.m1OriginZmm.value],
-        [s * HEAD.m1Point1Xmm.value, HEAD.m1Point1Ymm.value, HEAD.m1Point1Zmm.value],
-        [s * HEAD.vesselM1PointXmm.value, HEAD.vesselM1PointYmm.value, HEAD.vesselM1PointZmm.value],
-        [s * HEAD.m1Point3Xmm.value, HEAD.m1Point3Ymm.value, HEAD.m1Point3Zmm.value],
-        [s * HEAD.m1Point4Xmm.value, HEAD.m1Point4Ymm.value, HEAD.m1Point4Zmm.value],
-      ],
-    });
-    // A1: medial y algo anterior, alejándose de la sonda ipsilateral.
-    vessels.push({
-      id: `a1-${side}`,
-      side,
-      radiusMm: HEAD.a1RadiusMm.value,
-      flowSign: -1,
-      psvCms: PHYS.a1PsvCms.value,
-      edvCms: PHYS.a1EdvCms.value,
-      points: [
-        [s * 9, 8, -6],
-        [s * 5, 9, -1],
-        [s * 1.5, 10, 2],
-      ],
-    });
-    // P1/P2: del vértice basilar posterolateral, rodeando el mesencéfalo.
-    vessels.push({
-      id: `p1-${side}`,
-      side,
-      radiusMm: HEAD.p1RadiusMm.value,
-      flowSign: 1, // P1 hacia la sonda desde la línea media
-      psvCms: PHYS.p1PsvCms.value,
-      edvCms: PHYS.p1EdvCms.value,
-      points: [
-        [0, 6, -26],
-        [s * 5, 7, -26],
-        [s * 11, 8, -24],
-      ],
-    });
-    vessels.push({
-      id: `p2-${side}`,
-      side,
-      radiusMm: HEAD.p2RadiusMm.value,
-      flowSign: -1, // P2 rodea y se aleja
-      psvCms: PHYS.p1PsvCms.value,
-      edvCms: PHYS.p1EdvCms.value,
-      points: [
-        [s * 11, 8, -24],
-        [s * 15, 9, -20],
-        [s * 17, 10, -15],
-      ],
-    });
-  }
-  // Basilar: línea media posterior, alejándose de la sonda.
-  vessels.push({
-    id: 'basilar',
-    side: 'media',
-    radiusMm: HEAD.basilarRadiusMm.value,
-    flowSign: -1,
-    psvCms: PHYS.basilarPsvCms.value,
-    edvCms: PHYS.basilarEdvCms.value,
-    points: [
-      [0, 0, -30],
-      [0, 3, -28],
-      [0, 6, -26],
-    ],
-  });
-
   return {
     skullCenter,
     skullRadii,
@@ -235,7 +160,7 @@ export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
     windowQuality,
     windowCenter: { der: mkWindow('der'), izq: mkWindow('izq') },
     windowRadiusMm: HEAD.windowRadiusMm.value,
-    vessels,
+    vessels: buildWillisVessels(variant),
     midbrainCenter: [
       HEAD.midbrainCenterXmm.value,
       HEAD.midbrainCenterYmm.value,

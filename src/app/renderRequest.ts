@@ -4,7 +4,7 @@
  */
 import { classifyEye } from '../anatomy/eye';
 import { classifyHead } from '../anatomy/head';
-import type { AcquisitionSettings, AcquiredFrame, Side, Station } from '../domain/contracts';
+import type { AcquisitionSettings, AcquiredFrame, Side, Station, WillisVariant } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { renderColorDoppler } from '../doppler/color';
 import { buildReferenceCase } from '../domain/referenceCase';
@@ -15,6 +15,7 @@ import { currentPose, type PoseInput } from './poses';
 export interface RenderRequest {
   readonly id: number;
   readonly seed: number;
+  readonly willisVariant?: WillisVariant;
   readonly side: Side;
   readonly station: Station;
   readonly settings: AcquisitionSettings;
@@ -40,13 +41,14 @@ export interface RenderResponse {
   };
 }
 
-const cases = new Map<number, ReferenceCase>();
+const cases = new Map<string, ReferenceCase>();
 
-export function renderCase(seed: number): ReferenceCase {
-  let sim = cases.get(seed);
+export function renderCase(seed: number, willisVariant: WillisVariant = 'normal'): ReferenceCase {
+  const key = `${seed}:${willisVariant}`;
+  let sim = cases.get(key);
   if (!sim) {
-    sim = buildReferenceCase(seed);
-    cases.set(seed, sim);
+    sim = buildReferenceCase(seed, willisVariant);
+    cases.set(key, sim);
   }
   return sim;
 }

@@ -133,6 +133,30 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     sources: ['plan-simulador-2026', 'aium-tcd-guia'],
     note: 'EDV del P1/P2 usado por el fixture.',
   },
+  qM1MlMin: {
+    value: 234.5153846181403,
+    unit: 'ml/min',
+    range: [180, 300],
+    evidence: 'derivado',
+    sources: ['plan-simulador-2026'],
+    note: 'Q = vMedia·πr²·0,6, con vMedia M1 = 35 + (90−35)·media(arterialShape) y rM1=1,5 mm.',
+  },
+  qA2MlMin: {
+    value: 91.32649876906984,
+    unit: 'ml/min',
+    range: [60, 130],
+    evidence: 'derivado',
+    sources: ['aium-tcd-guia', 'plan-simulador-2026'],
+    note: 'Q terminal A2 derivado de la forma de onda A1 de referencia y rA2=1,0 mm.',
+  },
+  qP2MlMin: {
+    value: 86.47672952342693,
+    unit: 'ml/min',
+    range: [55, 125],
+    evidence: 'derivado',
+    sources: ['aium-tcd-guia', 'plan-simulador-2026'],
+    note: 'Q terminal P2 derivado de la forma de onda P1 de referencia y rP2=1,1 mm.',
+  },
   basilarPsvCms: {
     value: 55,
     unit: 'cm/s',
@@ -150,3 +174,15 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     note: 'EDV de la basilar usado por el fixture.',
   },
 });
+
+/** Media numérica de la onda normalizada usada para derivar los caudales. */
+export function arterialShapeMean(samples = 1_000_000): number {
+  const upstroke = FISIOLOGIA.params.upstrokePhase.value;
+  const decay = FISIOLOGIA.params.decayTau.value;
+  let sum = 0;
+  for (let i = 0; i < samples; i += 1) {
+    const phase = (i + 0.5) / samples;
+    sum += phase < upstroke ? phase / upstroke : Math.exp(-(phase - upstroke) / decay);
+  }
+  return sum / samples;
+}

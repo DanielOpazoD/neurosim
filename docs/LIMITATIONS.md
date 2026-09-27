@@ -40,6 +40,10 @@ siguiente existe todavía por diseño del plan:
 - **LIM-14 · Artefactos 1D**: espejo y cola de cometa se aproximan copiando
   muestras sobre una línea de adquisición; no modelan propagación 2D/3D,
   aperturas múltiples ni trayectorias reverberantes completas.
+- **LIM-15 · Flujo vascular simplificado**: el índice de pulsatilidad es
+  uniforme por segmento, no hay autorregulación territorial ni resistencia
+  distal explícita; las comunicantes normales se modelan como tubos con
+  flujo casi estático.
 
 Decisiones pendientes del plan §19: equivalencia TS/GLSL solo si se porta
 a WebGL2 en bloques posteriores.
