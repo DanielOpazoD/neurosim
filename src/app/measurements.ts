@@ -6,7 +6,7 @@ import { fromEyeLocal, nerveCenterline } from '../anatomy/eye';
 import { add, scale } from '../core/vec3';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { recordDistance, type ImagePoint } from '../domain/measure';
-import { NEURO_PARAMS } from '../domain/parameters';
+import { ANATOMIA_OJO } from '../anatomy/params';
 import { beamDirAt, LINEAR_APERTURE_MM, patientToImage, type ScanGeometry } from '../ultrasound/probe';
 import { currentPose } from './poses';
 import type { AppState } from './state';
@@ -45,7 +45,7 @@ export function addCaliperPoint(sim: ReferenceCase, s: AppState, point: ImagePoi
   const m = recordDistance(s.currentFrame, s.side, s.caliperPts[0]!, s.caliperPts[1]!, {
     kind: s.caliperMode === 'dvno' ? 'dvno' : 'distancia',
     convention: s.caliperMode === 'dvno' ? 'interno' : undefined,
-    referenceOffsetMm: s.caliperMode === 'dvno' ? NEURO_PARAMS.params.onsdOffsetMm.value : undefined,
+    referenceOffsetMm: s.caliperMode === 'dvno' ? ANATOMIA_OJO.params.onsdOffsetMm.value : undefined,
   });
   s.measurements.push(m);
 }
@@ -61,6 +61,6 @@ export function dvnoGuide(sim: ReferenceCase, s: AppState): ImagePoint {
   return patientToImage(
     currentPose(sim, s),
     'linear',
-    fromEyeLocal(eye, nerveCenterline(eye, NEURO_PARAMS.params.onsdOffsetMm.value)),
+    fromEyeLocal(eye, nerveCenterline(eye, ANATOMIA_OJO.params.onsdOffsetMm.value)),
   );
 }

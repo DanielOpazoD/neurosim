@@ -13,6 +13,8 @@ import { DopplerAudio } from '../doppler/audio';
 import { PwDopplerChain, type AudioSink } from '../doppler/pwChain';
 import type { AppState } from './state';
 import { currentPose } from './poses';
+import { DOPPLER } from '../doppler/params';
+import { FISICA_US } from '../ultrasound/params';
 
 export class PwController {
   private chain: PwDopplerChain | null = null;
@@ -59,9 +61,9 @@ export class PwController {
     const beamDir = beamDirAt(pose, s.settings.transducer, s.gateUMm);
     const center = add(pose.origin, scale(beamDir, s.gateDepthMm));
     const f0 = s.settings.frequencyMhz * 1e6;
-    const c = 1540e3;
+    const c = FISICA_US.params.soundSpeedMs.value * 1000;
     const lambda = c / f0;
-    const latSigma = Math.max(0.8, (lambda * s.gateDepthMm) / 10 / 2);
+    const latSigma = Math.max(DOPPLER.params.gateLateralSigmaMinMm.value, (lambda * s.gateDepthMm) / 10 / 2);
     return {
       center,
       beamDir,
@@ -69,9 +71,9 @@ export class PwController {
       elevation: elevAxis(pose),
       lengthMm: s.settings.gateMm,
       lateralSigmaMm: latSigma,
-      elevationSigmaMm: Math.max(1.5, latSigma * 2),
-      pulseSigmaMm: Math.max(0.4, lambda * 1.5),
-      apertureAngleSigmaRad: 0.04,
+      elevationSigmaMm: Math.max(DOPPLER.params.gateElevationSigmaMinMm.value, latSigma * 2),
+      pulseSigmaMm: Math.max(DOPPLER.params.gatePulseSigmaMinMm.value, lambda * 1.5),
+      apertureAngleSigmaRad: DOPPLER.params.apertureAngleSigmaRad.value,
       transmission: transmissionTo(this.sim.head, pose.origin, center, s.settings.frequencyMhz),
     };
   }

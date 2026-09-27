@@ -19,3 +19,7 @@ justificado; documenta el motivo en el PR.
 
 `it.fails` marca una desviación conocida: el test debe pasar mientras la
 desviación exista y quedará rojo automáticamente cuando el estimador se corrija.
+
+`tests/parameters.test.ts` comprueba que cada conjunto de parámetros carga,
+que sus fuentes están en `docs/REFERENCES.md`, que cada aproximación aparece
+en `docs/APPROXIMATIONS.md` y que no hay ids duplicados.

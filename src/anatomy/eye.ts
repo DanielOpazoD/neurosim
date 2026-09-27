@@ -19,8 +19,10 @@ import { add, dist, dot, normalize, scale, smoothstep, sub, v3, type Vec3 } from
 import type { SeededRandom } from '../core/random';
 import type { Side } from '../domain/contracts';
 import { MANIFEST } from '../domain/manifest';
+import { ANATOMIA_OJO } from './params';
 
-const DURA_MM = 0.35;
+const EYE = ANATOMIA_OJO.params;
+export const DURA_MM = EYE.duraMm.value;
 
 /** Parámetros geométricos de un ojo individual (mm). */
 export interface EyeGeometry {
@@ -53,7 +55,7 @@ export interface EyeGeometry {
 export function buildReferenceEyes(rng: SeededRandom): { der: EyeGeometry; izq: EyeGeometry } {
   const mk = (side: Side): EyeGeometry => {
     const sign = side === 'izq' ? 1 : -1; // ojo izquierdo en +x
-    const center: Vec3 = [sign * 33, -2, 36];
+    const center: Vec3 = [sign * EYE.centerAbsXmm.value, EYE.centerYmm.value, EYE.centerZmm.value];
     const anterior = normalize(v3(0, 0, 1));
     const temporal = normalize(v3(-sign, 0, 0)); // temporal = hacia afuera
     const superior = v3(0, 1, 0);
@@ -65,14 +67,15 @@ export function buildReferenceEyes(rng: SeededRandom): { der: EyeGeometry; izq: 
       anterior,
       temporal,
       superior,
-      globeRadiusMm: 12.0 + r.range(-0.15, 0.15),
-      lensAxialMm: 2.0,
-      lensRadialMm: 4.6,
-      irisApertureMm: 1.8,
+      globeRadiusMm:
+        EYE.globeRadiusMm.value + r.range(-EYE.globeRadiusJitterMm.value, EYE.globeRadiusJitterMm.value),
+      lensAxialMm: EYE.lensAxialMm.value,
+      lensRadialMm: EYE.lensRadialMm.value,
+      irisApertureMm: EYE.irisApertureMm.value,
       sheathRadiusExtMm: (MANIFEST.case.dvnoIntMm[side] + 2 * DURA_MM) / 2,
-      nerveRadiusMm: 1.55,
+      nerveRadiusMm: EYE.nerveRadiusMm.value,
       duraMm: DURA_MM,
-      sheathEcc: 0.82 + r.range(-0.02, 0.02), // excentricidad moderada (estudio 3D)
+      sheathEcc: EYE.sheathEcc.value + r.range(-EYE.sheathEccJitter.value, EYE.sheathEccJitter.value),
       gazeAngleRad: 0,
     };
   };
@@ -147,12 +150,12 @@ export function nerveSection(
 /** Radios efectivos de la vaina a distancia s retroglobo (mm). */
 export function sheathRadiiAt(g: EyeGeometry, sMm: number): { minor: number; major: number; nerve: number } {
   // La vaina se adelgaza ligeramente hacia el ápex; el nervio es ~constante.
-  const taper = 1 - 0.15 * smoothstep(0, 40, sMm);
+  const taper = 1 - EYE.sheathTaper.value * smoothstep(0, 40, sMm);
   const ext = g.sheathRadiusExtMm * taper;
   return {
     minor: ext * g.sheathEcc,
     major: ext,
-    nerve: g.nerveRadiusMm * (1 - 0.08 * smoothstep(0, 40, sMm)),
+    nerve: g.nerveRadiusMm * (1 - EYE.nerveTaper.value * smoothstep(0, 40, sMm)),
   };
 }
 
@@ -166,22 +169,22 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
 
   // Fuera de toda región orbitaria → aire muy anterior o tejido facial.
   // Anterior al globo: párpado+gel hasta z = r+4; más allá, aire.
-  const anteriorSurface = r + 1.2; // frente del párpado sobre el globo
-  if (z > anteriorSurface + 2.5) return 'aire';
+  const anteriorSurface = r + EYE.eyelidAnteriorMm.value; // frente del párpado sobre el globo
+  if (z > anteriorSurface + EYE.eyelidAirGapMm.value) return 'aire';
   if (z > anteriorSurface) return 'gel';
 
   // Párpado: capa de 1.2 mm sobre la córnea/polo anterior.
   const dGlobe = Math.hypot(x, y, Math.min(z, r));
-  if (z > r - 0.4 && z <= anteriorSurface && dGlobe < r + 3) {
+  if (z > r - EYE.irisPlaneHalfMm.value && z <= anteriorSurface && dGlobe < r + EYE.eyelidLayerMm.value) {
     // párpado solo cubre la abertura palpebral (|y| < 9)
-    if (Math.abs(y) < 9.5) return 'piel';
+    if (Math.abs(y) < EYE.eyelidHalfHeightMm.value) return 'piel';
     return 'aire';
   }
   // Gel entre párpado y córnea.
-  if (z > r - 0.4 && dGlobe >= r + 3) return 'aire';
+  if (z > r - EYE.irisPlaneHalfMm.value && dGlobe >= r + EYE.eyelidLayerMm.value) return 'aire';
 
   // Cristalino: elipsoide biconvexo centrado en z = r − 3.4 (≈8.6 tras polo anterior).
-  const lensC = r - 3.6;
+  const lensC = r - EYE.lensCenterOffsetMm.value;
   const lensR = Math.hypot(x, y);
   const lensSdf =
     (lensR * lensR) / (g.lensRadialMm * g.lensRadialMm) +
@@ -189,11 +192,15 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
   if (lensSdf <= 1) return 'cristalino';
 
   // Cámara anterior + iris: capa entre córnea y cristalino.
-  if (z > r - 4.4 && z <= r - 0.4 && dGlobe <= r) {
+  if (z > r - EYE.anteriorChamberDepthMm.value && z <= r - EYE.irisPlaneHalfMm.value && dGlobe <= r) {
     // córnea: capa anterior 0.55 mm
-    if (z > r - 0.95) return 'cornea';
+    if (z > r - EYE.corneaLayerMm.value) return 'cornea';
     // iris: anillo en el plano del cristalino anterior
-    if (Math.abs(z - (r - 3.9)) < 0.4 && lensR > g.irisApertureMm) return 'iris';
+    if (
+      Math.abs(z - (r - EYE.irisPlaneOffsetMm.value)) < EYE.irisPlaneHalfMm.value &&
+      lensR > g.irisApertureMm
+    )
+      return 'iris';
     return 'humorAcuoso';
   }
 
@@ -202,7 +209,7 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
   if (dg <= r) {
     // pared posterior: capa de ~0.7 mm; la papila (zona de inserción) queda
     // dentro de la pared con respuesta parecida.
-    if (dg > r - 0.7) return 'paredGlobo';
+    if (dg > r - EYE.globeWallMm.value) return 'paredGlobo';
     return 'vitrio';
   }
 

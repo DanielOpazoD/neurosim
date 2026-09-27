@@ -5,6 +5,7 @@ import type { HeadGeometry } from '../anatomy/head';
 import { SampleVolumeIQ, type GateGeometry } from './sampleVolume';
 import { SpectralProcessor } from './spectral';
 import { WallFilter } from './wallFilter';
+import { DOPPLER } from './params';
 
 /**
  * Salida de audio de la cadena PW: el Doppler no conoce Web Audio; la app le
@@ -35,7 +36,7 @@ export class PwDopplerChain {
 
   constructor(head: HeadGeometry, seed: number, audio: AudioSink = SILENT_AUDIO) {
     this.sampleVolume = new SampleVolumeIQ(head, seed);
-    this.wallFilter = new WallFilter(50, this.prfHz);
+    this.wallFilter = new WallFilter(DOPPLER.params.wallFilterDefaultHz.value, this.prfHz);
     this.spectral = new SpectralProcessor({ fftSize: 128, hop: 24 });
     this.audio = audio;
   }

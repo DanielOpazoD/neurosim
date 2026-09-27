@@ -1,3 +1,5 @@
+import { FISICA_US } from '../ultrasound/params';
+
 // Portado de DanielOpazoD/vexus-sim @ 59fb7b18e9c1 — src/core/units.ts (MIT).
 // Adaptación local: neurosono-sim. Ver docs/PROVENANCE.md.
 
@@ -5,7 +7,7 @@
 export const MMHG_PER_CMH2O = 0.73556;
 export const CMH2O_PER_MMHG = 1 / MMHG_PER_CMH2O;
 /** Velocidad del sonido que asume el equipo para reconstruir (hoja consolidada). */
-export const C_RECONSTRUCTION_M_S = 1540;
+export const C_RECONSTRUCTION_M_S = FISICA_US.params.soundSpeedMs.value;
 export const C_RECONSTRUCTION_MM_S = C_RECONSTRUCTION_M_S * 1000;
 
 export const cmH2OToMmHg = (p: number): number => p * MMHG_PER_CMH2O;

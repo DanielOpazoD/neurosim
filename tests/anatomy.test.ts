@@ -8,13 +8,13 @@ import {
   trueOnsdMm,
 } from '../src/anatomy/eye';
 import { classifyHead, inTemporalWindow, skullThicknessAt, vesselAt } from '../src/anatomy/head';
-import { NEURO_PARAMS } from '../src/domain/parameters';
+import { ANATOMIA_OJO } from '../src/anatomy/params';
 import { buildReferenceCase } from '../src/domain/referenceCase';
 
 describe('ojo de referencia N1', () => {
   const rng = new SeededRandom(0x0c12ab);
   const eyes = buildReferenceEyes(rng);
-  const off = NEURO_PARAMS.params.onsdOffsetMm.value;
+  const off = ANATOMIA_OJO.params.onsdOffsetMm.value;
 
   it('el centro del globo es vítreo y la cara anterior, córnea/párpado', () => {
     expect(classifyEyeLocal(eyes.der, [0, 0, 0])).toBe('vitrio');

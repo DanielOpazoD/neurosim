@@ -13,6 +13,7 @@ import { scale, normalize } from '../core/vec3';
 import type { BasalPhysiology } from '../domain/contracts';
 import type { HeadGeometry, Vessel } from '../anatomy/head';
 import { vesselAt, vesselClosest, vesselDistance } from '../anatomy/head';
+import { FISIOLOGIA } from './params';
 
 /** Estado fisiológico instantáneo. */
 export interface PhysState {
@@ -54,8 +55,8 @@ export class CardiacCycle {
 }
 
 /** Fase del upstroke (fracción del ciclo) y constante de decaimiento. */
-const UPSTROKE_PH = 0.09;
-const DECAY_TAU = 0.35;
+const UPSTROKE_PH = FISIOLOGIA.params.upstrokePhase.value;
+const DECAY_TAU = FISIOLOGIA.params.decayTau.value;
 
 /**
  * Forma de onda arterial sin dimensiones s(φ) ∈ [0,1]:

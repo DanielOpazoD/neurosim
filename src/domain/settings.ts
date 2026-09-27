@@ -3,21 +3,22 @@
  * en `AcquisitionSettings` (contrato); nada «libre» fuera de él.
  */
 import type { AcquisitionSettings } from './contracts';
-import { NEURO_PARAMS } from './parameters';
+import { FISICA_US } from '../ultrasound/params';
+import { DOPPLER } from '../doppler/params';
 
 export function defaultEyeSettings(): AcquisitionSettings {
   return {
     transducer: 'linear',
-    frequencyMhz: 10,
-    depthMm: 45,
-    focusMm: 22,
-    gainDb: 6,
-    tgcDb: [0, 0, 0, 0, 0, 0, 0, 0],
-    dynamicRangeDb: 60,
-    persistence: 0.3,
-    prfHz: 2500,
-    gateMm: 2,
-    wallFilterHz: 50,
+    frequencyMhz: FISICA_US.params.defaultEyeFrequencyMhz.value,
+    depthMm: FISICA_US.params.defaultEyeDepthMm.value,
+    focusMm: FISICA_US.params.defaultEyeFocusMm.value,
+    gainDb: FISICA_US.params.defaultEyeGainDb.value,
+    tgcDb: Array(8).fill(FISICA_US.params.defaultTgcDb.value),
+    dynamicRangeDb: FISICA_US.params.defaultEyeDynamicRangeDb.value,
+    persistence: FISICA_US.params.defaultEyePersistence.value,
+    prfHz: FISICA_US.params.defaultEyePrfHz.value,
+    gateMm: FISICA_US.params.defaultEyeGateMm.value,
+    wallFilterHz: FISICA_US.params.defaultEyeWallFilterHz.value,
     angleCorrectionDeg: 0,
     baseline: 0.5,
     dopplerGainDb: 0,
@@ -28,16 +29,16 @@ export function defaultEyeSettings(): AcquisitionSettings {
 export function defaultTemporalSettings(): AcquisitionSettings {
   return {
     transducer: 'sector',
-    frequencyMhz: NEURO_PARAMS.params.tcdF0Mhz.value,
-    depthMm: 90,
-    focusMm: 50,
-    gainDb: 14,
-    tgcDb: [0, 0, 0, 0, 0, 0, 0, 0],
-    dynamicRangeDb: 55,
-    persistence: 0.4,
-    prfHz: 6000,
-    gateMm: 6,
-    wallFilterHz: 100,
+    frequencyMhz: DOPPLER.params.tcdF0Mhz.value,
+    depthMm: DOPPLER.params.defaultTemporalDepthMm.value,
+    focusMm: DOPPLER.params.defaultTemporalFocusMm.value,
+    gainDb: DOPPLER.params.defaultTemporalGainDb.value,
+    tgcDb: Array(8).fill(FISICA_US.params.defaultTgcDb.value),
+    dynamicRangeDb: DOPPLER.params.defaultTemporalDynamicRangeDb.value,
+    persistence: DOPPLER.params.defaultTemporalPersistence.value,
+    prfHz: DOPPLER.params.defaultTemporalPrfHz.value,
+    gateMm: DOPPLER.params.defaultTemporalGateMm.value,
+    wallFilterHz: DOPPLER.params.defaultTemporalWallFilterHz.value,
     angleCorrectionDeg: 0,
     baseline: 0.5,
     dopplerGainDb: 8,

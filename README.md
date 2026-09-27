@@ -39,6 +39,7 @@ Cadena causal: `paciente (anatomía + fisiología) → sonda → adquisición �
 señal (B-mode / color / PW) → medición`. Contratos en `src/domain/contracts.ts`;
 convenciones (mm, marco levógiro, DVNO interno/externo) en `docs/DECISIONS.md`;
 procedencia del código portado en `docs/PROVENANCE.md`; parámetros con
-evidencia en `src/domain/parameters.ts` + `docs/REFERENCES.md`.
+evidencia en `src/*/params.ts`, `docs/REFERENCES.md` y
+`docs/APPROXIMATIONS.md`.
 
 Porta módulos de `DanielOpazoD/vexus-sim` y `DanielOpazoD/lus-sim` (MIT).

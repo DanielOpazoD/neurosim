@@ -16,6 +16,7 @@ import type { Vec3 } from '../core/vec3';
 import type { AcquisitionSettings } from '../domain/contracts';
 import type { ScanGeometry } from './probe';
 import { scatterComplex } from './speckle';
+import { FISICA_US } from './params';
 
 export interface BModeFrame {
   readonly width: number;
@@ -30,7 +31,7 @@ interface SceneQuery {
   classify(p: Vec3): MaterialId;
 }
 
-const EPS = 0.3;
+const EPS = FISICA_US.params.interfaceEpsMm.value;
 
 /** Aproxima la normal de la interfaz contando cambios de material por eje. */
 export function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
@@ -71,7 +72,11 @@ export function renderBMode(
   opts: { axialStepMm?: number; extraAttenuationDb?: number; speckle?: boolean } = {},
 ): BModeFrame {
   const f0 = settings.frequencyMhz;
-  const dz = opts.axialStepMm ?? Math.max(0.08, 1.5 * (1.54 / f0)); // ~1,5·λ
+  const minAxialStepMm = 0.08; // resolución mínima del muestreo axial
+  const axialSamplingFactor = 1.5; // separación axial relativa a λ
+  const dz =
+    opts.axialStepMm ??
+    Math.max(minAxialStepMm, axialSamplingFactor * (FISICA_US.params.soundSpeedMs.value / 1000 / f0));
   const height = Math.max(2, Math.round(settings.depthMm / dz));
   const width = scan.lineCount;
   const iQ = new Float32Array(width * height * 2); // re, im intercalado
@@ -132,7 +137,7 @@ export function renderBMode(
   }
 
   // PSF separable: σ axial ≈ pulso; σ lateral crece con |z − foco|.
-  const sigmaAxial = Math.max(1, 2.2 / f0 / dz); // en muestras
+  const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / f0 / dz); // en muestras
   const out = new Float32Array(width * height);
   const tmp = new Float32Array(width * height);
 
@@ -151,7 +156,10 @@ export function renderBMode(
   }
 
   const focusSample = settings.focusMm / dz;
-  const beamSigma0 = Math.max(0.8, 6 / f0); // líneas
+  const beamSigma0 = Math.max(
+    FISICA_US.params.beamSigmaFloorLines.value,
+    FISICA_US.params.beamSigma0Coeff.value / f0,
+  ); // líneas
   const outBuf = out;
   for (let zi = 0; zi < height; zi++) {
     const defocus = Math.abs(zi - focusSample) * dz;

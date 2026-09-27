@@ -35,3 +35,7 @@
     umbral de detección de la envolvente (12 dB sobre ruido).
 12. **El fixture DVNO se deriva del manifiesto** (interno + 2·dura), nunca se
     codifica dos veces.
+13. **Registro por dominio** — anatomía, física US, Doppler y fisiología se
+    declaran con evidencia en sus propios `params.ts`; tamaños de canvas,
+    umbrales de dibujo y constantes de implementación siguen siendo constantes
+    nombradas, no parámetros del modelo.

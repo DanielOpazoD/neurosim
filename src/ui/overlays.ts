@@ -5,7 +5,7 @@
 import { fromEyeLocal, nerveCenterline } from '../anatomy/eye';
 import { add, scale } from '../core/vec3';
 import type { ReferenceCase } from '../domain/referenceCase';
-import { NEURO_PARAMS } from '../domain/parameters';
+import { ANATOMIA_OJO } from '../anatomy/params';
 import type { AcquiredFrame } from '../domain/contracts';
 import { drawSpectrum } from './canvasDraw';
 import type { ScanGeometry } from '../ultrasound/probe';
@@ -88,7 +88,7 @@ export function drawScale(
   }
   if (s.station !== 'ojo' || s.caliperMode !== 'dvno' || !currentFrame) return;
   const eye = sim.eyes[s.side];
-  const patient = fromEyeLocal(eye, nerveCenterline(eye, NEURO_PARAMS.params.onsdOffsetMm.value));
+  const patient = fromEyeLocal(eye, nerveCenterline(eye, ANATOMIA_OJO.params.onsdOffsetMm.value));
   const { u, z } = patientToImage(currentPose(sim, s), 'linear', patient);
   const W = ctx.canvas.width;
   const y = (z / s.settings.depthMm) * H;
