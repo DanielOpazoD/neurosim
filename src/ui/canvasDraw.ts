@@ -6,6 +6,12 @@ import type { BModeFrame } from '../ultrasound/bmode';
 import type { SpectralColumn } from '../doppler/spectral';
 import type { ScanGeometry } from '../ultrasound/probe';
 import { nyquistVelocityCms } from '../core/units';
+import {
+  rasterizeSpectrogram,
+  spectralVelocityTicks,
+  frequencyFractionToY,
+  type SpectralColormap,
+} from './spectrogramRaster';
 
 /** dB → nivel de gris [0,255] dentro del rango dinámico. */
 export function dbToGray(db: number, dynamicRangeDb: number, gainDb: number): number {
@@ -164,50 +170,88 @@ export function drawSpectrum(
     windowSeconds?: number;
     gainDb?: number;
     drDb?: number;
+    colormap?: SpectralColormap;
+    gamma?: number;
+    floorPercentile?: number;
+    sweepSeconds?: number;
+    teachingTrace?: readonly { t: number; vCms: number }[];
   },
 ): void {
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
   const img = ctx.createImageData(W, H);
-  const px = img.data;
-  for (let i = 3; i < px.length; i += 4) px[i] = 255;
-  const gain = opts.gainDb ?? 0;
-  const dr = opts.drDb ?? 55;
-  const win = opts.windowSeconds ?? 4;
-  if (columns.length === 0) {
-    ctx.putImageData(img, 0, 0);
-    return;
-  }
-  const t1 = columns[columns.length - 1]!.t;
-  const t0 = t1 - win;
-  const cols = columns.filter((c) => c.t >= t0);
-  const N = opts.fftSize;
-  const half = N / 2;
-  for (let i = 0; i < cols.length; i++) {
-    const c = cols[i]!;
-    const x = Math.floor(((c.t - t0) / win) * W);
-    if (x < 0 || x >= W) continue;
-    for (let k = 0; k < N; k++) {
-      // bin k → frecuencia (k−half)·prf/N, en [−PRF/2, +PRF/2)
-      const fFrac = (k - half) / half; // −1..+1
-      const disp = opts.invert ? -fFrac : fFrac;
-      // +PRF/2 llega arriba del todo; −PRF/2 abajo del todo, con la base en opts.baseline
-      const yPix = Math.round(
-        opts.baseline * H - (disp > 0 ? disp * opts.baseline * H : disp * (1 - opts.baseline) * H),
-      );
-      if (yPix < 0 || yPix >= H) continue;
-      const dbv = c.powerDb[k]! + gain;
-      const g = Math.round(255 * Math.min(1, Math.max(0, dbv / dr + 1)));
-      const kk = (yPix * W + x) * 4;
-      px[kk] = px[kk + 1] = px[kk + 2] = Math.max(px[kk]!, g);
-    }
-  }
+  img.data.set(
+    rasterizeSpectrogram(columns, {
+      width: W,
+      height: H,
+      fftSize: opts.fftSize,
+      baseline: opts.baseline,
+      invert: opts.invert,
+      sweepSeconds: opts.sweepSeconds ?? opts.windowSeconds ?? 4,
+      gainDb: opts.gainDb ?? 0,
+      drDb: opts.drDb ?? 55,
+      gamma: opts.gamma,
+      floorPercentile: opts.floorPercentile,
+      colormap: opts.colormap,
+    }),
+  );
   ctx.putImageData(img, 0, 0);
-  // línea de base
+  const last = columns.at(-1);
+  const prfHz = last?.prfHz ?? 0;
+  const ticks =
+    prfHz > 0
+      ? spectralVelocityTicks(
+          H,
+          opts.baseline,
+          opts.invert,
+          prfHz,
+          opts.f0Mhz * 1e6,
+          (opts.angleCorrectionDeg * Math.PI) / 180,
+        )
+      : [];
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(W - 54, 0, 54, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  for (const tick of ticks) {
+    if (tick.y < 0 || tick.y >= H) continue;
+    ctx.beginPath();
+    ctx.moveTo(W - 10, tick.y);
+    ctx.lineTo(W - 5, tick.y);
+    ctx.stroke();
+    ctx.fillText(`${tick.valueCms}`, W - 12, tick.y + 3);
+  }
+  ctx.fillText(`±${Math.round(prfHz / 2)} Hz`, W - 4, 10);
+  ctx.restore();
+  // Línea de base y traza docente.
   ctx.strokeStyle = 'rgba(255,255,255,0.25)';
   ctx.beginPath();
   const yb = Math.round(opts.baseline * H);
   ctx.moveTo(0, yb);
   ctx.lineTo(W, yb);
   ctx.stroke();
+  if (opts.teachingTrace && last) {
+    const t0 = last.t - (opts.sweepSeconds ?? opts.windowSeconds ?? 4);
+    const nyq = nyquistVelocityCms(prfHz, opts.f0Mhz * 1e6, (opts.angleCorrectionDeg * Math.PI) / 180);
+    ctx.strokeStyle = '#62e88d';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    let started = false;
+    for (const point of opts.teachingTrace) {
+      if (!Number.isFinite(point.vCms) || point.t < t0) {
+        started = false;
+        continue;
+      }
+      const x = ((point.t - t0) / (opts.sweepSeconds ?? opts.windowSeconds ?? 4)) * W;
+      const y = frequencyFractionToY(point.vCms / nyq, H, opts.baseline, opts.invert);
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
 }

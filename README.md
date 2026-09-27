@@ -21,6 +21,11 @@ exacta; una señal ausente no acredita cese circulatorio.
 - Protocolo DVNO 2×2 (transversal/sagital por ojo), DTE, ratio DVNO/ETD e
   informe educativo exportable.
 - Rótulo acústico MI/TI por modo y alerta ALARA oftálmica en modo docente.
+- Espectro PW rasterizado por interpolación de filas, con barrido seleccionable
+  de 2/3/4/6 s, eje de velocidad en cm/s y aliasing desplazado por la línea
+  base.
+- Audio PW direccional con control de volumen 0–100 %, separación overlap-add,
+  AGC lento y paso bajo de equipo.
 - Navegador 3D ortográfico de la sonda, con cámara arrastrable derivada de la
   pose y de la anatomía adquirida.
 - Debriefing docente determinista con línea de tiempo, hallazgos cuantitativos

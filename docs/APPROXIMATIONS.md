@@ -108,3 +108,12 @@ calibración.
   umbrales docentes para advertir de ángulo, ganancia, posición DVNO, error de
   medición y discrepancia de PI; son parámetros educativos con evidencia
   explícita y no reglas diagnósticas.
+- **doppler.spectralGammaDisplay** — `0,7`, gamma estimada para expandir la
+  visibilidad de niveles bajos en la presentación del espectro; no modifica
+  `powerDb` ni las mediciones.
+- **doppler.spectralFloorPercentile** — `0,2`, percentil estimado de la ventana
+  visible usado como piso adaptativo del mapa de intensidad.
+- **doppler.audioAgcTauS** — `0,5 s`, constante de tiempo estimada del AGC
+  lento del audio direccional.
+- **doppler.audioLowpassFrac** — `0,9` de PRF/2, corte estimado del paso bajo
+  que limita contenido próximo al límite de Nyquist antes del resampleo.

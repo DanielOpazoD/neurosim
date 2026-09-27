@@ -17,6 +17,8 @@ import { buildReport } from '../domain/onsdProtocol';
 import type { PwController } from '../app/pwController';
 import { angleCorrectionErrorFactor } from '../doppler/insonation';
 import { acousticOutput } from '../ultrasound/acousticOutput';
+import { observedTrace } from '../doppler/measureMca';
+import { DOPPLER } from '../doppler/params';
 
 export { canvasToImagePoint, imagePointToCanvas };
 
@@ -147,7 +149,20 @@ export function drawSpectral(
     angleCorrectionDeg: s.settings.angleCorrectionDeg,
     invert: s.settings.invertColor,
     gainDb: s.settings.dopplerGainDb,
-    windowSeconds: 5,
+    drDb: s.settings.dynamicRangeDb,
+    sweepSeconds: s.sweepSeconds,
+    gamma: DOPPLER.params.spectralGammaDisplay.value,
+    floorPercentile: DOPPLER.params.spectralFloorPercentile.value,
+    colormap: s.spectralColormap,
+    teachingTrace: s.teachingMode
+      ? observedTrace(chain.spectral.columns.slice(-400), {
+          f0Hz: s.settings.frequencyMhz * 1e6,
+          angleCorrectionRad: (s.settings.angleCorrectionDeg * Math.PI) / 180,
+          invert: s.settings.invertColor,
+          fftSize: chain.spectral.fftSize,
+          wallFilterHz: s.settings.wallFilterHz,
+        })
+      : undefined,
   });
 }
 
