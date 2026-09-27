@@ -8,8 +8,9 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm run dev -- --port 6620',
+    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 6620',
     url: 'http://127.0.0.1:6620',
+    timeout: 120_000,
     reuseExistingServer: !process.env.CI,
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],

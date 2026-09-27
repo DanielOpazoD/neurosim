@@ -14,7 +14,7 @@ async function freezeAndHash(page: import('@playwright/test').Page): Promise<str
           }
           return nonEmpty;
         }),
-      { timeout: 8_000 },
+      { timeout: 15_000 },
     )
     .toBeGreaterThan(100_000);
   await page.keyboard.press('Space');

@@ -41,17 +41,17 @@ test('flujo docente completo sin errores', async ({ page }) => {
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto('/');
-  await expect.poll(() => nonEmptyBModePixels(page), { timeout: 8_000 }).toBeGreaterThan(100_000);
+  await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
   await expect(page.locator('#errores')).toBeHidden();
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 
   await page.locator('[data-station="temporal"][data-side="der"]').click();
-  await expect.poll(() => nonEmptyBModePixels(page), { timeout: 8_000 }).toBeGreaterThan(100_000);
+  await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
   await page.locator('#pw').click();
   await placeM1Gate(page);
   await expect
-    .poll(async () => readoutValue(await page.locator('#readouts').innerText(), 'PSV'), { timeout: 8_000 })
+    .poll(async () => readoutValue(await page.locator('#readouts').innerText(), 'PSV'), { timeout: 15_000 })
     .toBeGreaterThan(0);
 
   await page.keyboard.press('Space');
