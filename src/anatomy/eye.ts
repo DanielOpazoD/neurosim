@@ -48,6 +48,8 @@ export interface EyeGeometry {
   readonly sheathEcc: number;
   /** Desviación de la mirada (ángulo del eje ocular), rad — fase posterior; 0 en N1. */
   readonly gazeAngleRad: number;
+  /** Fase determinista de la tortuosidad del nervio, rad. */
+  readonly tortuosityPhaseRad: number;
 }
 
 /** Adulto de referencia N1: dos ojos con asimetría pequeña documentada. */
@@ -81,7 +83,8 @@ export function buildReferenceEyes(
       nerveRadiusMm: EYE.nerveRadiusMm.value,
       duraMm: DURA_MM,
       sheathEcc: EYE.sheathEcc.value + r.range(-EYE.sheathEccJitter.value, EYE.sheathEccJitter.value),
-      gazeAngleRad: 0,
+      gazeAngleRad: EYE.gazeAngleRad.value,
+      tortuosityPhaseRad: r.range(0, 2 * Math.PI),
     };
   };
   return { der: mk('der'), izq: mk('izq') };
@@ -104,10 +107,14 @@ export function fromEyeLocal(g: EyeGeometry, p: Vec3): Vec3 {
  */
 export function nerveCenterline(g: EyeGeometry, sMm: number): Vec3 {
   const bend = 1 - Math.exp(-sMm / 18); // 0→1
+  const gaze = g.gazeAngleRad;
+  const tortuosity =
+    EYE.tortuosityAmpMm.value *
+    Math.sin((2 * Math.PI * sMm) / EYE.tortuosityPeriodMm.value + g.tortuosityPhaseRad);
   return [
-    -(1.2 + 6.0 * bend), // x local: nasal (−x porque +x local = temporal)
+    -(1.2 + EYE.nerveNasalBendMm.value * bend) + sMm * Math.sin(gaze) + tortuosity,
     -0.4 * bend, // y local: leve descenso
-    -(g.globeRadiusMm + sMm), // z local: posterior
+    -(g.globeRadiusMm + sMm * Math.cos(gaze)), // z local: posterior
   ];
 }
 
@@ -155,8 +162,13 @@ export function nerveSection(
 /** Radios efectivos de la vaina a distancia s retroglobo (mm). */
 export function sheathRadiiAt(g: EyeGeometry, sMm: number): { minor: number; major: number; nerve: number } {
   // La vaina se adelgaza ligeramente hacia el ápex; el nervio es ~constante.
-  const taper = 1 - EYE.sheathTaper.value * smoothstep(0, 40, sMm);
-  const ext = g.sheathRadiusExtMm * taper;
+  const taperAt = (s: number) => 1 - EYE.sheathTaper.value * smoothstep(0, 40, s);
+  const taper = taperAt(sMm) / taperAt(3);
+  const gaussian = Math.exp(-Math.pow((sMm - EYE.sheathBulbCenterMm.value) / EYE.sheathBulbSigmaMm.value, 2));
+  const anchor = Math.exp(-Math.pow((3 - EYE.sheathBulbCenterMm.value) / EYE.sheathBulbSigmaMm.value, 2));
+  const distalFade = Math.exp(-Math.pow(Math.max(0, sMm - 3) / EYE.sheathBulbSigmaMm.value, 2));
+  const bulb = (anchor - gaussian) * distalFade;
+  const ext = g.sheathRadiusExtMm * taper * (1 + EYE.sheathBulbFrac.value * bulb);
   return {
     minor: ext * g.sheathEcc,
     major: ext,
@@ -209,12 +221,16 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
     return 'humorAcuoso';
   }
 
-  // Dentro del globo.
+  const papillaCenter = nerveCenterline(g, 0);
+  const papillaDistance = dist(p, papillaCenter);
+  const inPapilla = papillaDistance <= EYE.papillaRadiusMm.value;
   const dg = Math.hypot(x, y, z);
+  if (inPapilla && dg > r - EYE.laminaThicknessMm.value) return 'laminaCribosa';
+
+  // Dentro del globo.
   if (dg <= r) {
-    // pared posterior: capa de ~0.7 mm; la papila (zona de inserción) queda
-    // dentro de la pared con respuesta parecida.
-    if (dg > r - EYE.globeWallMm.value) return 'paredGlobo';
+    // La excavación papilar deja llegar el vítreo ligeramente más atrás.
+    if (dg > r - EYE.globeWallMm.value + (inPapilla ? EYE.papillaCupMm.value : 0)) return 'paredGlobo';
     return 'vitrio';
   }
 

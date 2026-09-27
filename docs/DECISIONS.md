@@ -48,3 +48,6 @@
     gatean `check` local; gatean CI.
 17. **DEC-17** — `noUncheckedIndexedAccess` está activo; `!` se permite solo
     en bucles indexados acotados y tablas constantes.
+18. **DEC-18** — La ampolla retrobulbar se parametriza y se ancla al valor
+    medido a 3 mm, para conservar la convención DVNO del fixture mientras se
+    representa la variación longitudinal de la vaina.

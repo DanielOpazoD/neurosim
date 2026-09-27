@@ -16,6 +16,10 @@ calibración.
 - **anatomia-ojo.sheathEccJitter** — variación bilateral del fixture; calibrar con cohortes bilaterales.
 - **anatomia-ojo.sheathTaper** — taper hacia el ápex; calibrar con reconstrucciones longitudinales.
 - **anatomia-ojo.nerveTaper** — taper del nervio; calibrar con reconstrucciones longitudinales.
+- **anatomia-ojo.sheathBulbFrac**, **anatomia-ojo.sheathBulbCenterMm**, **anatomia-ojo.sheathBulbSigmaMm** — perfil de ampolla retrobulbar; calibrar con ecografía longitudinal y reconstrucciones de la vaina.
+- **anatomia-ojo.papillaRadiusMm**, **anatomia-ojo.laminaThicknessMm**, **anatomia-ojo.papillaCupMm** — disco y excavación de la papila; calibrar con OCT y anatomía histológica de la lámina cribosa.
+- **anatomia-ojo.tortuosityAmpMm**, **anatomia-ojo.tortuosityPeriodMm**, **anatomia-ojo.nerveNasalBendMm** — tortuosidad y curvatura del nervio; calibrar con reconstrucciones 3D longitudinales.
+- **anatomia-ojo.gazeAngleRad** — mirada neutra del fixture N1; calibrar con casos que incluyan desviación ocular.
 - **anatomia-ojo.centerAbsXmm**, **anatomia-ojo.centerYmm**, **anatomia-ojo.centerZmm** — centros orbitales del fixture; calibrar con coordenadas anatómicas de referencia.
 - **anatomia-cabeza.skullCenterXmm**, **anatomia-cabeza.skullCenterYmm**, **anatomia-cabeza.skullCenterZmm** — centro craneal del fixture; calibrar con geometría adulta.
 - **anatomia-cabeza.skullRadiusXmm**, **anatomia-cabeza.skullRadiusYmm**, **anatomia-cabeza.skullRadiusZmm** — semiejes craneales; calibrar con geometría adulta.

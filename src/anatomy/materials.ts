@@ -35,6 +35,7 @@ export type MaterialId =
   | 'cristalino'
   | 'vitrio' // humor vítreo
   | 'paredGlobo' // complejo retina–coroides–esclera
+  | 'laminaCribosa' // disco papilar posterior
   | 'nervioOptico' // fascículos del nervio
   | 'lcrVaina' // espacio subaracnoideo perineural
   | 'duraVaina' // envoltura dural de la vaina
@@ -72,6 +73,7 @@ export const MATERIALS: Readonly<Record<MaterialId, Material>> = Object.freeze({
   cristalino: m('cristalino', 1641, 1136, 1.0, 0.35, 0.3),
   vitrio: m('vitrio', 1532, 1000, 0.12, 0.1, 0.08),
   paredGlobo: m('paredGlobo', 1620, 1100, 0.7, 0.9, 0.85),
+  laminaCribosa: m('laminaCribosa', 1600, 1100, 0.7, 0.9, 0.6),
   nervioOptico: m('nervioOptico', 1550, 1050, 0.6, 0.45, 0.35),
   lcrVaina: m('lcrVaina', 1500, 1007, 0.2, 0.08, 0.05),
   duraVaina: m('duraVaina', 1600, 1150, 0.8, 0.8, 0.8),

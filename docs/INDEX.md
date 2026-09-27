@@ -55,12 +55,13 @@
 | DEC-15 | El render B-mode/color corre en Worker; el hilo principal solo          | —                          |
 | DEC-16 | Las pruebas E2E cubren el flujo docente completo pero no                | —                          |
 | DEC-17 | `noUncheckedIndexedAccess` está activo; `!` se permite solo             | —                          |
+| DEC-18 | La ampolla retrobulbar se parametriza y se ancla al valor               | —                          |
 
 ## Parámetros registrados
 
 | Conjunto             | Parámetros |
 | -------------------- | ---------: |
-| `anatomia-ojo`       |         27 |
+| `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         40 |
 | `doppler`            |         22 |
 | `fisiologia`         |         18 |
