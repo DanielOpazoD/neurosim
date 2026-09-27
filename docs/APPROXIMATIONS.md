@@ -66,6 +66,15 @@ calibración.
   sintético y umbrales del estimador Kasai; la potencia se expresa como fracción
   de la referencia de una celda completamente sanguínea y atenuada; se aproximan
   con AIUM TCD y Evans & McDicken, sin calibración frente a datos IQ clínicos.
+- **doppler.wallExcursionMm** — `0,05 mm`, excursión sistólica reducida de la
+  pared arterial; se usa como aproximación de clutter, no como medición
+  individual.
+- **doppler.wallMotionDecayMm** — `1,5 mm`, longitud de decaimiento radial de
+  la velocidad de pared.
+- **doppler.brainPulsationMm** — `0,15 mm`, pulsación cerebral anterior uniforme;
+  aproximación educativa sin una fuente específica verificada en este bloque.
+- **doppler.handTremorMmS** — `0,8 mm/s` por componente, dos senos deterministas
+  entre 8 y 12 Hz; no representa una trayectoria clínica individual.
 - **fisiologia.heartRateBpm**, **fisiologia.mapMmHg**, **fisiologia.a1PsvCms**, **fisiologia.a1EdvCms**, **fisiologia.p1PsvCms**, **fisiologia.p1EdvCms**, **fisiologia.basilarPsvCms**, **fisiologia.basilarEdvCms**, **fisiologia.upstrokePhase**, **fisiologia.decayTau** — fisiología/onda vascular del fixture N1; calibrar contra trazas clínicas anonimizadas.
 - **fisiologia.laminarProfile** — perfil parabólico de velocidad; calibrar contra perfiles Doppler intravasculares.
 - **fisiologia.qM1MlMin**, **fisiologia.qA2MlMin**, **fisiologia.qP2MlMin** — caudales terminales derivados de la media numérica de `arterialShape`; la continuidad de Murray se comprueba, no se impone. Las variantes representan aplasia/hipoplasia A1 (~10 %) y ACP fetal (~15–20 %) como escenarios docentes, no como prevalencia individual.

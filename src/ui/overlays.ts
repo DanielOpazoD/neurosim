@@ -14,6 +14,7 @@ import { currentPose } from '../app/poses';
 import type { AppState } from '../app/state';
 import { imagePointToCanvas, canvasToImagePoint } from '../app/measurements';
 import type { PwController } from '../app/pwController';
+import { angleCorrectionErrorFactor } from '../doppler/insonation';
 
 export { canvasToImagePoint, imagePointToCanvas };
 
@@ -136,6 +137,16 @@ const row = (k: string, v: string) => `<div><span>${k}</span><span class="meas">
 
 export function updateReadouts(el: HTMLElement, s: AppState, controller: PwController): void {
   const summary = controller.latestMcaMeasure();
+  const angle = s.teachingMode && s.station === 'temporal' ? controller.insonation() : null;
+  const angleRows =
+    angle && angle.vesselId && Number.isFinite(angle.realDeg)
+      ? [
+          row(
+            'Insonación',
+            `θ real ${angle.realDeg.toFixed(0)}° · proyectado ${angle.projectedDeg.toFixed(0)}° · corrección ${s.settings.angleCorrectionDeg.toFixed(0)}° → factor ×${angleCorrectionErrorFactor(angle.realDeg, s.settings.angleCorrectionDeg).toFixed(2)}`,
+          ),
+        ]
+      : [];
   if (summary) {
     const comp = controller.composition();
     el.innerHTML = [
@@ -147,6 +158,7 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       row('Latidos', `${summary.beats}`),
       row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}%`),
       row('Vaso dominante', comp?.dominantVesselId ?? '—'),
+      ...angleRows,
     ].join('');
     return;
   }
@@ -162,6 +174,6 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       row('Medidas', `${s.measurements.length}`),
     ].join('');
   } else {
-    el.innerHTML = '<div><span>Sin medidas</span><span>—</span></div>';
+    el.innerHTML = [...angleRows, row('Sin medidas', '—')].join('');
   }
 }

@@ -16,6 +16,8 @@ import { currentPose } from './poses';
 import { DOPPLER } from '../doppler/params';
 import { FISICA_US } from '../ultrasound/params';
 import { logError } from '../core/errorLog';
+import { handTremorVelocityMmS } from '../doppler/clutter';
+import { insonationAngles, type InsonationAngles } from '../doppler/insonation';
 
 export class PwController {
   private chain: PwDopplerChain | null = null;
@@ -79,6 +81,13 @@ export class PwController {
     };
   }
 
+  insonation(): InsonationAngles | null {
+    if (this.state.station !== 'temporal') return null;
+    const pose = currentPose(this.sim, this.state);
+    const gate = this.gateGeometry(pose);
+    return insonationAngles(this.sim.head, gate.center, gate.beamDir, gate.lateral, gate.elevation);
+  }
+
   step(clock: SimulationClock, elapsed: number): void {
     const s = this.state;
     if (!s.pwOn || s.station !== 'temporal' || s.frozen) return;
@@ -108,7 +117,7 @@ export class PwController {
           cardiacPhase: this.sim.cardiac.phaseAt(clock.t),
           heartRateBpm: this.sim.patient.physiology.heartRateBpm,
         },
-        [0, 0, 0],
+        handTremorVelocityMmS(clock.t, this.sim.patient.seed),
         elapsed,
       );
       chain.flush();

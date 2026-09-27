@@ -21,6 +21,7 @@
 | ID     | Título                              | Citas en `src/` y `tests/`                                 |
 | ------ | ----------------------------------- | ---------------------------------------------------------- |
 | LIM-16 | Color Kasai reducido                | `src/doppler/color.ts`                                     |
+| LIM-17 | Movimiento tisular reducido         | —                                                          |
 | LIM-01 | Patología                           | —                                                          |
 | LIM-02 | Lindegaard                          | —                                                          |
 | LIM-03 | DVNO y PIC                          | —                                                          |
@@ -64,6 +65,8 @@
 | DEC-21 | Los hitos transtemporales emergen de regiones anatómicas 3D             | —                          |
 | DEC-22 | El polígono de Willis se representa como un grafo de                    | —                          |
 | DEC-23 | El color Doppler sintetiza ensembles IQ deterministas por               | —                          |
+| DEC-24 | El clutter Doppler emerge del movimiento material: la pared             | —                          |
+| DEC-25 | La docencia distingue ángulo real tridimensional, ángulo                | —                          |
 
 ## Parámetros registrados
 
@@ -71,6 +74,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
-| `doppler`            |         27 |
+| `doppler`            |         31 |
 | `fisiologia`         |         21 |
 | `fisica-ultrasonido` |         28 |

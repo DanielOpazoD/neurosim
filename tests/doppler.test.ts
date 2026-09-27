@@ -12,7 +12,8 @@ import { temporalPose } from '../src/app/poses';
 import { buildScan } from '../src/ultrasound/probe';
 import { renderColorDoppler } from '../src/doppler/color';
 import { DOPPLER } from '../src/doppler/params';
-import { vesselClosest, vesselDistance } from '../src/anatomy/head';
+import { vesselClosest, vesselDistance, vesselFlowDir } from '../src/anatomy/head';
+import { dot } from '../src/core/vec3';
 
 /** Tono puro: IQ con fase rotando a fD. */
 function tone(fdHz: number, prf: number, n: number): [Float32Array, Float32Array] {
@@ -118,6 +119,11 @@ describe('PW integrado sobre la ACM del caso N1', () => {
     expect(Math.abs(s!.psvCms)).toBeLessThan(160);
     expect(s!.pi).toBeGreaterThan(0.3);
     expect(s!.pi).toBeLessThan(2.5);
+    const flowDir = vesselFlowDir(m1, target);
+    const realRad = Math.acos(Math.min(1, Math.abs(dot(flowDir, dir))));
+    const correctedPsv = Math.abs(s!.psvCms) / Math.max(0.1, Math.cos(realRad));
+    expect(correctedPsv).toBeGreaterThan(90 * 0.85);
+    expect(correctedPsv).toBeLessThan(90 * 1.15);
   }, 30000);
 });
 

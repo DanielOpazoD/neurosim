@@ -26,6 +26,7 @@ import { vesselVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
 import { FISIOLOGIA } from '../physiology/params';
 import { DOPPLER } from './params';
+import { tissueVelocityMmS } from './clutter';
 
 export interface GateGeometry {
   /** Centro de la puerta en el mundo (mm). */
@@ -73,9 +74,9 @@ interface Scatterer {
   rampLeft: number;
   /** Vaso que le da flujo (null = tejido). */
   vessel: Vessel | null;
-  /** Última velocidad material (mm/s). */
-  vBlood: Vec3;
-  /** Base de flujo congelada al clasificar: vBlood = flowBasis·u(φ) — cuerda recta. */
+  /** Última velocidad material (mm/s), de sangre o tejido. */
+  vMat: Vec3;
+  /** Base de flujo congelada al clasificar: vMat = flowBasis·u(φ) — cuerda recta. */
   flowBasis: Vec3;
 }
 
@@ -258,7 +259,7 @@ export class SampleVolumeIQ {
       dAmp: 0,
       rampLeft: 0,
       vessel: this.vesselAtBlood(world),
-      vBlood: [0, 0, 0],
+      vMat: [0, 0, 0],
       flowBasis: [0, 0, 0],
     };
     if (s.vessel) s.flowBasis = this.flowBasisOf(s.vessel, world);
@@ -267,7 +268,7 @@ export class SampleVolumeIQ {
   }
 
   /**
-   * Dirección y perfil del flujo en `m`, sin la fase: vBlood = flowBasis·u(φ)
+   * Dirección y perfil del flujo en `m`, sin la fase: vMat = flowBasis·u(φ)
    * con u = velocidad espacial media del vaso (cm/s → mm/s). La base se congela
    * al clasificar (órbita en cuerda recta, como vexus-sim): el dispersor no se
    * curva con el tubo y su recta de vuelta coincide con la de ida.
@@ -286,7 +287,7 @@ export class SampleVolumeIQ {
    */
   private spawn(exited: Scatterer | null): Scatterer {
     if (!exited || !exited.vessel) return this.makeScatterer(this.gateToWorld(this.randomInBox()));
-    const v = exited.vBlood;
+    const v = exited.vMat;
     const speed = Math.hypot(v[0], v[1], v[2]);
     if (speed > 1e-6) {
       // Reentrada: un punto al azar del MISMO vaso dentro de la caja (el tubo
@@ -296,7 +297,7 @@ export class SampleVolumeIQ {
       if (inside) {
         const s = this.makeScatterer(inside);
         s.vessel = exited.vessel;
-        s.vBlood = [v[0], v[1], v[2]];
+        s.vMat = [v[0], v[1], v[2]];
         s.amp = s.ampTarget;
         s.dAmp = 0;
         s.rampLeft = 0;
@@ -413,11 +414,9 @@ export class SampleVolumeIQ {
       const reclass = this.tick % RECLASSIFY_EVERY === 0;
       for (let j = 0; j < this.scatterers.length; j++) {
         const s = this.scatterers[j]!;
-        if (s.vessel) {
-          s.m[0] += s.vBlood[0] * dt;
-          s.m[1] += s.vBlood[1] * dt;
-          s.m[2] += s.vBlood[2] * dt;
-        }
+        s.m[0] += s.vMat[0] * dt;
+        s.m[1] += s.vMat[1] * dt;
+        s.m[2] += s.vMat[2] * dt;
         if (slow) {
           const dx = s.m[0] - g.center[0];
           const dy = s.m[1] - g.center[1];
@@ -470,16 +469,24 @@ export class SampleVolumeIQ {
               }
             }
             if (s.vessel) {
-              s.vBlood = scale(s.flowBasis, vesselVelocityCms(s.vessel, phys.cardiacPhase));
+              s.vMat = scale(s.flowBasis, vesselVelocityCms(s.vessel, phys.cardiacPhase));
+            } else {
+              s.vMat = tissueVelocityMmS({
+                head: this.head,
+                point: s.m,
+                cardiacPhase: phys.cardiacPhase,
+                heartRateBpm: phys.heartRateBpm,
+                tSec: phys.t,
+              });
             }
             const wTarget =
               0.5 *
               (erf((half - ax) / (ps * Math.SQRT2)) + erf((half + ax) / (ps * Math.SQRT2))) *
               Math.exp(-0.5 * (la * la * invLat2 + el * el * invEl2));
             s.dw = (wTarget - s.w) / SLOW_EVERY;
-            const vx = s.vBlood[0] - probeVelocity[0];
-            const vy = s.vBlood[1] - probeVelocity[1];
-            const vz = s.vBlood[2] - probeVelocity[2];
+            const vx = s.vMat[0] - probeVelocity[0];
+            const vy = s.vMat[1] - probeVelocity[1];
+            const vz = s.vMat[2] - probeVelocity[2];
             const da = s.apAngle * apSigma;
             const bx = bHat[0] + g.lateral[0] * da;
             const by = bHat[1] + g.lateral[1] * da;
