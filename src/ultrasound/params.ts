@@ -3,10 +3,11 @@
  * Los umbrales puramente numéricos del renderer permanecen como constantes.
  */
 import { defineParameters } from '../core/evidence';
+import { SPEED_OF_SOUND_M_S } from '../core/units';
 
 export const FISICA_US = defineParameters('fisica-ultrasonido', {
   soundSpeedMs: {
-    value: 1540,
+    value: SPEED_OF_SOUND_M_S,
     unit: 'm/s',
     range: [1450, 1600],
     evidence: 'consenso',

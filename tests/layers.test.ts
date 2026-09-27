@@ -10,18 +10,12 @@ const allowed = {
   physiology: new Set(['core', 'anatomy', 'domain']),
   ultrasound: new Set(['core', 'anatomy', 'domain']),
   doppler: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'domain']),
-  domain: new Set(['core', 'anatomy', 'physiology']),
+  domain: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler']),
   app: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler', 'domain']),
   ui: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler', 'domain', 'app']),
 } as const;
 
-// TODO PR 8: separar unidades de los parámetros de ultrasonido.
-const TODO_EDGES = new Set(['core→ultrasound']);
-// TODO PR 8: el registro de parámetros y las conversiones de imagen aún viven en domain.
-TODO_EDGES.add('domain→ultrasound');
-TODO_EDGES.add('domain→doppler');
-// TODO PR 8: separar los valores vasculares fisiológicos de la geometría de head.ts.
-TODO_EDGES.add('anatomy→physiology');
+const anatomyPhysiologyDataModules = new Set(['physiology/params.ts']);
 
 function filesUnder(path: string): string[] {
   const result: string[] = [];
@@ -57,7 +51,13 @@ function importsOf(source: string): Array<{ specifier: string; typeOnly: boolean
   return imports;
 }
 
-function edges(): Array<{ from: string; to: string; file: string; typeOnly: boolean }> {
+function edges(): Array<{
+  from: string;
+  to: string;
+  file: string;
+  destination: string;
+  typeOnly: boolean;
+}> {
   const result = [];
   for (const file of filesUnder(root)) {
     for (const imported of importsOf(file)) {
@@ -67,6 +67,7 @@ function edges(): Array<{ from: string; to: string; file: string; typeOnly: bool
           from: firstLayer(file),
           to: firstLayer(destination),
           file: relative(resolve(root, '..'), file),
+          destination: relative(root, destination),
           typeOnly: imported.typeOnly,
         });
       }
@@ -77,11 +78,14 @@ function edges(): Array<{ from: string; to: string; file: string; typeOnly: bool
 
 describe('fronteras de capas', () => {
   it('respeta la matriz de dependencias documentada', () => {
-    const violations = edges().filter(({ from, to, typeOnly }) => {
+    const violations = edges().filter(({ from, to, destination, typeOnly }) => {
       if (from === to) return false;
       if (from === 'anatomy' && to === 'domain' && !typeOnly) return true;
+      if (from === 'anatomy' && to === 'physiology') {
+        return !anatomyPhysiologyDataModules.has(destination);
+      }
       if (allowed[from as keyof typeof allowed].has(to)) return false;
-      return !TODO_EDGES.has(`${from}→${to}`);
+      return true;
     });
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
   });

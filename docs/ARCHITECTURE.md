@@ -2,10 +2,17 @@
 
 ## Capas y dependencias
 
-La dependencia lógica permitida es:
+La matriz de dependencias permitida es:
 
 ```text
-core → anatomy / physiology → ultrasound / doppler → domain → app → ui
+core       → (nada)
+anatomy    → core, domain (solo tipos)
+physiology → core, anatomy, domain
+ultrasound → core, anatomy, domain
+doppler    → core, anatomy, physiology, ultrasound, domain
+domain     → core, anatomy, physiology, ultrasound, doppler
+app        → core, anatomy, physiology, ultrasound, doppler, domain
+ui         → core, anatomy, physiology, ultrasound, doppler, domain, app
 ```
 
 `src/domain/contracts.ts` es la frontera de tipos compartidos: anatomy,
@@ -24,20 +31,11 @@ La UI es el único lugar que conoce el DOM y el canvas.
 - **ui**: composición, eventos, canvas, overlays y readouts.
 
 `tests/layers.test.ts` extrae las importaciones relativas de todos los
-TypeScript de `src/` y verifica esta matriz. Hay cuatro aristas observadas que
-se conservan explícitamente como deuda técnica, no como permisos generales:
-
-- `core → ultrasound`: `core/units.ts` consume la velocidad acústica registrada.
-  **TODO PR 8**: separar la conversión de unidades del registro físico.
-- `domain → ultrasound`: settings y conversión de puntos usan geometría y
-  parámetros acústicos. **TODO PR 8**: extraer esa frontera.
-- `domain → doppler`: el registro de parámetros incluye el conjunto Doppler.
-  **TODO PR 8**: mover el agregador fuera de domain.
-- `anatomy → physiology`: `head.ts` usa velocidades vasculares registradas para
-  construir los vasos. **TODO PR 8**: separar la geometría de la fisiología.
-
-La prueba falla ante cualquier arista nueva que no esté en la matriz o en esta
-lista explícita.
+TypeScript de `src/` y verifica esta matriz. La única excepción por módulo
+destino es `anatomy/head.ts → physiology/params.ts`, que permite a la anatomía
+consumir datos fisiológicos registrados sin importar lógica de fisiología. La
+prueba falla ante cualquier arista nueva que no esté en la matriz o en esta
+excepción explícita.
 
 ## Cadena causal
 
