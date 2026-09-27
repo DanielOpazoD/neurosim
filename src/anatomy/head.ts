@@ -306,12 +306,11 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
 
   // Mesencéfalo en mariposa: dos pedúnculos y un tegmento posterior.
   const mb = butterflyLevel(h, p);
-  const legacy = legacyMidbrainLevel(h, p);
-  if (mb <= 1.0 || legacy <= 1.0) return 'tejidoCerebral';
+  if (mb <= 1.0) return 'tejidoCerebral';
 
   // Cisternas basales: corona ecogénica alrededor del mesencéfalo,
   // extendida hacia la fisura silviana lateral.
-  if (legacy < 1.45) return 'cisterna';
+  if (mb < 1.45) return 'cisterna';
   const sylvian = Math.abs(md[2] - 2) < 5 && Math.abs(md[0]) > 14 && Math.abs(md[0]) < 32;
   if (sylvian && Math.abs(md[1]) < 6) return 'cisterna';
 
@@ -412,13 +411,6 @@ function butterflyLevel(h: HeadGeometry, p: Vec3): number {
     ellipsoidLevel(peduncleCenter(h, 1), pedRadii, p),
     ellipsoidLevel(tegmentum, tegmentumRadii, p),
   );
-}
-
-function legacyMidbrainLevel(h: HeadGeometry, p: Vec3): number {
-  const md = sub(p, h.midbrainCenter);
-  let level = ellipsoidLevel(h.midbrainCenter, h.midbrainRadii, p);
-  if (md[2] < -8 && Math.abs(md[0]) < 6) level *= 1.25;
-  return level;
 }
 
 function classifyMidbrainSpecial(h: HeadGeometry, p: Vec3): MaterialId | null {
