@@ -81,21 +81,6 @@ function cellScatterers(
       rangeMm: p[0] * axial[0] + p[1] * axial[1] + p[2] * axial[2],
     });
   }
-  if (!result.some((scatterer) => Math.abs(scatterer.velocityTowardCms) > 1e-6)) {
-    const hit = vesselClosest(primaryVessel, center);
-    const nearest = { distance: vesselDistance(primaryVessel, center), point: hit.point };
-    if (nearest && nearest.distance < elevationHalf) {
-      const velocity = flow.velocityAt(nearest.point, cardiacPhase);
-      const velocityTowardCms =
-        -(velocity[0] * axial[0] + velocity[1] * axial[1] + velocity[2] * axial[2]) / 10;
-      result[0] = {
-        phase: rng.range(0, 2 * Math.PI),
-        amplitude: DOPPLER.params.amplitudSangre.value,
-        velocityTowardCms,
-        rangeMm: nearest.point[0] * axial[0] + nearest.point[1] * axial[1] + nearest.point[2] * axial[2],
-      };
-    }
-  }
   return result;
 }
 
