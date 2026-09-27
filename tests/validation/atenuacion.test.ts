@@ -8,8 +8,8 @@ import { skullAttenuationDb, transmissionTo } from '../../src/ultrasound/attenua
 describe('validación de atenuación', () => {
   it('mantiene la atenuación de un trayecto cerebral homogéneo', () => {
     const head = buildReferenceHead(new SeededRandom('attenuation-validation'));
-    const a: Vec3 = [head.midbrainCenter[0], head.midbrainCenter[1] - 5, head.midbrainCenter[2]];
-    const b: Vec3 = [head.midbrainCenter[0], head.midbrainCenter[1] + 5, head.midbrainCenter[2]];
+    const a: Vec3 = [head.midbrainCenter[0], head.midbrainCenter[1] - 5, head.midbrainCenter[2] - 20];
+    const b: Vec3 = [head.midbrainCenter[0], head.midbrainCenter[1] + 5, head.midbrainCenter[2] - 20];
     const lengthMm = dist(a, b);
     const steps = Math.ceil(lengthMm / 0.1);
     for (let i = 0; i <= steps; i++) {

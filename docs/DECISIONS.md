@@ -60,3 +60,9 @@
 20. **DEC-20** — La reverberación, el espejo y la cola de cometa emergen de
     interfaces acústicas y atenuación acumulada mediante reglas 1D
     parametrizadas; sus ganancias se registran como parámetros de consenso.
+21. **DEC-21** — Los hitos transtemporales emergen de regiones anatómicas 3D
+    paramétricas y se adquieren con presets de plano mesencefálico y
+    diencefálico; no se dibujan como overlays independientes de la señal. La
+    eliminación de la envolvente mesencefálica legacy cambia la proporción de
+    cisterna/tejido que ve la caja PW, por lo que su golden puede cambiar; la
+    precedencia de `vesselDistance` mantiene M1 como `vaso`.

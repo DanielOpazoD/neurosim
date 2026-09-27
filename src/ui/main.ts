@@ -89,6 +89,13 @@ function setLineDensity(value: LineDensity): void {
   s.settings = { ...s.settings, lineDensity: value };
 }
 
+function setTiltPreset(value: number): void {
+  if (s.station !== 'temporal') return;
+  s.tiltDeg = value;
+  ($('tilt') as HTMLInputElement).value = String(value);
+  $('tiltV').textContent = `${value}°`;
+}
+
 function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
@@ -232,6 +239,8 @@ ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
 ($('densidad') as HTMLSelectElement).addEventListener('change', (event) => {
   setLineDensity((event.target as HTMLSelectElement).value as LineDensity);
 });
+$('planoMesencefalico').addEventListener('click', () => setTiltPreset(0));
+$('planoDiencefalico').addEventListener('click', () => setTiltPreset(10));
 
 document.querySelectorAll('.tab').forEach((el) =>
   el.addEventListener('click', () => {
