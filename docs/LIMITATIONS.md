@@ -18,6 +18,10 @@ siguiente existe todavía por diseño del plan:
 - **LIM-18 · Windkessel reducido**: la onda usa dos elementos y no modela
   reflexiones de onda, reservorios venosos ni autorregulación; el índice de
   pulsatilidad se conserva aproximadamente uniforme entre territorios.
+- **LIM-19 · Hemodinámica estática**: la autorregulación, la reactividad al
+  CO₂ y la PIC no evolucionan dinámicamente; no hay compliance craneal ni
+  dinámica de Monro–Kellie. El DVNO es una geometría estática condicionada por
+  la PIC del escenario docente.
 
 - **LIM-01 · Patología**: sin casos con PIC elevada, vasoespasmo, ni parada
   circulatoria. La señal ausente NO acredita cese circulatorio (ni en el

@@ -5,7 +5,14 @@
 import { SimulationClock } from '../core/clock';
 import { errors, logError, onError } from '../core/errorLog';
 import { buildReferenceCase } from '../domain/referenceCase';
-import type { AcquisitionSettings, LineDensity, Side, Station, WillisVariant } from '../domain/contracts';
+import type {
+  AcquisitionSettings,
+  BasalPhysiology,
+  LineDensity,
+  Side,
+  Station,
+  WillisVariant,
+} from '../domain/contracts';
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
 import { drawBMode, drawColorOverlay } from './canvasDraw';
 import { createInitialState } from '../app/state';
@@ -37,6 +44,19 @@ const sim = buildReferenceCase(undefined, willisVariant);
 const clock = new SimulationClock();
 const s = createInitialState();
 const pw = new PwController(sim, s);
+const urlParams = new URLSearchParams(window.location.search);
+const scenarioValue = (key: 'map' | 'paco2' | 'icp', fallback: number, lo: number, hi: number): number => {
+  const raw = urlParams.get(key);
+  const value = raw === null ? Number.NaN : Number(raw);
+  return Number.isFinite(value) ? Math.min(hi, Math.max(lo, value)) : fallback;
+};
+const initialPhysiology: BasalPhysiology = {
+  ...sim.patient.physiology,
+  mapMmHg: scenarioValue('map', sim.patient.physiology.mapMmHg, 40, 140),
+  paco2MmHg: scenarioValue('paco2', sim.patient.physiology.paco2MmHg, 20, 80),
+  icpMmHg: scenarioValue('icp', sim.patient.physiology.icpMmHg, 0, 60),
+};
+sim.setPhysiology(initialPhysiology);
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const bmodeCv = $<HTMLCanvasElement>('bmode');
 const spectralCv = $<HTMLCanvasElement>('spectral');
@@ -194,6 +214,7 @@ function frameLoop(now: number): void {
       if (!renderInFlight) {
         renderInFlight = true;
         const requestId = ++renderId;
+        const phys = sim.physStateAt(clock.t);
         renderer
           .request({
             id: requestId,
@@ -206,7 +227,11 @@ function frameLoop(now: number): void {
             offsetMm: s.offsetMm,
             rotDeg: s.rotDeg,
             press: s.press,
-            ...sim.physStateAt(clock.t),
+            t: phys.t,
+            cardiacPhase: phys.cardiacPhase,
+            respiratoryPhase: phys.respiratoryPhase,
+            flowModulation: phys.flowModulation,
+            physiology: sim.patient.physiology,
             color: s.station === 'temporal',
           })
           .then((response) => {
@@ -247,7 +272,28 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
   ['wf', 'wfV', (v: number) => setSetting('wallFilterHz', v), (v: number) => `${v} Hz`],
   ['ang', 'angV', (v: number) => setSetting('angleCorrectionDeg', v), (v: number) => `${v}°`],
   ['base', 'baseV', (v: number) => setSetting('baseline', v), (v: number) => `${Math.round(v * 100)}%`],
+  [
+    'map',
+    'mapV',
+    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, mapMmHg: v }),
+    (v: number) => `${v} mmHg`,
+  ],
+  [
+    'paco2',
+    'paco2V',
+    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, paco2MmHg: v }),
+    (v: number) => `${v} mmHg`,
+  ],
+  [
+    'icp',
+    'icpV',
+    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, icpMmHg: v }),
+    (v: number) => `${v} mmHg`,
+  ],
 ];
+($('map') as HTMLInputElement).value = String(initialPhysiology.mapMmHg);
+($('paco2') as HTMLInputElement).value = String(initialPhysiology.paco2MmHg);
+($('icp') as HTMLInputElement).value = String(initialPhysiology.icpMmHg);
 ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
 
 ($('densidad') as HTMLSelectElement).addEventListener('change', (event) => {
@@ -289,6 +335,7 @@ $('audio').addEventListener('click', () => {
 $('teaching').addEventListener('click', () => {
   s.teachingMode = !s.teachingMode;
   $('teaching').classList.toggle('on', s.teachingMode);
+  ($('scenarioPanel') as HTMLDetailsElement).open = s.teachingMode;
 });
 $('caliper').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dist' ? 'none' : 'dist';

@@ -67,3 +67,10 @@ del motor.
   Wiley; 2000.
 - **westerhof-windkessel-2009** — Westerhof N, Lankhaaer JW, Westerhof BE.
   The arterial Windkessel. Med Biol Eng Comput. 2009.
+- **czosnyka-varsos-crcp-2013** — Czosnyka M, Varsos GV. Critical closing
+  pressure and cerebral perfusion pressure: CrCP as ICP plus effective vessel
+  wall tension. Neurocritical care reference, 2013.
+- **willie-2014** — Willie CK et al. Regional brain blood flow in response to
+  changes in arterial CO₂; cerebrovascular reactivity reference, 2014.
+- **lassen-1959** — Lassen NA. Cerebral blood flow and oxygen consumption in
+  man. Physiological Reviews. 1959;39:183–238.

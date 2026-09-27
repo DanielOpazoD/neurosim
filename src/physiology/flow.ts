@@ -15,6 +15,7 @@ import type { HeadGeometry, Vessel } from '../anatomy/head';
 import { vesselAt, vesselClosest, vesselDistance } from '../anatomy/head';
 import { arterialShapeTable, FISIOLOGIA } from './params';
 import { Respiration } from './respiration';
+import type { HemodynamicState } from './hemodynamics';
 
 /** Estado fisiológico instantáneo. */
 export interface PhysState {
@@ -27,6 +28,7 @@ export interface PhysState {
   readonly respiratoryPhase: number;
   /** Modulación multiplicativa del flujo por respiración. */
   readonly flowModulation: number;
+  readonly hemo: HemodynamicState;
 }
 
 /** Reloj cardíaco: fase y tiempos de latido para las medidas. */
@@ -102,7 +104,8 @@ export function arterialShape(phase: number): number {
 }
 
 /** Velocidad espacial media del vaso en la fase dada, cm/s. */
-export function vesselVelocityCms(v: Vessel, phase: number, modulation = 1): number {
+export function vesselVelocityCms(v: Vessel, phase: number, modulation = 1, hemo?: HemodynamicState): number {
+  if (hemo) return v.meanCms * hemo.flowFactor * hemo.waveform(phase) * modulation;
   return (v.edvCms + (v.psvCms - v.edvCms) * arterialShape(phase)) * modulation;
 }
 
@@ -117,14 +120,14 @@ export class CerebralFlow {
    * Velocidad de la sangre en mm/s en un punto del paciente.
    * Perfil laminar: v(r) = vEje·(1 − 0,85·(r/R)²) dentro del tubo.
    */
-  velocityAt(p: Vec3, phase: number, modulation = 1): Vec3 {
+  velocityAt(p: Vec3, phase: number, modulation = 1, hemo?: HemodynamicState): Vec3 {
     const v = vesselAt(this.head, p);
     if (!v) return [0, 0, 0];
     const d = vesselDistance(v, p); // <0 dentro
     const r = v.radiusMm + d; // distancia al eje
     const x = Math.min(1, Math.max(0, r / v.radiusMm));
     const profile = 1 - 0.85 * x * x;
-    const uCms = vesselVelocityCms(v, phase, modulation);
+    const uCms = vesselVelocityCms(v, phase, modulation, hemo);
     const dir = normalize(vesselClosest(v, p).tangent);
     return scale(dir, v.flowSign * uCms * 10 * Math.max(0, profile));
   }

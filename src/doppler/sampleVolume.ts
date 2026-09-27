@@ -471,7 +471,7 @@ export class SampleVolumeIQ {
             if (s.vessel) {
               s.vMat = scale(
                 s.flowBasis,
-                vesselVelocityCms(s.vessel, phys.cardiacPhase, phys.flowModulation),
+                vesselVelocityCms(s.vessel, phys.cardiacPhase, phys.flowModulation, phys.hemo),
               );
             } else {
               s.vMat = tissueVelocityMmS({

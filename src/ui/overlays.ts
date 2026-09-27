@@ -147,6 +147,15 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
           ),
         ]
       : [];
+  const hemo = s.teachingMode ? controller.hemodynamics() : null;
+  const hemoRows = hemo
+    ? [
+        row(
+          'Hemodinámica',
+          `PPC ${hemo.cppMmHg.toFixed(0)} · CrCP ${hemo.crcpMmHg.toFixed(0)} · flujo ×${hemo.flowFactor.toFixed(2)} · PI esp. ${hemo.expectedPi.toFixed(2)}`,
+        ),
+      ]
+    : [];
   if (summary) {
     const comp = controller.composition();
     el.innerHTML = [
@@ -159,6 +168,7 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}%`),
       row('Vaso dominante', comp?.dominantVesselId ?? '—'),
       ...angleRows,
+      ...hemoRows,
     ].join('');
     return;
   }
@@ -174,6 +184,6 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       row('Medidas', `${s.measurements.length}`),
     ].join('');
   } else {
-    el.innerHTML = [...angleRows, row('Sin medidas', '—')].join('');
+    el.innerHTML = [...angleRows, ...hemoRows, row('Sin medidas', '—')].join('');
   }
 }

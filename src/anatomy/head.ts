@@ -31,6 +31,8 @@ export interface Vessel {
   readonly flowSign: 1 | -1;
   /** Flujo medio del segmento, ml/min, positivo en la orientación anatómica. */
   readonly flowMlMin: number;
+  /** Velocidad media derivada de Q/(πr²·0,6), cm/s. */
+  readonly meanCms: number;
   /** Velocidad sistólica pico de referencia, cm/s. */
   readonly psvCms: number;
   /** Velocidad telediastólica de referencia, cm/s. */

@@ -15,6 +15,8 @@ import { DOPPLER } from './params';
 import { ensembleWallFilter, kasaiEstimate, kasaiVariance, kasaiVelocityCms } from './kasai';
 import { tissueVelocityMmS } from './clutter';
 import { FISIOLOGIA } from '../physiology/params';
+import type { HemodynamicState } from '../physiology/hemodynamics';
+import { hemodynamics } from '../physiology/hemodynamics';
 
 export interface ColorCell {
   /** Velocidad proyectada con signo hacia la sonda, cm/s. NaN = sin flujo. */
@@ -56,6 +58,7 @@ function cellScatterers(
   cardiacPhase: number,
   heartRateBpm: number,
   flowModulation: number,
+  hemo: HemodynamicState,
   primaryVessel: Vessel,
 ): ColorScatterer[] {
   const rng = new SeededRandom((seed ^ hash3(zi, ci, 0, 0x4b534149)) >>> 0);
@@ -74,7 +77,7 @@ function cellScatterers(
     let velocityTowardCms = 0;
     let amplitude = MATERIALS.tejidoCerebral.scatterAmp * 60;
     if (closest) {
-      const velocity = flow.velocityAt(closest.point, cardiacPhase, flowModulation);
+      const velocity = flow.velocityAt(closest.point, cardiacPhase, flowModulation, hemo);
       velocityTowardCms = -(velocity[0] * axial[0] + velocity[1] * axial[1] + velocity[2] * axial[2]) / 10;
       amplitude = DOPPLER.params.amplitudSangre.value;
     } else {
@@ -113,6 +116,7 @@ export function renderColorDoppler(
   rows: number,
   cols: number,
   flowModulation = 1,
+  hemo?: HemodynamicState,
 ): [Float32Array, Float32Array, Float32Array] {
   const vel = new Float32Array(rows * cols).fill(Number.NaN);
   const pow = new Float32Array(rows * cols);
@@ -122,6 +126,13 @@ export function renderColorDoppler(
   const f0Hz = settings.frequencyMhz * 1e6;
   const phaseScale = (4 * Math.PI * f0Hz) / (SOUND_SPEED_MS * 1000);
   const heartRateBpm = FISIOLOGIA.params.heartRateBpm.value;
+  const effectiveHemo =
+    hemo ??
+    hemodynamics({
+      mapMmHg: FISIOLOGIA.params.mapMmHg.value,
+      paco2MmHg: FISIOLOGIA.params.paco2MmHg.value,
+      icpMmHg: FISIOLOGIA.params.icpMmHg.value,
+    });
   const wallVelocityCms = (SOUND_SPEED_MS * settings.wallFilterHz * 100) / (2 * f0Hz);
   const elevation = elevationDirection(pose);
   const attenuationCache = new Map<number, number>();
@@ -162,6 +173,7 @@ export function renderColorDoppler(
         cardiacPhase,
         heartRateBpm,
         flowModulation,
+        effectiveHemo,
         primaryVessel,
       );
       const re = new Float32Array(ensemble);

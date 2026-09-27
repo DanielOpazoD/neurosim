@@ -15,6 +15,7 @@ import { Respiration } from '../physiology/respiration';
 import { FISIOLOGIA } from '../physiology/params';
 import type { BasalPhysiology } from './contracts';
 import type { Side } from './contracts';
+import { hemodynamics, onsdForIcpMm } from '../physiology/hemodynamics';
 
 export interface ReferenceCase {
   readonly patient: PatientState;
@@ -25,6 +26,7 @@ export interface ReferenceCase {
   readonly flow: CerebralFlow;
   readonly willisVariant: WillisVariant;
   readonly physStateAt: (t: number) => PhysState;
+  readonly setPhysiology: (p: BasalPhysiology) => void;
 }
 
 /** Semilla fija del adulto de referencia N1. */
@@ -35,24 +37,41 @@ export function buildReferenceCase(
   willisVariant: WillisVariant = 'normal',
 ): ReferenceCase {
   const rng = new SeededRandom(seed);
-  const physiology: BasalPhysiology = MANIFEST.case.physiology;
+  let physiology: BasalPhysiology = { ...MANIFEST.case.physiology };
   const patient: PatientState = {
     seed,
     manifestVersion: MANIFEST.version,
     label: MANIFEST.case.label,
     physiology,
   };
-  const eyes = buildReferenceEyes(rng.fork('eyes'), MANIFEST.case.dvnoIntMm);
+  const eyesFor = (dvno: Readonly<Record<Side, number>>) =>
+    buildReferenceEyes(new SeededRandom(seed).fork('eyes'), dvno);
+  const eyes = eyesFor(MANIFEST.case.dvnoIntMm);
+  rng.fork('eyes');
   const head = buildReferenceHead(rng.fork('head'), willisVariant);
   const respiration = new Respiration(FISIOLOGIA.params.respiratoryRatePerMin.value);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
   const flow = new CerebralFlow(head, physiology);
+  let currentHemo = hemodynamics(physiology);
   const physStateAt = (t: number): PhysState => ({
     t,
     cardiacPhase: cardiac.phaseAt(t),
     heartRateBpm: physiology.heartRateBpm,
     respiratoryPhase: respiration.phaseAt(t),
     flowModulation: 1 + FISIOLOGIA.params.respFlowModulation.value * respiration.signalAt(t),
+    hemo: currentHemo,
   });
-  return { patient, eyes, head, cardiac, respiration, flow, willisVariant, physStateAt };
+  const setPhysiology = (next: BasalPhysiology): void => {
+    physiology = { ...next };
+    patient.physiology = physiology;
+    currentHemo = hemodynamics(physiology);
+    const dvno = {
+      der: onsdForIcpMm(MANIFEST.case.dvnoIntMm.der, physiology.icpMmHg),
+      izq: onsdForIcpMm(MANIFEST.case.dvnoIntMm.izq, physiology.icpMmHg),
+    };
+    const nextEyes = eyesFor(dvno);
+    eyes.der = nextEyes.der;
+    eyes.izq = nextEyes.izq;
+  };
+  return { patient, eyes, head, cardiac, respiration, flow, willisVariant, physStateAt, setPhysiology };
 }

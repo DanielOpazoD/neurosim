@@ -78,5 +78,17 @@ calibración.
 - **fisiologia.heartRateBpm**, **fisiologia.mapMmHg**, **fisiologia.a1PsvCms**, **fisiologia.a1EdvCms**, **fisiologia.p1PsvCms**, **fisiologia.p1EdvCms**, **fisiologia.basilarPsvCms**, **fisiologia.basilarEdvCms** — fisiología vascular del fixture N1; calibrar contra trazas clínicas anonimizadas.
 - **fisiologia.ejectionFraction**, **fisiologia.windkesselTauS**, **fisiologia.backflowFraction**, **fisiologia.backflowDurationFraction** — parámetros del Windkessel de dos elementos; `windkesselTauS = 0,18 s` es una constante efectiva estimada de decaimiento de la onda de velocidad ACM normalizada, ajustada para media de onda entre 0,34 y 0,39; no representa la RC sistémica fisiológica de 1–2 s. El término de rebote positivo `+3 × backflowFraction` es un truco explícito para hacer visible la segunda joroba/incisura dicrota, no una afirmación de flujo medido.
 - **fisiologia.respiratoryRatePerMin**, **fisiologia.respFlowModulation**, **fisiologia.respBrainShiftMm**, **fisiologia.hrvSd**, **fisiologia.rsaAmplitude** — respiración, modulación hemodinámica y variabilidad RR deterministas; son aproximaciones educativas sin autorregulación ni acoplamiento PIC.
+- **fisiologia.pulsePressureMmHg** — presión de pulso arterial fija de 40 mmHg
+  para el fixture N1; aproximación de consenso, no una presión pulsátil
+  individual.
+- **fisiologia.vasomotorToneMmHg** — tono efectivo de 34,2287 mmHg calibrado
+  para PSV ACM N1 de 90 cm/s con la media vascular derivada; el EDV emergente
+  es aproximadamente 33–35 cm/s porque la media Windkessel está fijada.
+- **fisiologia.autoregSlopePer10**, **fisiologia.co2SlopeLn** — pendiente
+  residual de Lassen y sensibilidad multiplicativa a PaCO₂; son una reducción
+  estática de la autorregulación y no modelan reserva vascular individual.
+- **fisiologia.onsdSlopeMmPerMmHg**, **fisiologia.onsdMaxMm** — relación
+  educativa estática PIC–DVNO, con pendiente 0,06 mm/mmHg y saturación en
+  7,5 mm; el parámetro está estimado.
 - **fisiologia.laminarProfile** — perfil parabólico de velocidad; calibrar contra perfiles Doppler intravasculares.
 - **fisiologia.qM1MlMin**, **fisiologia.qA2MlMin**, **fisiologia.qP2MlMin** — caudales terminales derivados de la media numérica de `arterialShape`; la continuidad de Murray se comprueba, no se impone. Las variantes representan aplasia/hipoplasia A1 (~10 %) y ACP fetal (~15–20 %) como escenarios docentes, no como prevalencia individual.

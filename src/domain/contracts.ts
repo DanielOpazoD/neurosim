@@ -23,7 +23,7 @@ export interface PatientState {
   /** Etiqueta humana del caso (p. ej. «Adulto de referencia N1»). */
   readonly label: string;
   /** Parámetros fisiológicos basales (latente, solo para motor y debriefing). */
-  readonly physiology: BasalPhysiology;
+  physiology: BasalPhysiology;
 }
 
 /** Fisiología basal documentada del adulto de referencia (plan §2.4). */
