@@ -123,6 +123,9 @@ function setStation(station: Station, side: Side): void {
     base: s.settings.baseline,
   };
   for (const [id, value] of Object.entries(values)) $<HTMLInputElement>(id).value = String(value);
+  for (const id of Object.keys(values)) {
+    $<HTMLInputElement>(id).dispatchEvent(new Event('input'));
+  }
   ($('densidad') as HTMLSelectElement).value = s.settings.lineDensity;
   document.querySelectorAll('.tab').forEach((el) => {
     const t = el as HTMLElement;
