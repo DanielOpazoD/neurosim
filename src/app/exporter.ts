@@ -6,6 +6,7 @@ import type { ReferenceCase } from '../domain/referenceCase';
 import { errors } from '../core/errorLog';
 import type { AppState } from './state';
 import { acousticOutput } from '../ultrasound/acousticOutput';
+import { buildReport } from '../domain/onsdProtocol';
 
 export function exportPayload(sim: ReferenceCase, s: AppState): object {
   const mode = s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode';
@@ -15,6 +16,7 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
     willisVariant: sim.willisVariant,
     frame: s.currentFrame,
     measurements: s.measurements,
+    onsdReport: buildReport(s.onsd),
     settings: s.settings,
     acousticOutput: acousticOutput({
       transducer: s.settings.transducer,
@@ -36,6 +38,23 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
       : undefined,
     errores: errors(),
   };
+}
+
+export function exportOnsdReport(
+  sim: ReferenceCase,
+  s: AppState,
+  download: (name: string, href: string, type?: string) => void,
+): void {
+  const data = JSON.stringify(
+    { case: sim.patient.label, seed: sim.patient.seed, onsdReport: buildReport(s.onsd) },
+    null,
+    2,
+  );
+  download(
+    `neurosono-onsd-informe-${Date.now()}.json`,
+    URL.createObjectURL(new Blob([data], { type: 'application/json' })),
+    'application/json',
+  );
 }
 
 export function exportSession(

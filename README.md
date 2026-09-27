@@ -18,6 +18,8 @@ exacta; una señal ausente no acredita cese circulatorio.
 - Ventana transtemporal bilateral: cráneo, mesencéfalo, polígono de Willis;
   B-mode + Doppler color + PW con audio y medidas PSV/EDV/TAMax/PI/IR.
 - Calipers, freeze, cine, exportación PNG/JSON.
+- Protocolo DVNO 2×2 (transversal/sagital por ojo), DTE, ratio DVNO/ETD e
+  informe educativo exportable.
 - Rótulo acústico MI/TI por modo y alerta ALARA oftálmica en modo docente.
 - Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:
   bloques posteriores (ver `docs/LIMITATIONS.md`).

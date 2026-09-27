@@ -2,7 +2,7 @@
  * Ayudas de presentación para canvas, espectro y lecturas del panel.
  * No contiene adquisición ni estado físico propio.
  */
-import { fromEyeLocal, nerveCenterline } from '../anatomy/eye';
+import { fromEyeLocal, nerveCenterline, trueOnsdMm } from '../anatomy/eye';
 import { add, scale } from '../core/vec3';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { ANATOMIA_OJO } from '../anatomy/params';
@@ -12,7 +12,8 @@ import type { ScanGeometry } from '../ultrasound/probe';
 import { beamDirAt, LINEAR_APERTURE_MM, patientToImage } from '../ultrasound/probe';
 import { currentPose } from '../app/poses';
 import type { AppState } from '../app/state';
-import { imagePointToCanvas, canvasToImagePoint } from '../app/measurements';
+import { imagePointToCanvas, canvasToImagePoint, dteGuide } from '../app/measurements';
+import { buildReport } from '../domain/onsdProtocol';
 import type { PwController } from '../app/pwController';
 import { angleCorrectionErrorFactor } from '../doppler/insonation';
 import { acousticOutput } from '../ultrasound/acousticOutput';
@@ -88,7 +89,23 @@ export function drawScale(
     ctx.fillRect(4, y, 6, 1);
     ctx.fillText(`${mm} mm`, 12, y + 3);
   }
-  if (s.station !== 'ojo' || s.caliperMode !== 'dvno' || !currentFrame) return;
+  if (s.station !== 'ojo' || !currentFrame) return;
+  if (s.caliperMode === 'dte') {
+    const [a, b] = dteGuide(sim, s);
+    const [x1, y1] = imagePointToCanvas(a, s, ctx.canvas.width, ctx.canvas.height);
+    const [x2, y2] = imagePointToCanvas(b, s, ctx.canvas.width, ctx.canvas.height);
+    ctx.strokeStyle = 'rgba(77,163,255,0.8)';
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(77,163,255,0.9)';
+    ctx.fillText(`DTE ${s.side}`, x1 + 8, y1 - 4);
+    return;
+  }
+  if (s.caliperMode !== 'dvno') return;
   const eye = sim.eyes[s.side];
   const patient = fromEyeLocal(eye, nerveCenterline(eye, ANATOMIA_OJO.params.onsdOffsetMm.value));
   const { u, z } = patientToImage(currentPose(sim, s), 'linear', patient);
@@ -136,7 +153,12 @@ export function drawSpectral(
 
 const row = (k: string, v: string) => `<div><span>${k}</span><span class="meas">${v}</span></div>`;
 
-export function updateReadouts(el: HTMLElement, s: AppState, controller: PwController): void {
+export function updateReadouts(
+  el: HTMLElement,
+  sim: ReferenceCase,
+  s: AppState,
+  controller: PwController,
+): void {
   const summary = controller.latestMcaMeasure();
   const angle = s.teachingMode && s.station === 'temporal' ? controller.insonation() : null;
   const angleRows =
@@ -171,6 +193,35 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
     s.teachingMode && alara.ocularLimitExceeded
       ? [row('ALARA', 'supera límite oftálmico (MI ≤ 0,23 · TI ≤ 1,0)')]
       : [];
+  const report = buildReport(s.onsd);
+  const reportRows =
+    s.station === 'ojo' && (s.onsdActive || report.complete)
+      ? [
+          row(
+            'Protocolo DVNO',
+            s.onsdActive
+              ? s.caliperMode === 'dte'
+                ? `DTE ${s.side}`
+                : `${s.side} · ${planeForLabel(s.rotDeg)}`
+              : 'completo',
+          ),
+          row(
+            'Informe',
+            report.complete
+              ? `ratio ${((report.perSide.der.ratio! + report.perSide.izq.ratio!) / 2).toFixed(2)}`
+              : `faltan ${report.flags.includes('plano-incompleto') ? 'DVNO' : 'DTE'}`,
+          ),
+          ...(s.teachingMode
+            ? [
+                row(
+                  'DVNO real (modelo)',
+                  `der ${trueOnsdMm(sim.eyes.der, 3, 'interno').toFixed(2)} · izq ${trueOnsdMm(sim.eyes.izq, 3, 'interno').toFixed(2)}`,
+                ),
+              ]
+            : []),
+          ...(s.onsdWarning ? [row('Aviso', 'Plano/lado no coincide con el paso del protocolo')] : []),
+        ]
+      : [];
   if (summary) {
     const comp = controller.composition();
     el.innerHTML = [
@@ -185,6 +236,7 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       ...angleRows,
       ...hemoRows,
       ...alaraRows,
+      ...reportRows,
     ].join('');
     return;
   }
@@ -192,7 +244,7 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
     const last = s.measurements[s.measurements.length - 1]!;
     el.innerHTML = [
       row(
-        last.kind === 'dvno' ? `DVNO ${last.convention ?? ''}` : 'Distancia',
+        last.kind === 'dvno' ? `DVNO ${last.convention ?? ''}` : last.kind === 'dte' ? 'DTE' : 'Distancia',
         `${last.value.toFixed(2)} mm`,
       ),
       row('Cuadro', `t=${last.frameTSeconds.toFixed(2)} s`),
@@ -200,6 +252,11 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       row('Medidas', `${s.measurements.length}`),
     ].join('');
   } else {
-    el.innerHTML = [...angleRows, ...hemoRows, ...alaraRows, row('Sin medidas', '—')].join('');
+    el.innerHTML = [...angleRows, ...hemoRows, ...alaraRows, ...reportRows, row('Sin medidas', '—')].join('');
   }
+}
+
+function planeForLabel(rotDeg: number): string {
+  const mod = ((rotDeg % 180) + 180) % 180;
+  return mod < 45 || mod >= 135 ? 'transversal' : 'sagital';
 }

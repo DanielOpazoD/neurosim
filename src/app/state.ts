@@ -7,6 +7,7 @@ import type { AcquisitionSettings, AcquiredFrame, Measurement, Side, Station } f
 import type { ImagePoint } from '../domain/measure';
 import type { ScanGeometry } from '../ultrasound/probe';
 import { defaultEyeSettings } from '../domain/settings';
+import { createOnsdProtocolState, type OnsdProtocolState } from '../domain/onsdProtocol';
 
 export interface CineItem {
   frame: AcquiredFrame;
@@ -24,7 +25,10 @@ export interface AppState {
   press: number;
   frozen: boolean;
   pwOn: boolean;
-  caliperMode: 'none' | 'dist' | 'dvno';
+  caliperMode: 'none' | 'dist' | 'dvno' | 'dte';
+  onsdActive: boolean;
+  onsdWarning: boolean;
+  onsd: OnsdProtocolState;
   caliperPts: ImagePoint[];
   measurements: Measurement[];
   cine: CineItem[];
@@ -49,6 +53,9 @@ export function createInitialState(): AppState {
     frozen: false,
     pwOn: false,
     caliperMode: 'none',
+    onsdActive: false,
+    onsdWarning: false,
+    onsd: createOnsdProtocolState(),
     caliperPts: [],
     measurements: [],
     cine: [],

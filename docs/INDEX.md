@@ -25,6 +25,7 @@
 | LIM-18 | Windkessel reducido                 | —                                                          |
 | LIM-19 | Hemodinámica estática               | —                                                          |
 | LIM-20 | ALARA acústico reducido             | —                                                          |
+| LIM-21 | Protocolo DVNO reducido             | —                                                          |
 | LIM-01 | Patología                           | —                                                          |
 | LIM-02 | Lindegaard                          | —                                                          |
 | LIM-03 | DVNO y PIC                          | —                                                          |
@@ -75,6 +76,7 @@
 | DEC-28 | La presión crítica de cierre se acopla al Windkessel y a la             | —                          |
 | DEC-29 | La autorregulación de Lassen y la reactividad al CO₂ actúan             | —                          |
 | DEC-30 | MI y TI se calculan por adquisición a partir de presión pico            | —                          |
+| DEC-31 | El protocolo DVNO registra cuatro planos (transversal y                 | —                          |
 
 ## Parámetros registrados
 
@@ -83,5 +85,5 @@
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
 | `doppler`            |         31 |
-| `fisiologia`         |         34 |
+| `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         38 |
