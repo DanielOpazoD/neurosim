@@ -1,6 +1,6 @@
 // Adaptado de DanielOpazoD/vexus-sim @ 59fb7b18e9c1 — src/doppler/sampleVolume.ts (MIT).
-// Simplificado para neurosono-sim: sin respiración ni deformación; la velocidad
-// viene de CerebralFlow (tubos del polígono de Willis con perfil laminar).
+// Simplificado para neurosono-sim: sin deformación; la velocidad material del
+// tejido se modela en el bloque de clutter y recibe el estado respiratorio.
 // LIM-11/LIM-12: la advección y la resiembra son aproximaciones del fixture.
 
 /**
@@ -469,7 +469,10 @@ export class SampleVolumeIQ {
               }
             }
             if (s.vessel) {
-              s.vMat = scale(s.flowBasis, vesselVelocityCms(s.vessel, phys.cardiacPhase));
+              s.vMat = scale(
+                s.flowBasis,
+                vesselVelocityCms(s.vessel, phys.cardiacPhase, phys.flowModulation),
+              );
             } else {
               s.vMat = tissueVelocityMmS({
                 head: this.head,

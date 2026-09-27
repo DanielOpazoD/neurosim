@@ -22,6 +22,7 @@
 | ------ | ----------------------------------- | ---------------------------------------------------------- |
 | LIM-16 | Color Kasai reducido                | `src/doppler/color.ts`                                     |
 | LIM-17 | Movimiento tisular reducido         | —                                                          |
+| LIM-18 | Windkessel reducido                 | —                                                          |
 | LIM-01 | Patología                           | —                                                          |
 | LIM-02 | Lindegaard                          | —                                                          |
 | LIM-03 | DVNO y PIC                          | —                                                          |
@@ -67,6 +68,8 @@
 | DEC-23 | El color Doppler sintetiza ensembles IQ deterministas por               | —                          |
 | DEC-24 | El clutter Doppler emerge del movimiento material: la pared             | —                          |
 | DEC-25 | La docencia distingue ángulo real tridimensional, ángulo                | —                          |
+| DEC-26 | La onda arterial se genera con un Windkessel de dos elementos           | —                          |
+| DEC-27 | La agenda cardíaca conserva intervalos RR deterministas con             | —                          |
 
 ## Parámetros registrados
 
@@ -75,5 +78,5 @@
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
 | `doppler`            |         31 |
-| `fisiologia`         |         21 |
+| `fisiologia`         |         28 |
 | `fisica-ultrasonido` |         28 |

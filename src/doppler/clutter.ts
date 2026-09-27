@@ -5,6 +5,7 @@ import type { HeadGeometry } from '../anatomy/head';
 import { vesselClosest, vesselDistance } from '../anatomy/head';
 import { arterialShape } from '../physiology/flow';
 import { DOPPLER } from './params';
+import { FISIOLOGIA } from '../physiology/params';
 
 export interface TissueMotionInput {
   head: HeadGeometry;
@@ -46,7 +47,14 @@ export function tissueVelocityMmS(inp: TissueMotionInput): Vec3 {
     dShapeDt *
     Math.exp(-dToWall / DOPPLER.params.wallMotionDecayMm.value);
   const wall = scale(radial, wallMagnitude);
-  const brain = [0, 0, DOPPLER.params.brainPulsationMm.value * dShapeDt] as Vec3;
+  const respiratoryHz = FISIOLOGIA.params.respiratoryRatePerMin.value / 60;
+  const respiratoryVelocity =
+    FISIOLOGIA.params.respBrainShiftMm.value *
+    2 *
+    Math.PI *
+    respiratoryHz *
+    Math.cos(2 * Math.PI * respiratoryHz * inp.tSec);
+  const brain = [0, 0, DOPPLER.params.brainPulsationMm.value * dShapeDt + respiratoryVelocity] as Vec3;
   return [wall[0] + brain[0], wall[1] + brain[1], wall[2] + brain[2]];
 }
 

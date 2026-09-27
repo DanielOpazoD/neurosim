@@ -26,6 +26,8 @@ function requestFor(
     press: 0.3,
     t: 0,
     cardiacPhase: 0,
+    respiratoryPhase: 0,
+    flowModulation: 1,
     color: station === 'temporal',
   };
 }

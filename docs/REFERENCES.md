@@ -65,3 +65,5 @@ del motor.
 - **evans-mcdicken-doppler-2000** — Evans DH, McDicken WN. _Doppler
   Ultrasound: Physics, Instrumentation, and Clinical Applications_. 2nd ed.
   Wiley; 2000.
+- **westerhof-windkessel-2009** — Westerhof N, Lankhaaer JW, Westerhof BE.
+  The arterial Windkessel. Med Biol Eng Comput. 2009.
