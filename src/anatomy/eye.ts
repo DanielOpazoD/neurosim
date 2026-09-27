@@ -18,7 +18,6 @@ import { MATERIALS, type Material, type MaterialId } from './materials';
 import { add, dist, dot, normalize, scale, smoothstep, sub, v3, type Vec3 } from '../core/vec3';
 import type { SeededRandom } from '../core/random';
 import type { Side } from '../domain/contracts';
-import { MANIFEST } from '../domain/manifest';
 import { ANATOMIA_OJO } from './params';
 
 const EYE = ANATOMIA_OJO.params;
@@ -52,7 +51,13 @@ export interface EyeGeometry {
 }
 
 /** Adulto de referencia N1: dos ojos con asimetría pequeña documentada. */
-export function buildReferenceEyes(rng: SeededRandom): { der: EyeGeometry; izq: EyeGeometry } {
+export function buildReferenceEyes(
+  rng: SeededRandom,
+  dvnoIntMm: Readonly<Record<Side, number>> = {
+    der: EYE.dvnoIntDerMm.value,
+    izq: EYE.dvnoIntIzqMm.value,
+  },
+): { der: EyeGeometry; izq: EyeGeometry } {
   const mk = (side: Side): EyeGeometry => {
     const sign = side === 'izq' ? 1 : -1; // ojo izquierdo en +x
     const center: Vec3 = [sign * EYE.centerAbsXmm.value, EYE.centerYmm.value, EYE.centerZmm.value];
@@ -72,7 +77,7 @@ export function buildReferenceEyes(rng: SeededRandom): { der: EyeGeometry; izq: 
       lensAxialMm: EYE.lensAxialMm.value,
       lensRadialMm: EYE.lensRadialMm.value,
       irisApertureMm: EYE.irisApertureMm.value,
-      sheathRadiusExtMm: (MANIFEST.case.dvnoIntMm[side] + 2 * DURA_MM) / 2,
+      sheathRadiusExtMm: (dvnoIntMm[side] + 2 * DURA_MM) / 2,
       nerveRadiusMm: EYE.nerveRadiusMm.value,
       duraMm: DURA_MM,
       sheathEcc: EYE.sheathEcc.value + r.range(-EYE.sheathEccJitter.value, EYE.sheathEccJitter.value),

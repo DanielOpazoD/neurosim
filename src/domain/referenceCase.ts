@@ -33,7 +33,7 @@ export function buildReferenceCase(seed: number = REFERENCE_SEED): ReferenceCase
     label: MANIFEST.case.label,
     physiology,
   };
-  const eyes = buildReferenceEyes(rng.fork('eyes'));
+  const eyes = buildReferenceEyes(rng.fork('eyes'), MANIFEST.case.dvnoIntMm);
   const head = buildReferenceHead(rng.fork('head'));
   const cardiac = new CardiacCycle(physiology.heartRateBpm, rng.fork('cardiac'));
   const flow = new CerebralFlow(head, physiology);

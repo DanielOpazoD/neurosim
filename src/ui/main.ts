@@ -3,6 +3,7 @@
  * La adquisición, el PW, el cine y las mediciones viven en la capa app.
  */
 import { SimulationClock } from '../core/clock';
+import { errors, logError, onError } from '../core/errorLog';
 import { buildReferenceCase } from '../domain/referenceCase';
 import type { AcquisitionSettings, Side, Station } from '../domain/contracts';
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
@@ -25,9 +26,31 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const bmodeCv = $<HTMLCanvasElement>('bmode');
 const spectralCv = $<HTMLCanvasElement>('spectral');
 const pospad = $<HTMLCanvasElement>('pospad');
+const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
 let lastRender = 0;
 let lastT = performance.now();
+
+function updateErrorBadge(): void {
+  const count = errors().length;
+  errorBadge.hidden = count === 0;
+  errorBadge.textContent = `Errores (${count})`;
+}
+
+onError(updateErrorBadge);
+errorBadge.addEventListener('click', () => {
+  console.error('Errores registrados', errors().slice(-20));
+});
+updateErrorBadge();
+window.addEventListener('error', (event) => {
+  const error = event as ErrorEvent;
+  logError('window', error.error ?? error.message, {
+    filename: error.filename,
+    lineno: error.lineno,
+    colno: error.colno,
+  });
+});
+window.addEventListener('unhandledrejection', (event) => logError('window', event.reason));
 
 function bindRange(id: string, out: string, apply: (v: number) => void, fmt: (v: number) => string): void {
   const input = $<HTMLInputElement>(id);
@@ -132,19 +155,23 @@ function drawCineFrame(): void {
 function frameLoop(now: number): void {
   const elapsed = Math.min(0.2, (now - lastT) / 1000);
   lastT = now;
-  for (let i = 0; i < clock.requestSteps(elapsed); i++) clock.advance();
-  pw.step(clock, elapsed);
-  if (now - lastRender > 90 && !s.frozen) {
-    lastRender = now;
-    const item = acquire(sim, s, clock);
-    s.currentFrame = item.frame;
-    pushCine(s, item);
-    drawFrame(item.bmode, item.scan);
-  } else if (s.frozen && s.cinePlaying && s.cine.length) {
-    drawCineFrame();
+  try {
+    for (let i = 0; i < clock.requestSteps(elapsed); i++) clock.advance();
+    pw.step(clock, elapsed);
+    if (now - lastRender > 90 && !s.frozen) {
+      lastRender = now;
+      const item = acquire(sim, s, clock);
+      s.currentFrame = item.frame;
+      pushCine(s, item);
+      drawFrame(item.bmode, item.scan);
+    } else if (s.frozen && s.cinePlaying && s.cine.length) {
+      drawCineFrame();
+    }
+    drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
+    updateReadouts($('readouts'), s, pw);
+  } catch (err) {
+    logError('frame', err);
   }
-  drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
-  updateReadouts($('readouts'), s, pw);
   requestAnimationFrame(frameLoop);
 }
 

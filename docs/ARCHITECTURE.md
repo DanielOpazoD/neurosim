@@ -23,6 +23,22 @@ La UI es el único lugar que conoce el DOM y el canvas.
 - **app**: adquisición, poses, control PW, cine, mediciones y exportación.
 - **ui**: composición, eventos, canvas, overlays y readouts.
 
+`tests/layers.test.ts` extrae las importaciones relativas de todos los
+TypeScript de `src/` y verifica esta matriz. Hay tres aristas observadas que
+se conservan explícitamente como deuda técnica, no como permisos generales:
+
+- `core → ultrasound`: `core/units.ts` consume la velocidad acústica registrada.
+  **TODO PR 8**: separar la conversión de unidades del registro físico.
+- `domain → ultrasound`: settings y conversión de puntos usan geometría y
+  parámetros acústicos. **TODO PR 8**: extraer esa frontera.
+- `domain → doppler`: el registro de parámetros incluye el conjunto Doppler.
+  **TODO PR 8**: mover el agregador fuera de domain.
+- `anatomy → physiology`: `head.ts` usa velocidades vasculares registradas para
+  construir los vasos. **TODO PR 8**: separar la geometría de la fisiología.
+
+La prueba falla ante cualquier arista nueva que no esté en la matriz o en esta
+lista explícita.
+
 ## Cadena causal
 
 ```text

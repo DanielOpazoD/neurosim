@@ -15,6 +15,7 @@ import type { AppState } from './state';
 import { currentPose } from './poses';
 import { DOPPLER } from '../doppler/params';
 import { FISICA_US } from '../ultrasound/params';
+import { logError } from '../core/errorLog';
 
 export class PwController {
   private chain: PwDopplerChain | null = null;
@@ -81,35 +82,39 @@ export class PwController {
   step(clock: SimulationClock, elapsed: number): void {
     const s = this.state;
     if (!s.pwOn || s.station !== 'temporal' || s.frozen) return;
-    const chain = this.ensureChain();
-    if (
-      s.settings.prfHz !== this.lastPrf ||
-      s.settings.wallFilterHz !== this.lastWf ||
-      s.settings.dopplerGainDb !== this.lastDg
-    ) {
-      chain.begin(
-        s.settings.prfHz,
-        s.settings.frequencyMhz * 1e6,
-        s.settings.dopplerGainDb,
-        s.settings.wallFilterHz,
-        clock.t,
+    try {
+      const chain = this.ensureChain();
+      if (
+        s.settings.prfHz !== this.lastPrf ||
+        s.settings.wallFilterHz !== this.lastWf ||
+        s.settings.dopplerGainDb !== this.lastDg
+      ) {
+        chain.begin(
+          s.settings.prfHz,
+          s.settings.frequencyMhz * 1e6,
+          s.settings.dopplerGainDb,
+          s.settings.wallFilterHz,
+          clock.t,
+        );
+        this.lastPrf = s.settings.prfHz;
+        this.lastWf = s.settings.wallFilterHz;
+        this.lastDg = s.settings.dopplerGainDb;
+      }
+      const pose = currentPose(this.sim, s);
+      chain.setGate(this.gateGeometry(pose));
+      chain.step(
+        {
+          t: clock.t,
+          cardiacPhase: this.sim.cardiac.phaseAt(clock.t),
+          heartRateBpm: this.sim.patient.physiology.heartRateBpm,
+        },
+        [0, 0, 0],
+        elapsed,
       );
-      this.lastPrf = s.settings.prfHz;
-      this.lastWf = s.settings.wallFilterHz;
-      this.lastDg = s.settings.dopplerGainDb;
+      chain.flush();
+    } catch (err) {
+      logError('pw', err);
     }
-    const pose = currentPose(this.sim, s);
-    chain.setGate(this.gateGeometry(pose));
-    chain.step(
-      {
-        t: clock.t,
-        cardiacPhase: this.sim.cardiac.phaseAt(clock.t),
-        heartRateBpm: this.sim.patient.physiology.heartRateBpm,
-      },
-      [0, 0, 0],
-      elapsed,
-    );
-    chain.flush();
   }
 
   reset(): void {
@@ -118,27 +123,32 @@ export class PwController {
   }
 
   latestMcaMeasure(): ReturnType<typeof summarizeBeats> {
-    const chain = this.chain;
-    const s = this.state;
-    if (!chain || !s.pwOn || s.station !== 'temporal' || chain.spectral.columns.length <= 20) {
+    try {
+      const chain = this.chain;
+      const s = this.state;
+      if (!chain || !s.pwOn || s.station !== 'temporal' || chain.spectral.columns.length <= 20) {
+        return null;
+      }
+      const trace = observedTrace(chain.spectral.columns.slice(-400), {
+        f0Hz: s.settings.frequencyMhz * 1e6,
+        angleCorrectionRad: (s.settings.angleCorrectionDeg * Math.PI) / 180,
+        invert: s.settings.invertColor,
+        fftSize: chain.spectral.fftSize,
+        wallFilterHz: s.settings.wallFilterHz,
+      });
+      const t0 = trace[0]?.t ?? 0;
+      const t1 = trace[trace.length - 1]?.t ?? 0;
+      const beats = this.sim.cardiac.beatsIn(t0, t1);
+      return summarizeBeats(
+        measureBeats(
+          trace,
+          beats.map((b) => ({ tStart: b.tStart, rr: b.rr })),
+        ),
+      );
+    } catch (err) {
+      logError('pw', err);
       return null;
     }
-    const trace = observedTrace(chain.spectral.columns.slice(-400), {
-      f0Hz: s.settings.frequencyMhz * 1e6,
-      angleCorrectionRad: (s.settings.angleCorrectionDeg * Math.PI) / 180,
-      invert: s.settings.invertColor,
-      fftSize: chain.spectral.fftSize,
-      wallFilterHz: s.settings.wallFilterHz,
-    });
-    const t0 = trace[0]?.t ?? 0;
-    const t1 = trace[trace.length - 1]?.t ?? 0;
-    const beats = this.sim.cardiac.beatsIn(t0, t1);
-    return summarizeBeats(
-      measureBeats(
-        trace,
-        beats.map((b) => ({ tStart: b.tStart, rr: b.rr })),
-      ),
-    );
   }
 
   composition() {

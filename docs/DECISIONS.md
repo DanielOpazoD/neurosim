@@ -39,3 +39,5 @@
     declaran con evidencia en sus propios `params.ts`; tamaños de canvas,
     umbrales de dibujo y constantes de implementación siguen siendo constantes
     nombradas, no parámetros del modelo.
+14. **DEC-14** — Los errores en tiempo de ejecución se registran y se exportan;
+    el bucle nunca muere en silencio.

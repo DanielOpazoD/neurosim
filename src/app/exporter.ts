@@ -3,6 +3,7 @@
  * El acceso al canvas se recibe como callback desde la UI.
  */
 import type { ReferenceCase } from '../domain/referenceCase';
+import { errors } from '../core/errorLog';
 import type { AppState } from './state';
 
 export function exportPayload(sim: ReferenceCase, s: AppState): object {
@@ -11,6 +12,7 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
     seed: sim.patient.seed,
     measurements: s.measurements,
     settings: s.settings,
+    errores: errors().slice(-20),
   };
 }
 

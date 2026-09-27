@@ -50,6 +50,7 @@
 | DEC-11 | Volumen parcial en la pared del tubo (±0,6 mm): el voxel borde mezcla   | —                          |
 | DEC-12 | El fixture DVNO se deriva del manifiesto (interno + 2·dura), nunca se   | —                          |
 | DEC-13 | Registro por dominio — anatomía, física US, Doppler y fisiología se     | —                          |
+| DEC-14 | Los errores en tiempo de ejecución se registran y se exportan;          | —                          |
 
 ## Parámetros registrados
 
