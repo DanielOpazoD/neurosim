@@ -12,15 +12,9 @@ import type { AcquisitionSettings, ProbePose } from '../domain/contracts';
 import type { HeadGeometry } from '../anatomy/head';
 import { vesselClosest, vesselDistance } from '../anatomy/head';
 import type { CerebralFlow } from '../physiology/flow';
+import { elevationFwhmMm, probeBeamSpec } from '../ultrasound/beam';
 import { beamDirAt, imageToPatient, type ScanGeometry } from '../ultrasound/probe';
 import { skullAttenuationDb } from '../ultrasound/attenuation';
-
-/**
- * Semiespesor elevacional del corte (mm): el haz tiene varios mm de espesor
- * fuera del plano imagen a profundidades transtemporales — los vasos se ven
- * aunque crucen el plano con un pequeño desvío.
- */
-export const SLICE_HALF_MM = 3.5;
 
 export interface ColorCell {
   /** Velocidad proyectada con signo hacia la sonda, cm/s. NaN = sin flujo. */
@@ -47,8 +41,10 @@ export function renderColorDoppler(
   const pow = new Float32Array(rows * cols);
   const f0Hz = settings.frequencyMhz * 1e6;
   const nyqCms = nyquistVelocityCms(settings.prfHz, f0Hz, 0);
+  const beam = probeBeamSpec(settings.transducer, settings);
   for (let zi = 0; zi < rows; zi++) {
     const zMm = ((zi + 0.5) / rows) * settings.depthMm;
+    const sliceHalfMm = Math.max(1, elevationFwhmMm(beam, zMm) / 2);
     for (let ci = 0; ci < cols; ci++) {
       const u = ((ci + 0.5) / cols - 0.5) * scan.widthMmOrRad;
       const p = imageToPatient(pose, scan.kind, u, zMm);
@@ -56,7 +52,7 @@ export function renderColorDoppler(
       let best: { v: (typeof head.vessels)[number]; extra: number } | null = null;
       for (const v of head.vessels) {
         const extra = vesselDistance(v, p); // <0 dentro del tubo
-        if (extra < SLICE_HALF_MM && (!best || extra < best.extra)) best = { v, extra };
+        if (extra < sliceHalfMm && (!best || extra < best.extra)) best = { v, extra };
       }
       if (!best) continue;
       const v = best.v;
@@ -71,7 +67,7 @@ export function renderColorDoppler(
       const span = 2 * nyqCms;
       vCms = (((vCms % span) + span + nyqCms) % span) - nyqCms;
       const attDb = skullAttenuationDb(head, pose.origin, p, settings.frequencyMhz);
-      const sliceW = 1 - Math.max(0, best.extra) / SLICE_HALF_MM;
+      const sliceW = 1 - Math.max(0, best.extra) / sliceHalfMm;
       // La ganancia de color del equipo (dopplerGainDb) eleva la potencia pintada.
       const power = Math.pow(10, (settings.dopplerGainDb - attDb) / 10) * sliceW;
       const idx = zi * cols + ci;

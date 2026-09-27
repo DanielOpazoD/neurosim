@@ -1,7 +1,7 @@
-// LIM-10: el PSF se valida por consistencia heurística hasta la implementación PR 12.
 import { describe, expect, it } from 'vitest';
 import { defaultEyeSettings } from '../../src/domain/settings';
 import { renderBMode } from '../../src/ultrasound/bmode';
+import { lateralFwhmMm, probeBeamSpec, sigmaFromFwhm } from '../../src/ultrasound/beam';
 import { buildScan, LINEAR_APERTURE_MM } from '../../src/ultrasound/probe';
 import type { Vec3 } from '../../src/core/vec3';
 
@@ -28,25 +28,6 @@ function fwhm(values: ArrayLike<number>, pitch: number): number {
   const leftEdge = left > 0 ? crossing(left - 1, left) : left;
   const rightEdge = right + 1 < values.length ? crossing(right + 1, right) : right;
   return (rightEdge - leftEdge) * pitch;
-}
-
-function numericalBoxGaussianFwhm(boxWidthMm: number, sigmaMm: number): number {
-  const stepMm = 0.01;
-  const halfSpan = Math.max(4, boxWidthMm + 6 * sigmaMm);
-  const samples = Math.round((2 * halfSpan) / stepMm) + 1;
-  const boxSamples = Math.round(boxWidthMm / stepMm) + 1;
-  const boxStart = -boxWidthMm / 2;
-  const values = new Float64Array(samples);
-  for (let i = 0; i < samples; i++) {
-    const x = -halfSpan + i * stepMm;
-    let sum = 0;
-    for (let j = 0; j < boxSamples; j++) {
-      const u = boxStart + j * stepMm;
-      sum += Math.exp(-((x - u) * (x - u)) / (2 * sigmaMm * sigmaMm));
-    }
-    values[i] = 20 * Math.log10(sum);
-  }
-  return fwhm(values, stepMm);
 }
 
 function sampledBoxGaussianFwhm(boxSamples: number, sigmaSamples: number, pitch: number): number {
@@ -86,17 +67,16 @@ function psfSetup() {
 }
 
 describe('validación del PSF', () => {
-  it.fails('la placa de 0,8 mm reproduce la predicción caja-gaussiana', () => {
+  it('la placa de 0,8 mm reproduce la predicción caja-gaussiana', () => {
     const { settings, pitch, scan, plateRow, scene } = psfSetup();
     const frame = renderBMode(scene, scan, settings, 'psf');
     const lateral = Array.from({ length: frame.width }, (_, li) => frame.db[plateRow * frame.width + li]!);
     const measured = fwhm(lateral, pitch);
-    const beamSigma0 = Math.max(0.8, 6 / settings.frequencyMhz);
-    const sigmaL = Math.max(0.6, beamSigma0 * 0.6);
-    const expected = numericalBoxGaussianFwhm(0.8, sigmaL * pitch);
-    // Medido ≈1,25 mm frente a ≈0,82 mm: discretización de tres líneas.
-    expect(measured).toBeGreaterThan(expected * 0.9);
-    expect(measured).toBeLessThan(expected * 1.1);
+    const beam = probeBeamSpec(settings.transducer, settings);
+    const sigmaL = sigmaFromFwhm(lateralFwhmMm(beam, settings.focusMm));
+    const expected = sampledBoxGaussianFwhm(Math.max(1, Math.round(0.8 / pitch)), sigmaL / pitch, pitch);
+    expect(measured).toBeGreaterThan(expected * 0.85);
+    expect(measured).toBeLessThan(expected * 1.15);
   });
 
   it('mide la PSF pura de una placa de una línea', () => {
@@ -109,7 +89,8 @@ describe('validación del PSF', () => {
     const frame = renderBMode(scene, scan, settings, 'psf-pura', { speckle: false });
     const lateral = Array.from({ length: frame.width }, (_, li) => frame.db[plateRow * frame.width + li]!);
     const measured = fwhm(lateral, pitch);
-    const sigmaL = Math.max(0.6, Math.max(0.8, 6 / settings.frequencyMhz) * 0.6);
+    const beam = probeBeamSpec(settings.transducer, settings);
+    const sigmaL = Math.max(0.6, sigmaFromFwhm(lateralFwhmMm(beam, settings.focusMm)) / pitch);
     const expected = sampledBoxGaussianFwhm(1, sigmaL, pitch);
     expect(measured).toBeGreaterThan(expected * 0.85);
     expect(measured).toBeLessThan(expected * 1.15);
