@@ -15,14 +15,22 @@ async function pixels(page: import('@playwright/test').Page): Promise<Uint8Clamp
   });
 }
 
-async function waitForPaint(page: import('@playwright/test').Page): Promise<void> {
+async function waitForPaint(
+  page: import('@playwright/test').Page,
+  reference?: Uint8ClampedArray,
+): Promise<void> {
   await expect
     .poll(
       async () => {
         const data = await pixels(page);
         let sum = 0;
         for (let i = 0; i < data.length; i += 4) sum += data[i]!;
-        return sum;
+        if (!reference) return sum;
+        let changed = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] !== reference[i]) changed++;
+        }
+        return sum > 0 && changed;
       },
       { timeout: 5000, intervals: [100, 250, 500] },
     )
@@ -38,9 +46,9 @@ for (const station of ['ojo', 'temporal']) {
       test.skip(true, 'WebGL2 + EXT_color_buffer_float no disponible en Chromium headless');
       return;
     }
-    await cpu.waitForTimeout(1200);
+    const cpuBefore = await pixels(cpu);
     if (station === 'temporal') await cpu.locator('[data-station="temporal"][data-side="der"]').click();
-    await cpu.waitForTimeout(1200);
+    await waitForPaint(cpu, station === 'temporal' ? cpuBefore : undefined);
     await cpu.locator('#freeze').click();
     await waitForPaint(cpu);
     const cpuPixels = await pixels(cpu);
@@ -48,8 +56,9 @@ for (const station of ['ojo', 'temporal']) {
     const gpu = await browser.newPage();
     await gpu.goto(`${baseURL}/?renderer=gpu`);
     await expect(gpu.locator('body')).toHaveAttribute('data-renderer', 'gpu');
+    const gpuBefore = await pixels(gpu);
     if (station === 'temporal') await gpu.locator('[data-station="temporal"][data-side="der"]').click();
-    await gpu.waitForTimeout(1200);
+    await waitForPaint(gpu, station === 'temporal' ? gpuBefore : undefined);
     await gpu.locator('#freeze').click();
     await waitForPaint(gpu);
     const gpuPixels = await pixels(gpu);
