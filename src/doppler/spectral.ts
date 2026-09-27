@@ -18,6 +18,10 @@ export interface SpectralColumn {
   prfHz: number;
 }
 
+function powerAt(col: SpectralColumn, index: number): number {
+  return col.powerDb[index] ?? Number.NaN;
+}
+
 export class SpectralProcessor {
   readonly fftSize: number;
   readonly hop: number;
@@ -64,8 +68,8 @@ export class SpectralProcessor {
         this.bufIm.copyWithin(0, this.hop);
         this.filled = N - this.hop;
       }
-      this.bufRe[this.filled] = re[i];
-      this.bufIm[this.filled] = im[i];
+      this.bufRe[this.filled] = re[i]!;
+      this.bufIm[this.filled] = im[i]!;
       this.filled++;
       this.sampleIndex++;
       if (this.filled === N) this.emit();
@@ -75,15 +79,15 @@ export class SpectralProcessor {
   private emit(): void {
     const N = this.fftSize;
     for (let i = 0; i < N; i++) {
-      this.workRe[i] = this.bufRe[i] * this.window[i];
-      this.workIm[i] = this.bufIm[i] * this.window[i];
+      this.workRe[i] = this.bufRe[i]! * this.window[i]!;
+      this.workIm[i] = this.bufIm[i]! * this.window[i]!;
     }
     this.fft.forward(this.workRe, this.workIm);
     const power = new Float32Array(N);
     const half = N >> 1;
     for (let k = 0; k < N; k++) {
       const src = (k + half) % N; // fftshift
-      const p = this.workRe[src] * this.workRe[src] + this.workIm[src] * this.workIm[src];
+      const p = this.workRe[src]! * this.workRe[src]! + this.workIm[src]! * this.workIm[src]!;
       power[k] = 10 * Math.log10(p + 1e-20);
     }
     // Centro de la ventana: la muestra sampleIndex − N/2
@@ -130,24 +134,24 @@ export function columnEnvelope(col: SpectralColumn, fftSize: number, thresholdDb
   let pPos = -200;
   let pNeg = -200;
   for (let k = N - 1; k > half; k--) {
-    if (col.powerDb[k] > thresholdDb) {
+    if (powerAt(col, k) > thresholdDb) {
       fPos = (k - half) * df;
       break;
     }
   }
   for (let k = 0; k < half; k++) {
-    if (col.powerDb[k] > thresholdDb) {
+    if (powerAt(col, k) > thresholdDb) {
       fNeg = (k - half) * df;
       break;
     }
   }
-  for (let k = half + 1; k < N; k++) pPos = Math.max(pPos, col.powerDb[k]);
-  for (let k = 0; k < half; k++) pNeg = Math.max(pNeg, col.powerDb[k]);
+  for (let k = half + 1; k < N; k++) pPos = Math.max(pPos, powerAt(col, k));
+  for (let k = 0; k < half; k++) pNeg = Math.max(pNeg, powerAt(col, k));
   // Dominancia por energía integrada (lineal) en cada semiplano.
   let ePos = 0;
   let eNeg = 0;
-  for (let k = half + 2; k < N; k++) ePos += Math.pow(10, col.powerDb[k] / 10);
-  for (let k = 0; k < half - 1; k++) eNeg += Math.pow(10, col.powerDb[k] / 10);
+  for (let k = half + 2; k < N; k++) ePos += Math.pow(10, powerAt(col, k) / 10);
+  for (let k = 0; k < half - 1; k++) eNeg += Math.pow(10, powerAt(col, k) / 10);
   const fEnvelope = ePos >= eNeg ? fPos : fNeg;
   return { t: col.t, fPos, fNeg, powerPosDb: pPos, powerNegDb: pNeg, fEnvelope };
 }
@@ -155,7 +159,7 @@ export function columnEnvelope(col: SpectralColumn, fftSize: number, thresholdDb
 /** Frecuencia del bin de máxima potencia de una columna (Hz). */
 export function peakFrequency(col: SpectralColumn, fftSize: number): number {
   let best = 0;
-  for (let k = 1; k < fftSize; k++) if (col.powerDb[k] > col.powerDb[best]) best = k;
+  for (let k = 1; k < fftSize; k++) if (powerAt(col, k) > powerAt(col, best)) best = k;
   return ((best - (fftSize >> 1)) * col.prfHz) / fftSize;
 }
 
@@ -195,11 +199,11 @@ export function columnBandEnvelopes(
   const floorLin = Math.pow(10, floorDb / 10);
   const sigLin = floorLin * Math.pow(10, SIGNIFICANT_DB / 10);
   const binPower = (k: number): number => {
-    const lin = Math.pow(10, col.powerDb[k] / 10);
+    const lin = Math.pow(10, powerAt(col, k) / 10);
     return lin > sigLin ? lin - floorLin : 0;
   };
   let peak = -200;
-  for (let k = 0; k < N; k++) if (Math.abs(k - half) > 1) peak = Math.max(peak, col.powerDb[k]);
+  for (let k = 0; k < N; k++) if (Math.abs(k - half) > 1) peak = Math.max(peak, powerAt(col, k));
   if (peak < floorDb + detectDb) return { posHz: 0, negHz: 0, ePos: 0, eNeg: 0, detected: false };
   // Banda contigua a la línea de base en un semiplano (j = distancia en bins a la continua)
   const band = (sign: 1 | -1): { hz: number; total: number } => {
@@ -219,7 +223,7 @@ export function columnBandEnvelopes(
     if (total <= 0) return { hz: 0, total: 0 };
     let acc = 0;
     for (let i = 0; i < power.length; i++) {
-      acc += power[i];
+      acc += power[i] ?? Number.NaN;
       if (acc >= pct * total) return { hz: (i + 2) * df, total };
     }
     return { hz: (power.length + 1) * df, total };
@@ -244,7 +248,7 @@ export function columnPercentileEnvelope(
 
 export function noiseFloorDb(col: SpectralColumn): number {
   const arr = Array.from(col.powerDb).sort((a, b) => a - b);
-  return arr[arr.length >> 1];
+  return arr[arr.length >> 1] ?? Number.NaN;
 }
 
 /**
@@ -263,10 +267,13 @@ export function noiseFloorDb(col: SpectralColumn): number {
 export function captureNoiseFloorsDb(columns: readonly SpectralColumn[]): number[] {
   const stats = columns.map((c) => {
     const arr = Array.from(c.powerDb).sort((a, b) => a - b);
-    return { median: arr[arr.length >> 1], p25: arr[Math.floor((arr.length - 1) / 4)] };
+    return {
+      median: arr[arr.length >> 1] ?? Number.NaN,
+      p25: arr[Math.floor((arr.length - 1) / 4)] ?? Number.NaN,
+    };
   });
   if (stats.length === 0) return [];
   const spreads = stats.map((x) => x.median - x.p25).sort((a, b) => a - b);
-  const noiseSpread = spreads[spreads.length >> 1];
+  const noiseSpread = spreads[spreads.length >> 1] ?? Number.NaN;
   return stats.map((x) => Math.min(x.median, x.p25 + noiseSpread));
 }

@@ -42,7 +42,7 @@ export function renderColorDoppler(
   cardiacPhase: number,
   rows: number,
   cols: number,
-): Float32Array[] {
+): [Float32Array, Float32Array] {
   const vel = new Float32Array(rows * cols).fill(Number.NaN);
   const pow = new Float32Array(rows * cols);
   const f0Hz = settings.frequencyMhz * 1e6;
