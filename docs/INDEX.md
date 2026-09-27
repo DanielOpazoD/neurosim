@@ -32,6 +32,7 @@
 | LIM-10 | PSF heurística              | `src/ultrasound/bmode.ts`, `tests/validation/psf.test.ts`  |
 | LIM-11 | Advección en cuerda         | `src/doppler/sampleVolume.ts`                              |
 | LIM-12 | Densidad de sangre sembrada | `src/doppler/sampleVolume.ts`                              |
+| LIM-13 | PW en hilo principal        | —                                                          |
 
 ## IDs de decisiones
 
@@ -51,6 +52,7 @@
 | DEC-12 | El fixture DVNO se deriva del manifiesto (interno + 2·dura), nunca se   | —                          |
 | DEC-13 | Registro por dominio — anatomía, física US, Doppler y fisiología se     | —                          |
 | DEC-14 | Los errores en tiempo de ejecución se registran y se exportan;          | —                          |
+| DEC-15 | El render B-mode/color corre en Worker; el hilo principal solo          | —                          |
 
 ## Parámetros registrados
 

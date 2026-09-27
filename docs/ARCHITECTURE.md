@@ -46,8 +46,8 @@ CardiacCycle/CerebralFlow → EyeGeometry/HeadGeometry → ProbePose + settings
         └────────────── paciente virtual (referenceCase.ts) ─┘
                                       │
                                       ▼
-                           señal B-mode / IQ / color
-                    bmode.ts · sampleVolume.ts · color.ts
+                          señal B-mode / IQ / color
+              renderWorker.ts → renderRequest.ts → bmode.ts · color.ts
                                       │
                                       ▼
                          imagen / espectro adquiridos
@@ -72,6 +72,9 @@ Responsables concretos:
   `src/doppler/pwChain.ts`, `src/doppler/color.ts` y
   `src/doppler/spectral.ts`.
 - La adquisición empaqueta el resultado en `src/app/acquisition.ts`.
+- `src/ui/renderWorker.ts` recibe solicitudes, `src/app/renderRequest.ts`
+  ejecuta el render sin DOM y `src/app/renderClient.ts` aplica latest-wins o
+  fallback síncrono. PW y audio permanecen en `src/app/pwController.ts`.
 - `src/domain/measure.ts` convierte puntos de imagen a paciente y registra
   mediciones; `src/doppler/measureMca.ts` mide la traza espectral.
 

@@ -41,3 +41,6 @@
     nombradas, no parámetros del modelo.
 14. **DEC-14** — Los errores en tiempo de ejecución se registran y se exportan;
     el bucle nunca muere en silencio.
+15. **DEC-15** — El render B-mode/color corre en Worker; el hilo principal solo
+    dibuja, mide y reproduce audio; el resultado es bit-idéntico al camino
+    síncrono.
