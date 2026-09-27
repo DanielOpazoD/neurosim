@@ -20,6 +20,12 @@ siguiente existe todavía por diseño del plan:
   muestras; sin modelo de sistema auditivo ni ruido de fondo de sala.
 - **Medición DVNO**: manual con calipers; el offset de 3 mm es guía
   visual, el medidor decide.
+- **Sesgo diastólico del estimador de envolvente**: sobre una onda sintética
+  conocida, EDV se sobreestima ≈+18 % (PSV +2 %, TAMax +3 %) por la resolución
+  FFT (PRF/128) y la envolvente por percentil; pendiente de estimador mejorado.
+- **PSF heurística**: la anchura lateral renderizada en foco (≈1,3 mm para una
+  placa de 0,8 mm a 7,5 MHz) excede la predicción caja⊗gaussiana del propio
+  modelo; se sustituye por un modelo de haz (PR 12).
 
 Decisiones pendientes del plan §19: equivalencia TS/GLSL solo si se porta
 a WebGL2 en bloques posteriores.

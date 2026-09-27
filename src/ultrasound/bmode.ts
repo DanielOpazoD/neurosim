@@ -69,7 +69,7 @@ export function renderBMode(
   _pose: ProbePose,
   settings: AcquisitionSettings,
   seedLabel: string,
-  opts: { axialStepMm?: number; extraAttenuationDb?: number } = {},
+  opts: { axialStepMm?: number; extraAttenuationDb?: number; speckle?: boolean } = {},
 ): BModeFrame {
   const f0 = settings.frequencyMhz;
   const dz = opts.axialStepMm ?? Math.max(0.08, 1.5 * (1.54 / f0)); // ~1,5·λ
@@ -115,9 +115,11 @@ export function renderBMode(
       }
 
       // Speckle intratejido (el hueso/aire apenas dispersan → eco dominante).
-      const [sr, si] = scatterComplex(seed, p, m.scatterAmp);
-      re += sr;
-      im += si;
+      if (opts.speckle !== false) {
+        const [sr, si] = scatterComplex(seed, p, m.scatterAmp);
+        re += sr;
+        im += si;
+      }
 
       // Ensanchamiento del haz → se aproxima después por la PSF lateral.
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
@@ -131,7 +133,7 @@ export function renderBMode(
   }
 
   // PSF separable: σ axial ≈ pulso; σ lateral crece con |z − foco|.
-  const sigmaAxial = Math.max(1, 2.2 / f0) / dz; // en muestras
+  const sigmaAxial = Math.max(1, 2.2 / f0 / dz); // en muestras
   const out = new Float32Array(width * height);
   const tmp = new Float32Array(width * height);
 

@@ -18,6 +18,9 @@ import { MATERIALS, type Material, type MaterialId } from './materials';
 import { add, dist, dot, normalize, scale, smoothstep, sub, v3, type Vec3 } from '../core/vec3';
 import type { SeededRandom } from '../core/random';
 import type { Side } from '../domain/contracts';
+import { MANIFEST } from '../domain/manifest';
+
+const DURA_MM = 0.35;
 
 /** Parámetros geométricos de un ojo individual (mm). */
 export interface EyeGeometry {
@@ -66,9 +69,9 @@ export function buildReferenceEyes(rng: SeededRandom): { der: EyeGeometry; izq: 
       lensAxialMm: 2.0,
       lensRadialMm: 4.6,
       irisApertureMm: 1.8,
-      sheathRadiusExtMm: side === 'der' ? 2.9 : 2.95, // ONSDext ≈ 5.8 / 5.9 mm
+      sheathRadiusExtMm: (MANIFEST.case.dvnoIntMm[side] + 2 * DURA_MM) / 2,
       nerveRadiusMm: 1.55,
-      duraMm: 0.35,
+      duraMm: DURA_MM,
       sheathEcc: 0.82 + r.range(-0.02, 0.02), // excentricidad moderada (estudio 3D)
       gazeAngleRad: 0,
     };

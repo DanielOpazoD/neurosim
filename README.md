@@ -31,6 +31,8 @@ npm run dev      # http://localhost:6620
 npm run check    # format + lint + typecheck + test + build
 ```
 
+Consulta la [suite de validación](docs/TESTING.md) para los criterios del plan.
+
 ## Arquitectura
 
 Cadena causal: `paciente (anatomía + fisiología) → sonda → adquisición →

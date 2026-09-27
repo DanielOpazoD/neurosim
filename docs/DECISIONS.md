@@ -33,3 +33,5 @@
     sangre y tejido; se clasifica sangre con la velocidad de la línea central.
     La amplitud de sangre (6) sigue 5× por debajo del tejido pero supera el
     umbral de detección de la envolvente (12 dB sobre ruido).
+12. **El fixture DVNO se deriva del manifiesto** (interno + 2·dura), nunca se
+    codifica dos veces.
