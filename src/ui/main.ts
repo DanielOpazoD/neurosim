@@ -19,7 +19,7 @@ import { createInitialState } from '../app/state';
 import { PwController } from '../app/pwController';
 import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
-import { exportSession } from '../app/exporter';
+import { exportOnsdReport, exportSession } from '../app/exporter';
 import {
   RenderClient,
   SupersededRenderRequest,
@@ -29,6 +29,7 @@ import {
 import type { RenderResponse } from '../app/renderRequest';
 import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
 import { acousticOutput } from '../ultrasound/acousticOutput';
+import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 
 const WILLIS_VARIANTS: readonly WillisVariant[] = [
   'normal',
@@ -197,6 +198,47 @@ function drawFrame(response: RenderResponse): void {
   drawScale(bCtx, sim, s, s.currentFrame);
 }
 
+function syncProtocolControls(): void {
+  const rot = $('rot') as HTMLInputElement;
+  if (rot.value !== String(s.rotDeg)) {
+    rot.value = String(s.rotDeg);
+    rot.dispatchEvent(new Event('input'));
+  }
+  $('rotV').textContent = `${s.rotDeg}°`;
+  $('dte').classList.toggle('on', s.caliperMode === 'dte');
+  $('dvno').classList.toggle('on', s.caliperMode === 'dvno');
+  document.querySelectorAll('.tab').forEach((el) => {
+    const t = el as HTMLElement;
+    t.classList.toggle('on', t.dataset.station === s.station && t.dataset.side === s.side);
+  });
+  const slot = nextSlot(s.onsd);
+  $('hint').textContent =
+    s.onsdActive && s.station === 'ojo'
+      ? s.caliperMode === 'dte'
+        ? `Protocolo DVNO: mide DTE ${s.side} con dos puntos retina a retina.`
+        : slot
+          ? `Protocolo DVNO: ${slot.side} · ${slot.plane}. Ajusta rotación y marca la vaina a 3 mm.`
+          : 'Protocolo DVNO completo: 4 DVNO + 2 DTE registrados.'
+      : $('hint').textContent;
+}
+
+function updateOnsdReport(): void {
+  const report = buildReport(s.onsd);
+  const panel = $('onsdReport');
+  const value = (side: Side, plane: 'transversal' | 'sagital') =>
+    s.onsd.dvno[`${side}-${plane}`]?.value.toFixed(2) ?? '—';
+  const sideRow = (side: Side) => {
+    const item = report.perSide[side];
+    return `<tr><th>${side}</th><td>${value(side, 'transversal')}</td><td>${value(side, 'sagital')}</td><td>${item.dteMm?.toFixed(2) ?? '—'}</td><td>${item.ratio?.toFixed(2) ?? '—'}</td></tr>`;
+  };
+  panel.innerHTML = [
+    '<table><thead><tr><th>Lado</th><th>Transversal</th><th>Sagital</th><th>DTE</th><th>Ratio</th></tr></thead>',
+    `<tbody>${sideRow('der')}${sideRow('izq')}</tbody></table>`,
+    `<div>Media bilateral: ${report.bilateralMeanMm?.toFixed(2) ?? '—'} mm · Asimetría: ${report.asymmetryMm?.toFixed(2) ?? '—'} mm</div>`,
+    `<div>Flags: ${report.flags.length ? report.flags.join(', ') : 'ninguno'}</div>`,
+  ].join('');
+}
+
 function updateAcousticLabel(): void {
   const output = acousticOutput({
     transducer: s.settings.transducer,
@@ -269,7 +311,9 @@ function frameLoop(now: number): void {
       drawCineFrame();
     }
     drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
-    updateReadouts($('readouts'), s, pw);
+    updateReadouts($('readouts'), sim, s, pw);
+    syncProtocolControls();
+    updateOnsdReport();
     updateAcousticLabel();
   } catch (err) {
     logError('frame', err);
@@ -369,6 +413,25 @@ $('dvno').addEventListener('click', () => {
   if (s.caliperMode === 'dvno') $('caliper').classList.remove('on');
   s.caliperPts = [];
 });
+$('dte').addEventListener('click', () => {
+  s.caliperMode = s.caliperMode === 'dte' ? 'none' : 'dte';
+  $('dte').classList.toggle('on', s.caliperMode === 'dte');
+  $('caliper').classList.remove('on');
+  $('dvno').classList.remove('on');
+  s.caliperPts = [];
+});
+$('onsdProtocol').addEventListener('click', () => {
+  if (s.station !== 'ojo') return;
+  s.onsdActive = !s.onsdActive;
+  s.onsdWarning = false;
+  s.onsd = createOnsdProtocolState();
+  s.caliperMode = s.onsdActive ? 'dvno' : 'none';
+  s.side = 'der';
+  s.rotDeg = 0;
+  s.caliperPts = [];
+  $('onsdProtocol').classList.toggle('on', s.onsdActive);
+  $('dvno').classList.toggle('on', s.onsdActive);
+});
 bmodeCv.addEventListener('click', (e) => {
   const r = bmodeCv.getBoundingClientRect();
   const point = canvasToImagePoint(
@@ -393,6 +456,15 @@ $('export').addEventListener('click', () => {
     a.click();
   };
   exportSession(sim, s, () => bmodeCv.toDataURL('image/png'), download);
+});
+$('exportOnsd').addEventListener('click', () => {
+  const download = (name: string, href: string) => {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = href;
+    a.click();
+  };
+  exportOnsdReport(sim, s, download);
 });
 pospad.addEventListener('pointermove', (e) => {
   if (e.buttons !== 1) return;

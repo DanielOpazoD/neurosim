@@ -126,6 +126,22 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     sources: ['hansen-helmke-1997'],
     note: 'Saturación geométrica del DVNO externo para PIC muy elevada.',
   },
+  onsdCutoffMm: {
+    value: 5.5,
+    unit: 'mm',
+    range: [5, 6],
+    evidence: 'consenso',
+    sources: ['qcc-consenso-onsd-2024'],
+    note: 'Umbral educativo de DVNO medio bilateral elevado.',
+  },
+  onsdEtdRatioCutoff: {
+    value: 0.25,
+    unit: 'fracción',
+    range: [0.2, 0.3],
+    evidence: 'consenso',
+    sources: ['vaiman-2014', 'du-2020'],
+    note: 'Umbral educativo de DVNO normalizado por diámetro transverso del globo (ETD).',
+  },
   ejectionFraction: {
     value: 0.3,
     unit: 'fracción de ciclo',

@@ -10,6 +10,7 @@ import { ANATOMIA_OJO } from '../anatomy/params';
 import { beamDirAt, LINEAR_APERTURE_MM, patientToImage, type ScanGeometry } from '../ultrasound/probe';
 import { currentPose } from './poses';
 import type { AppState } from './state';
+import { addProtocolMeasurement, nextSlot, planeForRotation } from '../domain/onsdProtocol';
 
 export function canvasToImagePoint(
   x: number,
@@ -42,12 +43,36 @@ export function addCaliperPoint(sim: ReferenceCase, s: AppState, point: ImagePoi
   if (s.caliperMode === 'none' || !s.currentFrame) return;
   s.caliperPts.push(point);
   if (s.caliperPts.length !== 2) return;
+  const mode = s.caliperMode;
   const m = recordDistance(s.currentFrame, s.side, s.caliperPts[0]!, s.caliperPts[1]!, {
-    kind: s.caliperMode === 'dvno' ? 'dvno' : 'distancia',
-    convention: s.caliperMode === 'dvno' ? 'interno' : undefined,
-    referenceOffsetMm: s.caliperMode === 'dvno' ? ANATOMIA_OJO.params.onsdOffsetMm.value : undefined,
+    kind: mode === 'dvno' ? 'dvno' : mode === 'dte' ? 'dte' : 'distancia',
+    convention: mode === 'dvno' ? 'interno' : undefined,
+    referenceOffsetMm: mode === 'dvno' ? ANATOMIA_OJO.params.onsdOffsetMm.value : undefined,
   });
   s.measurements.push(m);
+  if (mode === 'dvno' && s.onsdActive) {
+    const slot = nextSlot(s.onsd);
+    if (slot && slot.side === s.side && slot.plane === planeForRotation(s.rotDeg)) {
+      s.onsd = addProtocolMeasurement(s.onsd, slot, m);
+      const upcoming = nextSlot(s.onsd);
+      if (upcoming) {
+        s.side = upcoming.side;
+        s.rotDeg = upcoming.plane === 'sagital' ? 90 : 0;
+      } else {
+        s.caliperMode = 'dte';
+        s.side = s.onsd.dte.der ? 'izq' : 'der';
+        s.rotDeg = 0;
+      }
+    } else {
+      s.onsdWarning = true;
+    }
+  } else if (mode === 'dte' && s.onsdActive) {
+    s.onsd = { ...s.onsd, dte: { ...s.onsd.dte, [s.side]: m } };
+    const nextSide = s.onsd.dte.der ? (s.onsd.dte.izq ? null : 'izq') : 'der';
+    if (nextSide) s.side = nextSide;
+    else s.caliperMode = 'none';
+  }
+  s.caliperPts = [];
 }
 
 export function gatePoint(s: AppState, pose: ReturnType<typeof currentPose>, scan: ScanGeometry): ImagePoint {
@@ -63,4 +88,12 @@ export function dvnoGuide(sim: ReferenceCase, s: AppState): ImagePoint {
     'linear',
     fromEyeLocal(eye, nerveCenterline(eye, ANATOMIA_OJO.params.onsdOffsetMm.value)),
   );
+}
+
+export function dteGuide(sim: ReferenceCase, s: AppState): [ImagePoint, ImagePoint] {
+  const eye = sim.eyes[s.side];
+  const pose = currentPose(sim, { ...s, rotDeg: 0 });
+  const a = fromEyeLocal(eye, [-eye.globeRadiusMm, 0, 0]);
+  const b = fromEyeLocal(eye, [eye.globeRadiusMm, 0, 0]);
+  return [patientToImage(pose, 'linear', a), patientToImage(pose, 'linear', b)];
 }

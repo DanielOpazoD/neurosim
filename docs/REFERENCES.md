@@ -8,6 +8,10 @@ del motor.
   retroglobo, corte ~5,1–5,8 mm para PIC > 20 mmHg; sin umbral universal.
 - **montorfano-onsd-2018** — Montorfano et al.: técnica de medición ONSD a
   3 mm retroglobo, bidimensional, reproducibilidad.
+- **vaiman-2014** — Vaiman M et al.: medición ecográfica conjunta del diámetro
+  de la vaina del nervio óptico y del diámetro transverso del globo (ETD).
+- **du-2020** — Du J et al.: meta-análisis de DVNO y diámetro ocular
+  transverso para la evaluación ecográfica del nervio óptico.
 - **aium-seguridad-ocular-2019** — AIUM/NEMA: límites de exposición en
   oftalmología (MI ≤ 0,23, TI ≤ 1,0) y prescripción ALARA.
 - **aium-tcd-guia** — AIUM Practice Parameter: TCD/TCCD, ventanas
@@ -26,6 +30,11 @@ del motor.
 - **hansen-helmke-1997** — Hansen HC, Helmke K. The subarachnoid space
   surrounding the optic nerves. An ultrasound study of the optic nerve sheath.
   Surg Radiol Anat 1996;18:323-8.
+- **vaiman-2014** — Vaiman M et al. Ultrasonographic measurement of the
+  optic nerve sheath diameter and transverse eyeball diameter; relación DVNO/ETD
+  como control de tamaño del globo.
+- **du-2020** — Du J et al. Meta-análisis de DVNO y diámetro ocular
+  transversal para la evaluación ecográfica del nervio óptico.
 - **killer-2003** — Killer HE et al. Architecture of arachnoid trabeculae,
   pillars, and septa in the subarachnoid space of the human optic nerve.
   Br J Ophthalmol 2003;87:777-81.

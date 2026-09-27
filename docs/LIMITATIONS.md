@@ -27,6 +27,9 @@ siguiente existe todavía por diseño del plan:
   derated y potencia estimadas; no hay campo de presión no lineal, hidrófono,
   perfusión térmica, calentamiento del transductor ni solución térmica
   espacio-temporal.
+- **LIM-21 · Protocolo DVNO reducido**: el protocolo 2×2 no simula variabilidad
+  interobservador ni una curva ROC; usa un único umbral educativo y el informe
+  no diagnostica hipertensión intracraneal.
 
 - **LIM-01 · Patología**: sin casos con PIC elevada, vasoespasmo, ni parada
   circulatoria. La señal ausente NO acredita cese circulatorio (ni en el

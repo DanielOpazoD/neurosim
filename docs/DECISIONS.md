@@ -112,3 +112,7 @@
     antes del ruido y los índices se presentan como rótulo de equipo. Los p0,
     W0 y el modelo térmico son estimados; los límites oftálmicos siguen la
     prescripción FDA/AIUM-NEMA y el principio ALARA.
+31. **DEC-31** — El protocolo DVNO registra cuatro planos (transversal y
+    sagital por cada lado) y un DTE transversal por ojo. El informe normaliza
+    la media DVNO por el tamaño del globo mediante DVNO/ETD y solo informa
+    umbrales educativos; no diagnostica PIC ni sustituye la decisión clínica.

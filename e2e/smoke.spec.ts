@@ -46,6 +46,10 @@ test('flujo docente completo sin errores', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 
+  await page.locator('#onsdProtocol').click();
+  await expect(page.locator('#hint')).toContainText('der · transversal');
+  await expect(page.locator('#onsdProtocol')).toHaveClass(/on/);
+
   await page.locator('[data-station="temporal"][data-side="der"]').click();
   await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
   await page.locator('#pw').click();

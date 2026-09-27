@@ -141,7 +141,7 @@ export type OnsdConvention = 'interno' | 'externo';
 
 /** Medición trazada sobre lo adquirido; permanece ligada a su cuadro. */
 export interface Measurement {
-  readonly kind: 'distancia' | 'dvno' | 'trazado-espectral';
+  readonly kind: 'distancia' | 'dvno' | 'dte' | 'trazado-espectral';
   readonly frameTSeconds: number;
   readonly side: Side;
   /** Coordenadas físicas de los puntos del caliper, mm. */
