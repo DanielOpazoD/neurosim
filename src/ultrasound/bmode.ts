@@ -33,7 +33,7 @@ interface SceneQuery {
 const EPS = 0.3;
 
 /** Aproxima la normal de la interfaz contando cambios de material por eje. */
-function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
+export function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
   let nx = 0;
   let ny = 0;
   let nz = 0;
@@ -45,9 +45,9 @@ function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | nu
   for (let i = 0; i < 3; i++) {
     const a = scene.classify(addScaled(p, axes[i]!, EPS));
     const b = scene.classify(addScaled(p, axes[i]!, -EPS));
-    const d = (a === mat ? 0 : 1) + (b === mat ? 0 : 1);
+    const d = a === b ? 0 : a === mat || b === mat ? 1 : 0;
     if (i === 0) nx = d;
-    if (i === 1) ny = d;
+    else if (i === 1) ny = d;
     else nz = d;
   }
   const len = Math.hypot(nx, ny, nz);

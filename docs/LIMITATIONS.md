@@ -12,6 +12,8 @@ siguiente existe todavía por diseño del plan:
 - **Realismo acústico parcial**: el renderer B-mode es CPU con PSF
   separable aproximada; sin reverb de multicamino, sin shadowing complejo
   detrás del cristalino más allá de una sombra angular simple.
+- La normal de interfaz se estima contando cambios de material por eje (±0,3
+  mm); es no signada y cuantizada, suficiente para el peso especular.
 - **Tejido estático**: la anatomía no se deforma con el pulso ni con la
   presión de la sonda (contactPressure aún no deforma tejido).
 - **Audio**: separación estéreo por signo de frecuencia en bloques de 256
