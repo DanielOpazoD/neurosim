@@ -36,6 +36,7 @@ export interface RenderResponse {
   readonly color?: {
     readonly vel: Float32Array;
     readonly pow: Float32Array;
+    readonly variance: Float32Array;
     readonly w: 64;
     readonly h: 64;
   };
@@ -89,17 +90,18 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
   const color =
     req.color && req.station === 'temporal'
       ? (() => {
-          const [vel, pow] = renderColorDoppler(
+          const [vel, pow, variance] = renderColorDoppler(
             sim.head,
             sim.flow,
             scan,
             pose,
             req.settings,
+            sim.patient.seed,
             req.cardiacPhase,
             64,
             64,
           );
-          return { vel, pow, w: 64 as const, h: 64 as const };
+          return { vel, pow, variance, w: 64 as const, h: 64 as const };
         })()
       : undefined;
   return { id: req.id, frame, bmode, scan, color };

@@ -72,3 +72,10 @@
     Murray se usa como verificación, no como generador de radios. Las
     comunicantes normales tienen flujo cero; las variantes de aplasia A1 y
     ACP fetal redistribuyen el caudal de forma explícita.
+23. **DEC-23** — El color Doppler sintetiza ensembles IQ deterministas por
+    celda, elimina el componente estacionario con un filtro de pared de orden
+    cero y estima velocidad y varianza con la autocorrelación de Kasai. La
+    potencia se normaliza respecto de la referencia de una celda completamente
+    sanguínea y atenuada, y la potencia y la varianza se umbralizan antes de
+    pintar; el aliasing emerge exclusivamente de `atan2` de `R(1)`, sin plegado
+    analítico adicional.

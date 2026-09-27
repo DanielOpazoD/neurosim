@@ -7,6 +7,12 @@ import { PwDopplerChain } from '../src/doppler/pwChain';
 import { measureBeats, observedTrace, summarizeBeats } from '../src/doppler/measureMca';
 import type { GateGeometry } from '../src/doppler/sampleVolume';
 import { normalize, sub } from '../src/core/vec3';
+import { defaultTemporalSettings } from '../src/domain/settings';
+import { temporalPose } from '../src/app/poses';
+import { buildScan } from '../src/ultrasound/probe';
+import { renderColorDoppler } from '../src/doppler/color';
+import { DOPPLER } from '../src/doppler/params';
+import { vesselClosest, vesselDistance } from '../src/anatomy/head';
 
 /** Tono puro: IQ con fase rotando a fD. */
 function tone(fdHz: number, prf: number, n: number): [Float32Array, Float32Array] {
@@ -112,5 +118,64 @@ describe('PW integrado sobre la ACM del caso N1', () => {
     expect(Math.abs(s!.psvCms)).toBeLessThan(160);
     expect(s!.pi).toBeGreaterThan(0.3);
     expect(s!.pi).toBeLessThan(2.5);
+  }, 30000);
+});
+
+describe('color Doppler Kasai sobre M1 derecha', () => {
+  it('queda cerca de la proyección analítica y no aliasa con el PRF de fábrica', () => {
+    const sim = buildReferenceCase();
+    const settings = defaultTemporalSettings();
+    const pose = temporalPose(sim, { side: 'der', station: 'temporal', tiltDeg: 0, offsetMm: 0, press: 0.3 });
+    const scan = buildScan(pose, settings.transducer, 64);
+    console.time('renderColorDoppler 64x64');
+    const [vel, power] = renderColorDoppler(
+      sim.head,
+      sim.flow,
+      scan,
+      pose,
+      settings,
+      sim.patient.seed,
+      0.2,
+      64,
+      64,
+    );
+    console.timeEnd('renderColorDoppler 64x64');
+    const m1 = sim.head.vessels.find((v) => v.id === 'm1-der')!;
+    const analytic: number[] = [];
+    const measured: number[] = [];
+    const nyquist = (1540 * 100 * settings.prfHz) / (4 * settings.frequencyMhz * 1e6);
+    for (let i = 0; i < vel.length; i += 1) {
+      if (!Number.isFinite(vel[i]) || power[i]! <= DOPPLER.params.colorPowerThreshold.value) continue;
+      const zi = Math.floor(i / 64);
+      const ci = i % 64;
+      const z = ((zi + 0.5) / 64) * settings.depthMm;
+      const u = ((ci + 0.5) / 64 - 0.5) * scan.widthMmOrRad;
+      const p =
+        scan.kind === 'sector'
+          ? ([
+              pose.origin[0] + scan.lines[ci]!.dir[0] * z,
+              pose.origin[1] + scan.lines[ci]!.dir[1] * z,
+              pose.origin[2] + scan.lines[ci]!.dir[2] * z,
+            ] as [number, number, number])
+          : ([
+              pose.origin[0] + pose.lateral[0] * u + pose.forward[0] * z,
+              pose.origin[1] + pose.lateral[1] * u + pose.forward[1] * z,
+              pose.origin[2] + pose.lateral[2] * u + pose.forward[2] * z,
+            ] as [number, number, number]);
+      const d = vesselDistance(m1, p);
+      if (d >= 8) continue;
+      const q = vesselClosest(m1, p).point;
+      const w = sim.flow.velocityAt(q, 0.2);
+      const dir = scan.lines[ci]!.dir;
+      analytic.push(-(w[0] * dir[0] + w[1] * dir[1] + w[2] * dir[2]) / 10);
+      measured.push(vel[i]!);
+    }
+    expect(measured.length).toBeGreaterThan(0);
+    measured.sort((a, b) => a - b);
+    analytic.sort((a, b) => a - b);
+    const med = measured[Math.floor(measured.length / 2)]!;
+    const expected = analytic[Math.floor(analytic.length / 2)]!;
+    expect(Math.abs(med - expected)).toBeLessThan(Math.max(8, Math.abs(expected) * 0.15));
+    expect(Math.abs(med)).toBeLessThan(nyquist);
   }, 30000);
 });

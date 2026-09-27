@@ -61,6 +61,11 @@ calibración.
 - **doppler.gateLateralSigmaMinMm**, **doppler.gateElevationSigmaMinMm**, **doppler.gatePulseSigmaMinMm** — mínimos de puerta; calibrar contra el haz del transductor.
 - **doppler.apertureAngleSigmaRad**, **doppler.partialWallMm**, **doppler.bloodSeedRadiusFraction**, **doppler.bloodReseedRadiusFraction**, **doppler.bloodReanchorRadiusFraction** — dispersión angular y reglas de persistencia vascular; calibrar contra SNR y fracción sanguínea observada.
 - **doppler.defaultTemporalGainDb**, **doppler.defaultTemporalDynamicRangeDb**, **doppler.defaultTemporalPersistence** — prescripción temporal de fábrica; calibrar contra protocolos docentes.
+- **doppler.colorEnsemble**, **doppler.colorScatterers**, **doppler.colorNoiseRel**,
+  **doppler.colorPowerThreshold**, **doppler.colorVarianceMax** — ensemble IQ
+  sintético y umbrales del estimador Kasai; la potencia se expresa como fracción
+  de la referencia de una celda completamente sanguínea y atenuada; se aproximan
+  con AIUM TCD y Evans & McDicken, sin calibración frente a datos IQ clínicos.
 - **fisiologia.heartRateBpm**, **fisiologia.mapMmHg**, **fisiologia.a1PsvCms**, **fisiologia.a1EdvCms**, **fisiologia.p1PsvCms**, **fisiologia.p1EdvCms**, **fisiologia.basilarPsvCms**, **fisiologia.basilarEdvCms**, **fisiologia.upstrokePhase**, **fisiologia.decayTau** — fisiología/onda vascular del fixture N1; calibrar contra trazas clínicas anonimizadas.
 - **fisiologia.laminarProfile** — perfil parabólico de velocidad; calibrar contra perfiles Doppler intravasculares.
 - **fisiologia.qM1MlMin**, **fisiologia.qA2MlMin**, **fisiologia.qP2MlMin** — caudales terminales derivados de la media numérica de `arterialShape`; la continuidad de Murray se comprueba, no se impone. Las variantes representan aplasia/hipoplasia A1 (~10 %) y ACP fetal (~15–20 %) como escenarios docentes, no como prevalencia individual.
