@@ -74,3 +74,10 @@ del motor.
   changes in arterial CO₂; cerebrovascular reactivity reference, 2014.
 - **lassen-1959** — Lassen NA. Cerebral blood flow and oxygen consumption in
   man. Physiological Reviews. 1959;39:183–238.
+- **aium-nema-output-display-standard** — AIUM/NEMA. Standard for real-time
+  display of thermal and mechanical acoustic output indices (ODS), MI y TI.
+- **fda-diagnostic-ultrasound-2023** — FDA. Marketing Clearance of Diagnostic
+  Ultrasound Systems and Transducers, guidance 2023; límites de salida
+  acústica y prescripción ALARA.
+- **iec-62359** — IEC 62359. Ultrasonics — Field characterization —
+  Test methods for the determination of thermal and mechanical indices.

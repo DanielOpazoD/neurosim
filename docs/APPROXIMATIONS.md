@@ -92,3 +92,7 @@ calibración.
   7,5 mm; el parámetro está estimado.
 - **fisiologia.laminarProfile** — perfil parabólico de velocidad; calibrar contra perfiles Doppler intravasculares.
 - **fisiologia.qM1MlMin**, **fisiologia.qA2MlMin**, **fisiologia.qP2MlMin** — caudales terminales derivados de la media numérica de `arterialShape`; la continuidad de Murray se comprueba, no se impone. Las variantes representan aplasia/hipoplasia A1 (~10 %) y ACP fetal (~15–20 %) como escenarios docentes, no como prevalencia individual.
+- **fisica-ultrasonido.linearPeakPressureMPa**, **fisica-ultrasonido.sectorPeakPressureMPa** — presiones pico máximas estimadas por transductor; no proceden de una calibración con hidrófono.
+- **fisica-ultrasonido.bmodePowerMw**, **fisica-ultrasonido.colorPowerMw**, **fisica-ultrasonido.pwPowerMw** — potencias temporales medias estimadas por modo; se usan para que TI emerja de la prescripción de adquisición.
+- **fisica-ultrasonido.defaultEyeOutputPowerDb**, **fisica-ultrasonido.defaultTemporalOutputPowerDb** — presets relativos de salida; la potencia ocular se ajusta para cumplir MI oftálmico con los p0 estimados, mientras la temporal parte de 0 dB.
+- **fisica-ultrasonido.bmodeNoiseFloor** — piso gaussiano electrónico determinista aproximado; permanece fijo al bajar la emisión para que reducir potencia reduzca SNR y la ganancia no recupere la información perdida.

@@ -25,6 +25,7 @@ import { lateralFwhmMm, probeBeamSpec, sigmaFromFwhm, sidelobeLevelDb } from './
 import type { ScanGeometry } from './probe';
 import { scatterComplex } from './speckle';
 import { FISICA_US } from './params';
+import { SeededRandom } from '../core/random';
 
 export interface BModeFrame {
   readonly width: number;
@@ -120,6 +121,13 @@ export function renderBMode(
   const seed = `speckle-${seedLabel}`;
   const beam = probeBeamSpec(settings.transducer, settings);
   const cRef = FISICA_US.params.soundSpeedMs.value;
+  const outputAmplitude = 10 ** (settings.outputPowerDb / 20);
+  const lowOutputNoiseBoost = outputAmplitude < 0.15 ? 2 : 1;
+  const noiseFloor =
+    opts.speckle === false
+      ? 0
+      : 4 * lowOutputNoiseBoost * 10 ** (FISICA_US.params.bmodeNoiseFloor.value / 20);
+  const noiseRng = new SeededRandom(`${seed}-electronic-noise`);
 
   const specularPow = (m: Material): number => (m.id === 'hueso' || m.id === 'duraVaina' ? 2.2 : 1.2);
 
@@ -191,8 +199,9 @@ export function renderBMode(
       // DEC-19: ensanchamiento lateral por apertura, foco y lóbulos laterales.
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
       const k = (zi * width + li) * 2;
-      iQ[k] = re * attLin;
-      iQ[k + 1] = im * attLin;
+      const noiseStd = noiseFloor * attLin;
+      iQ[k] = re * outputAmplitude * attLin + noiseRng.gaussian() * noiseStd;
+      iQ[k + 1] = im * outputAmplitude * attLin + noiseRng.gaussian() * noiseStd;
 
       prevMat = matId;
       prevM = m;

@@ -23,6 +23,11 @@ siguiente existe todavía por diseño del plan:
   dinámica de Monro–Kellie. El DVNO es una geometría estática condicionada por
   la PIC del escenario docente.
 
+- **LIM-20 · ALARA acústico reducido**: MI/TI usan fórmulas ODS sobre presión
+  derated y potencia estimadas; no hay campo de presión no lineal, hidrófono,
+  perfusión térmica, calentamiento del transductor ni solución térmica
+  espacio-temporal.
+
 - **LIM-01 · Patología**: sin casos con PIC elevada, vasoespasmo, ni parada
   circulatoria. La señal ausente NO acredita cese circulatorio (ni en el
   simulador ni en la clínica).

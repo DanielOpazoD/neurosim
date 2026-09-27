@@ -107,3 +107,8 @@
 29. **DEC-29** — La autorregulación de Lassen y la reactividad al CO₂ actúan
     como factores latentes del flujo medio. La PIC modifica CrCP, la forma de
     onda y el DVNO, mientras la cadena Doppler conserva la misma adquisición.
+30. **DEC-30** — MI y TI se calculan por adquisición a partir de presión pico
+    derated y potencia temporal media: la salida acústica modifica IQ/B-mode
+    antes del ruido y los índices se presentan como rótulo de equipo. Los p0,
+    W0 y el modelo térmico son estimados; los límites oftálmicos siguen la
+    prescripción FDA/AIUM-NEMA y el principio ALARA.

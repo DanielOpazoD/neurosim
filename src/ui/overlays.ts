@@ -15,6 +15,7 @@ import type { AppState } from '../app/state';
 import { imagePointToCanvas, canvasToImagePoint } from '../app/measurements';
 import type { PwController } from '../app/pwController';
 import { angleCorrectionErrorFactor } from '../doppler/insonation';
+import { acousticOutput } from '../ultrasound/acousticOutput';
 
 export { canvasToImagePoint, imagePointToCanvas };
 
@@ -156,6 +157,20 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
         ),
       ]
     : [];
+  const alara = acousticOutput({
+    transducer: s.settings.transducer,
+    station: s.station,
+    mode: s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode',
+    frequencyMhz: s.settings.frequencyMhz,
+    focusMm: s.settings.focusMm,
+    prfHz: s.settings.prfHz,
+    gateMm: s.settings.gateMm,
+    outputPowerDb: s.settings.outputPowerDb,
+  });
+  const alaraRows =
+    s.teachingMode && alara.ocularLimitExceeded
+      ? [row('ALARA', 'supera límite oftálmico (MI ≤ 0,23 · TI ≤ 1,0)')]
+      : [];
   if (summary) {
     const comp = controller.composition();
     el.innerHTML = [
@@ -169,6 +184,7 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       row('Vaso dominante', comp?.dominantVesselId ?? '—'),
       ...angleRows,
       ...hemoRows,
+      ...alaraRows,
     ].join('');
     return;
   }
@@ -184,6 +200,6 @@ export function updateReadouts(el: HTMLElement, s: AppState, controller: PwContr
       row('Medidas', `${s.measurements.length}`),
     ].join('');
   } else {
-    el.innerHTML = [...angleRows, ...hemoRows, row('Sin medidas', '—')].join('');
+    el.innerHTML = [...angleRows, ...hemoRows, ...alaraRows, row('Sin medidas', '—')].join('');
   }
 }

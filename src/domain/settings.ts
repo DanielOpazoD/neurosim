@@ -23,6 +23,7 @@ export function defaultEyeSettings(): AcquisitionSettings {
     angleCorrectionDeg: 0,
     baseline: 0.5,
     dopplerGainDb: 0,
+    outputPowerDb: FISICA_US.params.defaultEyeOutputPowerDb.value,
     invertColor: false,
   };
 }
@@ -44,6 +45,7 @@ export function defaultTemporalSettings(): AcquisitionSettings {
     angleCorrectionDeg: 0,
     baseline: 0.5,
     dopplerGainDb: 8,
+    outputPowerDb: FISICA_US.params.defaultTemporalOutputPowerDb.value,
     invertColor: false,
   };
 }

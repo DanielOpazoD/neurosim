@@ -24,6 +24,7 @@
 | LIM-17 | Movimiento tisular reducido         | —                                                          |
 | LIM-18 | Windkessel reducido                 | —                                                          |
 | LIM-19 | Hemodinámica estática               | —                                                          |
+| LIM-20 | ALARA acústico reducido             | —                                                          |
 | LIM-01 | Patología                           | —                                                          |
 | LIM-02 | Lindegaard                          | —                                                          |
 | LIM-03 | DVNO y PIC                          | —                                                          |
@@ -73,6 +74,7 @@
 | DEC-27 | La agenda cardíaca conserva intervalos RR deterministas con             | —                          |
 | DEC-28 | La presión crítica de cierre se acopla al Windkessel y a la             | —                          |
 | DEC-29 | La autorregulación de Lassen y la reactividad al CO₂ actúan             | —                          |
+| DEC-30 | MI y TI se calculan por adquisición a partir de presión pico            | —                          |
 
 ## Parámetros registrados
 
@@ -82,4 +84,4 @@
 | `anatomia-cabeza`    |         72 |
 | `doppler`            |         31 |
 | `fisiologia`         |         34 |
-| `fisica-ultrasonido` |         28 |
+| `fisica-ultrasonido` |         37 |

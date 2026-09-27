@@ -24,6 +24,7 @@ export class PwController {
   private lastPrf = -1;
   private lastWf = -1;
   private lastDg = -999;
+  private lastPower = Number.NaN;
   private audio: DopplerAudio | null = null;
 
   constructor(
@@ -100,7 +101,8 @@ export class PwController {
       if (
         s.settings.prfHz !== this.lastPrf ||
         s.settings.wallFilterHz !== this.lastWf ||
-        s.settings.dopplerGainDb !== this.lastDg
+        s.settings.dopplerGainDb !== this.lastDg ||
+        s.settings.outputPowerDb !== this.lastPower
       ) {
         chain.begin(
           s.settings.prfHz,
@@ -108,10 +110,12 @@ export class PwController {
           s.settings.dopplerGainDb,
           s.settings.wallFilterHz,
           clock.t,
+          10 ** (s.settings.outputPowerDb / 20),
         );
         this.lastPrf = s.settings.prfHz;
         this.lastWf = s.settings.wallFilterHz;
         this.lastDg = s.settings.dopplerGainDb;
+        this.lastPower = s.settings.outputPowerDb;
       }
       const pose = currentPose(this.sim, s);
       chain.setGate(this.gateGeometry(pose));
@@ -129,6 +133,7 @@ export class PwController {
   reset(): void {
     this.ensureChain().reset();
     this.lastPrf = -1;
+    this.lastPower = Number.NaN;
   }
 
   latestMcaMeasure(): ReturnType<typeof summarizeBeats> {
