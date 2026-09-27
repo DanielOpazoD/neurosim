@@ -49,7 +49,7 @@ export class PwController {
         pushIQ: (re, im, n, prfHz) => this.audio?.pushIQ(re, im, n, prfHz),
         reset: () => this.audio?.reset(),
       };
-      this.chain = new PwDopplerChain(this.sim.head, this.sim.flow, this.sim.patient.seed, sink);
+      this.chain = new PwDopplerChain(this.sim.head, this.sim.patient.seed, sink);
     }
     return this.chain;
   }

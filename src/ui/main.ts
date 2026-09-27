@@ -10,7 +10,7 @@ import { drawBMode, drawColorOverlay } from './canvasDraw';
 import { renderColorDoppler } from '../doppler/color';
 import { acquire } from '../app/acquisition';
 import { currentPose } from '../app/poses';
-import { Store } from '../app/state';
+import { createInitialState } from '../app/state';
 import { PwController } from '../app/pwController';
 import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
@@ -19,8 +19,7 @@ import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadou
 
 const sim = buildReferenceCase();
 const clock = new SimulationClock();
-const store = new Store();
-const s = store.get();
+const s = createInitialState();
 const pw = new PwController(sim, s);
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const bmodeCv = $<HTMLCanvasElement>('bmode');

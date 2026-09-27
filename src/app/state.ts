@@ -59,23 +59,3 @@ export function createInitialState(): AppState {
     audioOn: false,
   };
 }
-
-export class Store {
-  private readonly listeners = new Set<(state: AppState) => void>();
-
-  constructor(private state: AppState = createInitialState()) {}
-
-  get(): AppState {
-    return this.state;
-  }
-
-  update(patch: Partial<AppState>): void {
-    this.state = { ...this.state, ...patch };
-    for (const listener of this.listeners) listener(this.state);
-  }
-
-  subscribe(fn: (state: AppState) => void): () => void {
-    this.listeners.add(fn);
-    return () => this.listeners.delete(fn);
-  }
-}

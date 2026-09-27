@@ -8,7 +8,7 @@ describe('persistencia de sangre en la puerta', () => {
     const sim = buildReferenceCase();
     const m1 = sim.head.vessels.find((v) => v.id === 'm1-der')!;
     for (const target of [m1.points[1]!, m1.points[2]!, m1.points[3]!]) {
-      const chain = new PwDopplerChain(sim.head, sim.flow, sim.patient.seed);
+      const chain = new PwDopplerChain(sim.head, sim.patient.seed);
       chain.setGate(m1Gate(sim, target));
       chain.begin(6000, 2e6, 20, 100, 0);
       let t = 0;

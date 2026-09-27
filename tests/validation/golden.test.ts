@@ -43,7 +43,7 @@ function temporalHash(): string {
 function pwHash(): string {
   const sim = buildReferenceCase();
   const target = sim.head.vessels.find((v) => v.id === 'm1-der')!.points[2]!;
-  const chain = new PwDopplerChain(sim.head, sim.flow, sim.patient.seed);
+  const chain = new PwDopplerChain(sim.head, sim.patient.seed);
   chain.setGate(m1Gate(sim, target));
   chain.begin(6000, 2e6, 20, 100, 0);
   let t = 0;
