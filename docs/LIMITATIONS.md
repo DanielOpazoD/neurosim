@@ -49,9 +49,11 @@ siguiente existe todavía por diseño del plan:
   256 muestras; sin modelo de sistema auditivo ni ruido de fondo de sala.
 - **LIM-08 · Medición DVNO**: manual con calipers; el offset de 3 mm es guía
   visual, el medidor decide.
-- **LIM-09 · Sesgo diastólico**: sobre una onda sintética conocida, EDV se
-  sobreestima ≈+18 % (PSV +2 %, TAMax +3 %) por la resolución FFT (PRF/128)
-  y la envolvente por percentil; pendiente de estimador mejorado.
+- **LIM-09 · Sesgo diastólico (reducido)**: la envolvente interpola en dB el
+  cruce sub-bin de su umbral, reduciendo el sesgo EDV de +8,28 % a +4,78 %
+  en la onda sintética (PSV y TAMax permanecen dentro de ±5 %). El estimador
+  sigue limitado por la resolución FFT y por dropouts que requieren un P10
+  robusto.
 - **LIM-10 · PSF analítica (resuelta/redirigida)**: la anchura lateral ya no
   usa el coeficiente heurístico anterior; se valida contra el modelo de haz
   caja⊗gaussiana de `src/ultrasound/beam.ts`. Las limitaciones acústicas

@@ -1,0 +1,24 @@
+{
+  "case": "Adulto de referencia N1",
+  "seed": 791211,
+  "onsdReport": {
+    "perSide": {
+      "der": {
+        "dvnoValuesMm": [4.649411764705885, 4.649411764705885],
+        "dvnoMeanMm": 4.649411764705885,
+        "dteMm": 23.604705882352935,
+        "ratio": 0.19696969696969713
+      },
+      "izq": {
+        "dvnoValuesMm": [4.649411764705885, 4.649411764705885],
+        "dvnoMeanMm": 4.649411764705885,
+        "dteMm": 23.604705882352935,
+        "ratio": 0.19696969696969713
+      }
+    },
+    "bilateralMeanMm": 4.649411764705885,
+    "asymmetryMm": 0,
+    "complete": true,
+    "flags": []
+  }
+}
