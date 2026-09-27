@@ -1,5 +1,7 @@
 # neurosim
 
+[![check](https://github.com/DanielOpazoD/neurosim/actions/workflows/check.yml/badge.svg)](https://github.com/DanielOpazoD/neurosim/actions/workflows/check.yml)
+
 Simulador educativo de neurosonología en el navegador: medición del diámetro
 de la vaina del nervio óptico (DVNO/ONSD) y Doppler transcraneal de la
 arteria cerebral media (TCCD/TCCS). Imagen, color y espectro emergen de un
@@ -21,11 +23,27 @@ exacta; una señal ausente no acredita cese circulatorio.
 
 ## Desarrollo
 
+Los hooks se instalan con `npm install`.
+
 ```bash
 npm install
 npm run dev      # http://localhost:6620
 npm run check    # format + lint + typecheck + test + build
 ```
+
+Consulta la [suite de validación](docs/TESTING.md) para los criterios del plan.
+
+## Documentos
+
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [Convenciones](docs/CONVENTIONS.md)
+- [Índice documental](docs/INDEX.md)
+- [Decisiones](docs/DECISIONS.md)
+- [Limitaciones](docs/LIMITATIONS.md)
+- [Aproximaciones](docs/APPROXIMATIONS.md)
+- [Procedencia](docs/PROVENANCE.md)
+- [Referencias](docs/REFERENCES.md)
+- [Testing](docs/TESTING.md)
 
 ## Arquitectura
 
@@ -33,6 +51,7 @@ Cadena causal: `paciente (anatomía + fisiología) → sonda → adquisición �
 señal (B-mode / color / PW) → medición`. Contratos en `src/domain/contracts.ts`;
 convenciones (mm, marco levógiro, DVNO interno/externo) en `docs/DECISIONS.md`;
 procedencia del código portado en `docs/PROVENANCE.md`; parámetros con
-evidencia en `src/domain/parameters.ts` + `docs/REFERENCES.md`.
+evidencia en `src/*/params.ts`, `docs/REFERENCES.md` y
+`docs/APPROXIMATIONS.md`.
 
 Porta módulos de `DanielOpazoD/vexus-sim` y `DanielOpazoD/lus-sim` (MIT).

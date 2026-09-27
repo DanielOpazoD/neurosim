@@ -1,6 +1,7 @@
 // Adaptado de DanielOpazoD/vexus-sim @ 59fb7b18e9c1 — src/doppler/sampleVolume.ts (MIT).
 // Simplificado para neurosono-sim: sin respiración ni deformación; la velocidad
 // viene de CerebralFlow (tubos del polígono de Willis con perfil laminar).
+// LIM-11/LIM-12: la advección y la resiembra son aproximaciones del fixture.
 
 /**
  * Volumen de muestra físico del Doppler pulsado:
@@ -21,9 +22,10 @@ import { dopplerShiftHz } from '../core/units';
 import { MATERIALS } from '../anatomy/materials';
 import type { HeadGeometry, Vessel } from '../anatomy/head';
 import { classifyHead, vesselAt, vesselClosest, vesselDistance, vesselFlowDir } from '../anatomy/head';
-import type { CerebralFlow } from '../physiology/flow';
 import { vesselVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
+import { FISIOLOGIA } from '../physiology/params';
+import { DOPPLER } from './params';
 
 export interface GateGeometry {
   /** Centro de la puerta en el mundo (mm). */
@@ -85,15 +87,15 @@ export interface GateComposition {
   dominantVesselFraction: number;
 }
 
-const N_SCATTERERS = 512;
+const N_SCATTERERS = DOPPLER.params.scatterersTotal.value;
 /** Dispersores sembrados sobre vasos que cruzan la caja en cada resiembra. */
-const SEED_VESSEL_MAX = 32;
+const SEED_VESSEL_MAX = DOPPLER.params.scatterersVesselMax.value;
 const RECLASSIFY_EVERY = 96;
 const SLOW_EVERY = 8;
 const AMP_RAMP_TICKS = 32;
 const TRANSMISSION_ALPHA = 1 / AMP_RAMP_TICKS;
 /** Ruido electrónico relativo a la sangre a transmisión 1. */
-const NOISE_STD = 0.0004;
+const NOISE_STD = DOPPLER.params.ruidoElectronico.value;
 
 function startAmpRamp(s: Scatterer, target: number): void {
   s.ampTarget = target;
@@ -120,8 +122,6 @@ export class SampleVolumeIQ {
 
   constructor(
     private readonly head: HeadGeometry,
-    // Se conserva en la firma: la fisiología entra por vesselVelocityCms/flowBasis.
-    _flow: CerebralFlow,
     seed: number,
   ) {
     this.rng = new SeededRandom(seed ^ 0xd0991e);
@@ -181,7 +181,7 @@ export class SampleVolumeIQ {
           const w: Vec3 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
           const c = this.worldToGate(w);
           if (Math.abs(c[0]) >= h[0]! || Math.abs(c[1]) >= h[1]! || Math.abs(c[2]) >= h[2]!) continue;
-          const r = v.radiusMm * 0.6 * Math.sqrt(this.rng.float());
+          const r = v.radiusMm * DOPPLER.params.bloodSeedRadiusFraction.value * Math.sqrt(this.rng.float());
           const th = this.rng.float() * 2 * Math.PI;
           const off1 = r * Math.cos(th);
           const off2 = r * Math.sin(th);
@@ -236,7 +236,7 @@ export class SampleVolumeIQ {
     // Amplitud efectiva 6: la sangre sigue muy por debajo del tejido en modo B
     // pero su energía en el canal Doppler debe superar ~12 dB el ruido para
     // que la envolvente espectral sea medible en una ventana cerebral real.
-    if (mat === 'vaso') return 6;
+    if (mat === 'vaso') return DOPPLER.params.amplitudSangre.value;
     return MATERIALS[mat].scatterAmp * 60; // tejido muy por encima de la sangre
   }
 
@@ -276,7 +276,7 @@ export class SampleVolumeIQ {
     const dir = vesselFlowDir(v, m); // tangente·flowSign, unitaria
     const d = vesselDistance(v, m); // <0 dentro
     const r = Math.min(1, Math.max(0, (v.radiusMm + Math.max(d, -v.radiusMm)) / v.radiusMm));
-    const profile = Math.max(0, 1 - 0.85 * r * r);
+    const profile = Math.max(0, 1 - FISIOLOGIA.params.laminarProfile.value * r * r);
     return scale(dir, profile * 10);
   }
 
@@ -321,7 +321,7 @@ export class SampleVolumeIQ {
       const b = v.points[seg + 1]!;
       const t = this.rng.float();
       // radio aleatorio dentro del tubo (raíz cuadrada: disco uniforme)
-      const r = v.radiusMm * 0.7 * Math.sqrt(this.rng.float());
+      const r = v.radiusMm * DOPPLER.params.bloodReseedRadiusFraction.value * Math.sqrt(this.rng.float());
       const th = this.rng.float() * 2 * Math.PI;
       const w: Vec3 = [
         a[0] + (b[0] - a[0]) * t + g.lateral[0] * (r * Math.cos(th)) + g.elevation[0] * (r * Math.sin(th)),
@@ -342,7 +342,7 @@ export class SampleVolumeIQ {
     const v = vesselAt(this.head, world);
     if (v) return v;
     let best: Vessel | null = null;
-    let bestD = 0.6;
+    let bestD = DOPPLER.params.partialWallMm.value;
     for (const cand of this.head.vessels) {
       const d = vesselDistance(cand, world);
       if (d >= 0 && d < bestD) {
@@ -457,7 +457,9 @@ export class SampleVolumeIQ {
                   // convertirla en tejido — si no, la población se agota.
                   const cl = vesselClosest(s.vessel, s.m);
                   const dr = dist(cl.point, s.m);
-                  const rr = Math.min(dr, s.vessel.radiusMm * 0.9) / Math.max(1e-6, dr);
+                  const rr =
+                    Math.min(dr, s.vessel.radiusMm * DOPPLER.params.bloodReanchorRadiusFraction.value) /
+                    Math.max(1e-6, dr);
                   s.m = [
                     cl.point[0] + (s.m[0] - cl.point[0]) * rr,
                     cl.point[1] + (s.m[1] - cl.point[1]) * rr,

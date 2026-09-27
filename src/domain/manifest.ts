@@ -1,3 +1,9 @@
+import { FISIOLOGIA } from '../physiology/params';
+import { ANATOMIA_OJO } from '../anatomy/params';
+
+const PHYS = FISIOLOGIA.params;
+const EYE = ANATOMIA_OJO.params;
+
 /**
  * Manifiesto ligero del caso de referencia N1 (plan §12.2): anatomía,
  * materiales, módulos portados con licencia y parámetros con evidencia.
@@ -8,8 +14,13 @@ export const MANIFEST = {
   case: {
     id: 'adulto-referencia-n1',
     label: 'Adulto de referencia N1',
-    physiology: { heartRateBpm: 70, mapMmHg: 85, paco2MmHg: 40, icpMmHg: 10 },
-    dvnoIntMm: { der: 4.6, izq: 4.7 },
+    physiology: {
+      heartRateBpm: PHYS.heartRateBpm.value,
+      mapMmHg: PHYS.mapMmHg.value,
+      paco2MmHg: PHYS.paco2MmHg.value,
+      icpMmHg: PHYS.icpMmHg.value,
+    },
+    dvnoIntMm: { der: EYE.dvnoIntDerMm.value, izq: EYE.dvnoIntIzqMm.value },
   },
   anatomy: ['src/anatomy/eye.ts', 'src/anatomy/head.ts', 'src/anatomy/materials.ts'],
   portedModules: [

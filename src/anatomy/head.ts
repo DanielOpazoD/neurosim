@@ -16,6 +16,11 @@ import { MATERIALS, type MaterialId } from './materials';
 import { add, clamp, dist, dot, length, normalize, scale, sub, type Vec3 } from '../core/vec3';
 import type { SeededRandom } from '../core/random';
 import type { Side } from '../domain/contracts';
+import { ANATOMIA_CABEZA } from './params';
+import { FISIOLOGIA } from '../physiology/params';
+
+const HEAD = ANATOMIA_CABEZA.params;
+const PHYS = FISIOLOGIA.params;
 
 /** Un vaso tubular: línea central por segmentos + radio local. */
 export interface Vessel {
@@ -106,18 +111,22 @@ export function vesselFlowDir(v: Vessel, p: Vec3): Vec3 {
  * calculados sobre el elipsoide. `windowQuality` estable por paciente.
  */
 export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
-  const skullCenter: Vec3 = [0, 28, -12];
-  const skullRadii: Vec3 = [82, 100, 96];
+  const skullCenter: Vec3 = [HEAD.skullCenterXmm.value, HEAD.skullCenterYmm.value, HEAD.skullCenterZmm.value];
+  const skullRadii: Vec3 = [HEAD.skullRadiusXmm.value, HEAD.skullRadiusYmm.value, HEAD.skullRadiusZmm.value];
   const r = rng.fork('head');
-  const windowThicknessMm = 1.6 + r.range(0, 0.4);
-  const windowQuality = 0.9; // adulto de referencia: ventana utilizable
+  const windowThicknessMm = HEAD.windowThicknessMm.value + r.range(0, 0.4);
+  const windowQuality = HEAD.windowQuality.value; // adulto de referencia: ventana utilizable
 
   // Ventana: punto del elipsoide a azimut lateral y algo anterior (pterion).
   const mkWindow = (side: Side): Vec3 => {
     const s = side === 'izq' ? 1 : -1;
-    const az = s * Math.PI * 0.42; // hacia ±x, algo anterior
-    const el = -0.18; // algo por debajo del ecuador
-    const dir: Vec3 = [Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el) * 0.35];
+    const az = s * Math.PI * HEAD.windowAzimuthTurns.value; // hacia ±x, algo anterior
+    const el = HEAD.windowElevationRad.value; // algo por debajo del ecuador
+    const dir: Vec3 = [
+      Math.sin(az) * Math.cos(el),
+      Math.sin(el),
+      Math.cos(az) * Math.cos(el) * HEAD.windowAnteriorFactor.value,
+    ];
     const nd = normalize(dir);
     return [
       skullCenter[0] + nd[0] * skullRadii[0],
@@ -133,26 +142,26 @@ export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
     vessels.push({
       id: `m1-${side}`,
       side,
-      radiusMm: 1.5,
+      radiusMm: HEAD.m1RadiusMm.value,
       flowSign: 1,
-      psvCms: 90,
-      edvCms: 35,
+      psvCms: PHYS.psvCms.value,
+      edvCms: PHYS.edvCms.value,
       points: [
-        [s * 9, 8, -6],
-        [s * 14, 9, -4],
-        [s * 20, 9.5, -1],
-        [s * 26, 10, 2],
-        [s * 31, 11, 4],
+        [s * HEAD.m1OriginXmm.value, HEAD.m1OriginYmm.value, HEAD.m1OriginZmm.value],
+        [s * HEAD.m1Point1Xmm.value, HEAD.m1Point1Ymm.value, HEAD.m1Point1Zmm.value],
+        [s * HEAD.vesselM1PointXmm.value, HEAD.vesselM1PointYmm.value, HEAD.vesselM1PointZmm.value],
+        [s * HEAD.m1Point3Xmm.value, HEAD.m1Point3Ymm.value, HEAD.m1Point3Zmm.value],
+        [s * HEAD.m1Point4Xmm.value, HEAD.m1Point4Ymm.value, HEAD.m1Point4Zmm.value],
       ],
     });
     // A1: medial y algo anterior, alejándose de la sonda ipsilateral.
     vessels.push({
       id: `a1-${side}`,
       side,
-      radiusMm: 1.2,
+      radiusMm: HEAD.a1RadiusMm.value,
       flowSign: -1,
-      psvCms: 80,
-      edvCms: 30,
+      psvCms: PHYS.a1PsvCms.value,
+      edvCms: PHYS.a1EdvCms.value,
       points: [
         [s * 9, 8, -6],
         [s * 5, 9, -1],
@@ -163,10 +172,10 @@ export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
     vessels.push({
       id: `p1-${side}`,
       side,
-      radiusMm: 1.1,
+      radiusMm: HEAD.p1RadiusMm.value,
       flowSign: 1, // P1 hacia la sonda desde la línea media
-      psvCms: 60,
-      edvCms: 25,
+      psvCms: PHYS.p1PsvCms.value,
+      edvCms: PHYS.p1EdvCms.value,
       points: [
         [0, 6, -26],
         [s * 5, 7, -26],
@@ -176,10 +185,10 @@ export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
     vessels.push({
       id: `p2-${side}`,
       side,
-      radiusMm: 1.1,
+      radiusMm: HEAD.p2RadiusMm.value,
       flowSign: -1, // P2 rodea y se aleja
-      psvCms: 60,
-      edvCms: 25,
+      psvCms: PHYS.p1PsvCms.value,
+      edvCms: PHYS.p1EdvCms.value,
       points: [
         [s * 11, 8, -24],
         [s * 15, 9, -20],
@@ -191,10 +200,10 @@ export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
   vessels.push({
     id: 'basilar',
     side: 'media',
-    radiusMm: 1.6,
+    radiusMm: HEAD.basilarRadiusMm.value,
     flowSign: -1,
-    psvCms: 55,
-    edvCms: 22,
+    psvCms: PHYS.basilarPsvCms.value,
+    edvCms: PHYS.basilarEdvCms.value,
     points: [
       [0, 0, -30],
       [0, 3, -28],
@@ -205,14 +214,18 @@ export function buildReferenceHead(rng: SeededRandom): HeadGeometry {
   return {
     skullCenter,
     skullRadii,
-    skullThicknessMm: 5,
+    skullThicknessMm: HEAD.skullThicknessMm.value,
     windowThicknessMm,
     windowQuality,
     windowCenter: { der: mkWindow('der'), izq: mkWindow('izq') },
-    windowRadiusMm: 18,
+    windowRadiusMm: HEAD.windowRadiusMm.value,
     vessels,
-    midbrainCenter: [0, 14, -12],
-    midbrainRadii: [17, 14, 24],
+    midbrainCenter: [
+      HEAD.midbrainCenterXmm.value,
+      HEAD.midbrainCenterYmm.value,
+      HEAD.midbrainCenterZmm.value,
+    ],
+    midbrainRadii: [HEAD.midbrainRadiusXmm.value, HEAD.midbrainRadiusYmm.value, HEAD.midbrainRadiusZmm.value],
   };
 }
 

@@ -1,7 +1,7 @@
 # Referencias
 
-Claves usadas por `src/domain/parameters.ts` (registro de evidencia) y los
-módulos del motor.
+Claves usadas por los registros de `src/*/params.ts` (evidencia) y los módulos
+del motor.
 
 - **qcc-consenso-onsd-2024** — Consenso de expertos (Quality Critical Care /
   grupo de neurosonología 2024): sonda lineal ≥7,5 MHz, DVNO a 3 mm
@@ -25,3 +25,9 @@ módulos del motor.
   DVNO axial puede sobrestimar.
 - **plan-simulador-2026** — Plan del simulador de neurosonografía
   (documento de trabajo del usuario): fixture N1, decisiones de alcance.
+- **szabo-diagnostic-ultrasound-2014** — Szabo, _Diagnostic Ultrasound
+  Imaging: Inside Out_: velocidad acústica, longitud de onda y resolución
+  axial como referencias físicas de ultrasonido.
+- **tablas-acusticas-estandar** — Tablas estándar de propiedades acústicas de
+  tejidos y materiales para simulación educativa; valores aproximados del
+  modelo, no una calibración clínica.

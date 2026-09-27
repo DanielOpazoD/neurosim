@@ -160,9 +160,17 @@
         margin-top: 8px;
       }
       footer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         color: var(--dim);
         font-size: 11px;
         padding: 6px 14px 12px;
+      }
+      .errorBadge {
+        color: var(--warn);
+        border-color: var(--warn);
+        padding: 2px 7px;
       }
     </style>
   </head>
@@ -260,6 +268,7 @@
     <footer>
       neurosono-sim · simulador docente, no es un dispositivo médico · DVNO interna por defecto; TAMax =
       integral de la envolvente real.
+      <button id="errores" class="errorBadge" hidden>Errores (0)</button>
     </footer>
     <script type="module" src="/src/ui/main.ts"></script>
   </body>

@@ -5,7 +5,8 @@
  *   raymarch axial → material en cada muestra → eco de interfaz (ΔZ con
  *   peso especular según la normal local) + speckle coherente intratejido →
  *   atenuación acumulada ida y vuelta (dB·cm⁻¹·MHz⁻¹ × f0) → convolución
- *   por una PSF gaussiana separable cuyo ancho lateral crece lejos del foco.
+ *   por una PSF gaussiana separable cuyo ancho lateral crece lejos del foco
+ *   (LIM-10).
  *
  * Artefactos emergentes (no dibujados): ensanchamiento/sombra en el borde
  * del cristalino, realce posterior al vítreo, atenuación ósea y de ventana,
@@ -13,9 +14,10 @@
  */
 import { MATERIALS, type Material, type MaterialId, reflectionCoeff } from '../anatomy/materials';
 import type { Vec3 } from '../core/vec3';
-import type { AcquisitionSettings, ProbePose } from '../domain/contracts';
+import type { AcquisitionSettings } from '../domain/contracts';
 import type { ScanGeometry } from './probe';
 import { scatterComplex } from './speckle';
+import { FISICA_US } from './params';
 
 export interface BModeFrame {
   readonly width: number;
@@ -30,10 +32,10 @@ interface SceneQuery {
   classify(p: Vec3): MaterialId;
 }
 
-const EPS = 0.3;
+const EPS = FISICA_US.params.interfaceEpsMm.value;
 
-/** Aproxima la normal de la interfaz contando cambios de material por eje. */
-function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
+/** LIM-05: aproxima la normal contando cambios de material por eje. */
+export function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
   let nx = 0;
   let ny = 0;
   let nz = 0;
@@ -45,9 +47,9 @@ function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | nu
   for (let i = 0; i < 3; i++) {
     const a = scene.classify(addScaled(p, axes[i]!, EPS));
     const b = scene.classify(addScaled(p, axes[i]!, -EPS));
-    const d = (a === mat ? 0 : 1) + (b === mat ? 0 : 1);
+    const d = a === b ? 0 : a === mat || b === mat ? 1 : 0;
     if (i === 0) nx = d;
-    if (i === 1) ny = d;
+    else if (i === 1) ny = d;
     else nz = d;
   }
   const len = Math.hypot(nx, ny, nz);
@@ -66,13 +68,16 @@ function addScaled(p: Vec3, d: Vec3, s: number): Vec3 {
 export function renderBMode(
   scene: SceneQuery,
   scan: ScanGeometry,
-  _pose: ProbePose,
   settings: AcquisitionSettings,
   seedLabel: string,
-  opts: { axialStepMm?: number; extraAttenuationDb?: number } = {},
+  opts: { axialStepMm?: number; extraAttenuationDb?: number; speckle?: boolean } = {},
 ): BModeFrame {
   const f0 = settings.frequencyMhz;
-  const dz = opts.axialStepMm ?? Math.max(0.08, 1.5 * (1.54 / f0)); // ~1,5·λ
+  const minAxialStepMm = 0.08; // resolución mínima del muestreo axial
+  const axialSamplingFactor = 1.5; // separación axial relativa a λ
+  const dz =
+    opts.axialStepMm ??
+    Math.max(minAxialStepMm, axialSamplingFactor * (FISICA_US.params.soundSpeedMs.value / 1000 / f0));
   const height = Math.max(2, Math.round(settings.depthMm / dz));
   const width = scan.lineCount;
   const iQ = new Float32Array(width * height * 2); // re, im intercalado
@@ -115,11 +120,13 @@ export function renderBMode(
       }
 
       // Speckle intratejido (el hueso/aire apenas dispersan → eco dominante).
-      const [sr, si] = scatterComplex(seed, p, m.scatterAmp);
-      re += sr;
-      im += si;
+      if (opts.speckle !== false) {
+        const [sr, si] = scatterComplex(seed, p, m.scatterAmp);
+        re += sr;
+        im += si;
+      }
 
-      // Ensanchamiento del haz → se aproxima después por la PSF lateral.
+      // LIM-10: ensanchamiento del haz aproximado por la PSF lateral.
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
       const k = (zi * width + li) * 2;
       iQ[k] = re * attLin;
@@ -131,7 +138,7 @@ export function renderBMode(
   }
 
   // PSF separable: σ axial ≈ pulso; σ lateral crece con |z − foco|.
-  const sigmaAxial = Math.max(1, 2.2 / f0) / dz; // en muestras
+  const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / f0 / dz); // en muestras
   const out = new Float32Array(width * height);
   const tmp = new Float32Array(width * height);
 
@@ -150,7 +157,10 @@ export function renderBMode(
   }
 
   const focusSample = settings.focusMm / dz;
-  const beamSigma0 = Math.max(0.8, 6 / f0); // líneas
+  const beamSigma0 = Math.max(
+    FISICA_US.params.beamSigmaFloorLines.value,
+    FISICA_US.params.beamSigma0Coeff.value / f0,
+  ); // líneas
   const outBuf = out;
   for (let zi = 0; zi < height; zi++) {
     const defocus = Math.abs(zi - focusSample) * dz;

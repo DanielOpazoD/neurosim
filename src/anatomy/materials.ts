@@ -5,7 +5,8 @@
  * relativa de speckle; `specular` marca interfaces que producen eco fuerte
  * cuando el haz es perpendicular.
  *
- * Evidencia: valores de tabla estándar de ultrasonido (ver docs/REFERENCES.md);
+ * Evidencia: valores de tabla estándar de ultrasonido (clave `tablas-acusticas-estandar`
+ * en docs/REFERENCES.md);
  * los marcados en el registro de `parameters.ts` llevan su tipo de evidencia.
  */
 export interface Material {

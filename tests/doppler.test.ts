@@ -62,7 +62,7 @@ describe('PW integrado sobre la ACM del caso N1', () => {
   it('la envolvente medida queda cerca de PSV 90 / EDV 35 y el flujo es hacia la sonda', () => {
     const sim = buildReferenceCase();
     const head = sim.head;
-    const chain = new PwDopplerChain(head, sim.flow, sim.patient.seed);
+    const chain = new PwDopplerChain(head, sim.patient.seed);
 
     // Puerta de 6 mm en el segmento medio de M1 der, haz desde la ventana.
     const wc = head.windowCenter.der;
