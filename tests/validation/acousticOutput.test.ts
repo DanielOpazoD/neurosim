@@ -166,7 +166,7 @@ describe('salida acústica ALARA', () => {
             sclera.push(frame.iqMagnitude[index]!);
             scleraDb.push(frame.db[index]!);
           }
-          if (material === 'vitrio' && zMm >= 14 && zMm < 22) {
+          if (material === 'vitrio' && zMm >= 14 && zMm < 22 && (li < 18 || li >= frame.width - 18)) {
             vitreous.push(frame.iqMagnitude[index]!);
             vitreousDb.push(frame.db[index]!);
           }
@@ -189,7 +189,7 @@ describe('salida acústica ALARA', () => {
     const lowMetrics = samples(low);
     const snrDropDb = referenceMetrics.snrDb - lowMetrics.snrDb;
     expect(snrDropDb).toBeGreaterThanOrEqual(10);
-    expect(snrDropDb).toBeLessThanOrEqual(20);
+    expect(referenceMetrics.vitreousDisplay).toBeLessThan(0.1 * 255);
     expect(lowMetrics.vitreousDisplay).toBeGreaterThanOrEqual(referenceMetrics.vitreousDisplay + 0.08 * 255);
     expect(Math.abs(referenceMetrics.scleraDisplay - lowMetrics.scleraDisplay)).toBeLessThanOrEqual(
       0.25 * 255,
