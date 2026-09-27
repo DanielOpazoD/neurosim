@@ -80,6 +80,7 @@ describe('salida acústica ALARA', () => {
   it('mantiene el preset ocular dentro de MI y TI', () => {
     const result = output();
     expect(result.mi).toBeLessThanOrEqual(0.23);
+    expect(result.mi).toBeGreaterThanOrEqual(0.15);
     expect(result.ti).toBeLessThanOrEqual(1);
     expect(result.tiKind).toBe('TIS');
   });

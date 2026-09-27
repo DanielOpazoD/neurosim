@@ -199,12 +199,12 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     note: 'Potencia acústica temporal media estimada para Doppler PW.',
   },
   defaultEyeOutputPowerDb: {
-    value: -13,
+    value: -3,
     unit: 'dB relativo',
     range: [-20, 0],
     evidence: 'estimado',
     sources: ['plan-simulador-2026', 'fda-diagnostic-ultrasound-2023'],
-    note: 'Salida ocular calibrada para MI oftálmico ≤0,23 con presión máxima estimada.',
+    note: 'Salida ocular calibrada al mayor paso entero que mantiene MI oftálmico ≤0,23 y TIS ≤1 con el preset de fábrica.',
   },
   defaultTemporalOutputPowerDb: {
     value: 0,
@@ -247,12 +247,12 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     note: 'Foco ocular de fábrica.',
   },
   defaultEyeGainDb: {
-    value: 8,
+    value: 6,
     unit: 'dB',
     range: [0, 30],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Ganancia ocular de fábrica, ajustada para conservar visibilidad con la salida acústica calibrada.',
+    note: 'Ganancia ocular de fábrica.',
   },
   defaultEyeDynamicRangeDb: {
     value: 60,
