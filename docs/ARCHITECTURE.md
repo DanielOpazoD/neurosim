@@ -24,7 +24,7 @@ La UI es el único lugar que conoce el DOM y el canvas.
 - **ui**: composición, eventos, canvas, overlays y readouts.
 
 `tests/layers.test.ts` extrae las importaciones relativas de todos los
-TypeScript de `src/` y verifica esta matriz. Hay tres aristas observadas que
+TypeScript de `src/` y verifica esta matriz. Hay cuatro aristas observadas que
 se conservan explícitamente como deuda técnica, no como permisos generales:
 
 - `core → ultrasound`: `core/units.ts` consume la velocidad acústica registrada.
