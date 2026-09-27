@@ -1,3 +1,6 @@
+// Portado de DanielOpazoD/vexus-sim @ 59fb7b18e9c1 — src/doppler/measureMca.ts (MIT).
+// Adaptación local: neurosono-sim. Ver docs/PROVENANCE.md.
+// LIM-09: la envolvente observada conserva el sesgo diastólico conocido.
 /**
  * Medición sobre el espectro ADQUIRIDO (envolvente observada), separada de la
  * verdad fisiológica. La velocidad rotulada depende de la corrección angular

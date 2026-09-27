@@ -33,6 +33,18 @@ npm run check    # format + lint + typecheck + test + build
 
 Consulta la [suite de validación](docs/TESTING.md) para los criterios del plan.
 
+## Documentos
+
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [Convenciones](docs/CONVENTIONS.md)
+- [Índice documental](docs/INDEX.md)
+- [Decisiones](docs/DECISIONS.md)
+- [Limitaciones](docs/LIMITATIONS.md)
+- [Aproximaciones](docs/APPROXIMATIONS.md)
+- [Procedencia](docs/PROVENANCE.md)
+- [Referencias](docs/REFERENCES.md)
+- [Testing](docs/TESTING.md)
+
 ## Arquitectura
 
 Cadena causal: `paciente (anatomía + fisiología) → sonda → adquisición →

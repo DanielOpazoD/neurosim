@@ -1,6 +1,7 @@
 // Adaptado de DanielOpazoD/vexus-sim @ 59fb7b18e9c1 — src/doppler/sampleVolume.ts (MIT).
 // Simplificado para neurosono-sim: sin respiración ni deformación; la velocidad
 // viene de CerebralFlow (tubos del polígono de Willis con perfil laminar).
+// LIM-11/LIM-12: la advección y la resiembra son aproximaciones del fixture.
 
 /**
  * Volumen de muestra físico del Doppler pulsado:

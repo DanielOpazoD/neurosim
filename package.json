@@ -9,13 +9,15 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src tests",
+    "lint": "eslint src tests scripts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "golden:update": "GOLDEN_UPDATE=1 vitest run tests/validation/golden.test.ts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
+    "docs:index": "node scripts/docs-index.mjs",
+    "provenance:check": "node scripts/provenance-check.mjs",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run provenance:check",
     "prepare": "husky"
   },
   "devDependencies": {

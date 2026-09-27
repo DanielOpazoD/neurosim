@@ -1,4 +1,4 @@
-// El PSF se valida por consistencia heurística hasta la implementación PR 12.
+// LIM-10: el PSF se valida por consistencia heurística hasta la implementación PR 12.
 import { describe, expect, it } from 'vitest';
 import { defaultEyeSettings } from '../../src/domain/settings';
 import { renderBMode } from '../../src/ultrasound/bmode';

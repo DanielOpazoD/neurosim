@@ -5,7 +5,8 @@
  *   raymarch axial → material en cada muestra → eco de interfaz (ΔZ con
  *   peso especular según la normal local) + speckle coherente intratejido →
  *   atenuación acumulada ida y vuelta (dB·cm⁻¹·MHz⁻¹ × f0) → convolución
- *   por una PSF gaussiana separable cuyo ancho lateral crece lejos del foco.
+ *   por una PSF gaussiana separable cuyo ancho lateral crece lejos del foco
+ *   (LIM-10).
  *
  * Artefactos emergentes (no dibujados): ensanchamiento/sombra en el borde
  * del cristalino, realce posterior al vítreo, atenuación ósea y de ventana,
@@ -33,7 +34,7 @@ interface SceneQuery {
 
 const EPS = FISICA_US.params.interfaceEpsMm.value;
 
-/** Aproxima la normal de la interfaz contando cambios de material por eje. */
+/** LIM-05: aproxima la normal contando cambios de material por eje. */
 export function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
   let nx = 0;
   let ny = 0;
@@ -125,7 +126,7 @@ export function renderBMode(
         im += si;
       }
 
-      // Ensanchamiento del haz → se aproxima después por la PSF lateral.
+      // LIM-10: ensanchamiento del haz aproximado por la PSF lateral.
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
       const k = (zi * width + li) * 2;
       iQ[k] = re * attLin;

@@ -66,7 +66,7 @@ describe('validación PW sintética', () => {
     expect(Math.abs(summary!.taMaxCms)).toBeLessThan(expectedTa * 1.05);
   });
 
-  it.fails('EDV dentro del 5 % (sesgo conocido del estimador de envolvente, LIM-PW-EDV)', () => {
+  it.fails('EDV dentro del 5 % (sesgo conocido del estimador de envolvente, LIM-09)', () => {
     const { summary } = measureSynthetic();
     expect(summary).not.toBeNull();
     expect(Math.abs(summary!.edvCms)).toBeGreaterThan(35 * 0.95);

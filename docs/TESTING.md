@@ -2,6 +2,9 @@
 
 Ejecuta `npm run check` para formato, lint, tipos, pruebas y build. Para medir
 cobertura usa `npm run test:coverage`.
+El índice de documentos se valida con `tests/docsIndex.test.ts`; regénéralo con
+`npm run docs:index`. La procedencia se valida automáticamente al final de
+`npm run check` con `npm run provenance:check`.
 
 La suite en `tests/validation/` protege:
 
