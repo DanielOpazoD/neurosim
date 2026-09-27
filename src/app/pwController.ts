@@ -49,6 +49,10 @@ export class PwController {
     }
   }
 
+  setVolume(percent: number): void {
+    this.audio?.setVolume(percent);
+  }
+
   ensureChain(): PwDopplerChain {
     if (!this.chain) {
       const sink: AudioSink = {

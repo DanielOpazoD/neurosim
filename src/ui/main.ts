@@ -430,6 +430,28 @@ ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
 ($('densidad') as HTMLSelectElement).addEventListener('change', (event) => {
   setLineDensity((event.target as HTMLSelectElement).value as LineDensity);
 });
+const sweepInput = $('sweep') as HTMLSelectElement;
+const sweepValue = $('sweepV');
+sweepInput.value = String(s.sweepSeconds);
+sweepValue.textContent = `${s.sweepSeconds} s`;
+sweepInput.addEventListener('change', () => {
+  s.sweepSeconds = Number(sweepInput.value) as 2 | 3 | 4 | 6;
+  sweepValue.textContent = `${s.sweepSeconds} s`;
+});
+const colormapInput = $('colormap') as HTMLSelectElement;
+colormapInput.value = s.spectralColormap;
+colormapInput.addEventListener('change', () => {
+  s.spectralColormap = colormapInput.value as 'gris' | 'ambar';
+});
+const volumeInput = $('volume') as HTMLInputElement;
+const volumeValue = $('volumeV');
+volumeInput.value = String(s.volume);
+volumeValue.textContent = `${s.volume}%`;
+volumeInput.addEventListener('input', () => {
+  s.volume = Number(volumeInput.value);
+  volumeValue.textContent = `${s.volume}%`;
+  pw.setVolume(s.volume);
+});
 $('planoMesencefalico').addEventListener('click', () => setTiltPreset(0));
 $('planoDiencefalico').addEventListener('click', () => setTiltPreset(10));
 
@@ -463,6 +485,7 @@ $('pw').addEventListener('click', () => {
 $('audio').addEventListener('click', () => {
   s.audioOn = !s.audioOn;
   pw.setAudioEnabled(s.audioOn);
+  pw.setVolume(s.volume);
   $('audio').classList.toggle('on', s.audioOn);
 });
 $('teaching').addEventListener('click', () => {

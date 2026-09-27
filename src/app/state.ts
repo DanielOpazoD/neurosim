@@ -39,6 +39,9 @@ export interface AppState {
   gateDepthMm: number;
   gateUMm: number;
   audioOn: boolean;
+  volume: number;
+  sweepSeconds: 2 | 3 | 4 | 6;
+  spectralColormap: 'gris' | 'ambar';
   teachingMode: boolean;
   navCamera: { yawDeg: number; pitchDeg: number };
   debrief: DebriefLog;
@@ -68,6 +71,9 @@ export function createInitialState(): AppState {
     gateDepthMm: 52,
     gateUMm: 0,
     audioOn: false,
+    volume: 40,
+    sweepSeconds: 4,
+    spectralColormap: 'gris',
     teachingMode: false,
     navCamera: { yawDeg: -25, pitchDeg: -18 },
     debrief: new DebriefLog(0),
