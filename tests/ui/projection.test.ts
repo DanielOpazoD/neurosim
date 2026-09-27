@@ -4,7 +4,7 @@ import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { currentPose } from '../../src/app/poses';
 import { createInitialState } from '../../src/app/state';
 import { buildScan } from '../../src/ultrasound/probe';
-import { navigatorCameraPreset } from '../../src/ui/navigator3d';
+import { navigatorCameraPreset, navigatorFrame } from '../../src/ui/navigator3d';
 
 describe('proyección ortográfica del navegador', () => {
   it('conserva distancias en el plano de cámara sin rotación', () => {
@@ -35,5 +35,57 @@ describe('proyección ortográfica del navegador', () => {
       const projected = points.map((point) => project(point, { ...preset, target, scale: 1 }));
       expect(projected.every((point) => Math.abs(point.x) < 1000 && Math.abs(point.y) < 1000)).toBe(true);
     }
+  });
+
+  it('encuadra el polígono temporal y el globo ocular con escala legible', () => {
+    const sim = buildReferenceCase();
+    const temporalFrame = navigatorFrame(sim, 'temporal', 'der', 300);
+    const temporalCamera = {
+      ...navigatorCameraPreset('temporal', 'der'),
+      target: temporalFrame.target,
+      scale: temporalFrame.scale,
+    };
+    const m1 = sim.head.vessels.find((vessel) => vessel.id === 'm1-der');
+    expect(m1).toBeDefined();
+    const m1Projected = m1!.points.map((point) => project(point, temporalCamera));
+    const m1Extent = Math.max(
+      Math.max(...m1Projected.map((point) => point.x)) - Math.min(...m1Projected.map((point) => point.x)),
+      Math.max(...m1Projected.map((point) => point.y)) - Math.min(...m1Projected.map((point) => point.y)),
+    );
+    expect(m1Extent).toBeGreaterThanOrEqual(40);
+
+    const eye = sim.eyes.der;
+    const eyeFrame = navigatorFrame(sim, 'ojo', 'der', 300);
+    const eyeCamera = {
+      ...navigatorCameraPreset('ojo', 'der'),
+      target: eyeFrame.target,
+      scale: eyeFrame.scale,
+    };
+    const yaw = (eyeCamera.yawDeg * Math.PI) / 180;
+    const pitch = (eyeCamera.pitchDeg * Math.PI) / 180;
+    const basis = {
+      right: [Math.cos(yaw), 0, Math.sin(yaw)] as const,
+      up: [Math.sin(pitch) * Math.sin(yaw), Math.cos(pitch), -Math.sin(pitch) * Math.cos(yaw)] as const,
+    };
+    const visibleRadius = eye.globeRadiusMm + 0.5;
+    const globeProjected = [basis.right, basis.up].flatMap((axis) =>
+      [-1, 1].map((sign) =>
+        project(
+          [
+            eye.center[0] + axis[0] * visibleRadius * sign,
+            eye.center[1] + axis[1] * visibleRadius * sign,
+            eye.center[2] + axis[2] * visibleRadius * sign,
+          ],
+          eyeCamera,
+        ),
+      ),
+    );
+    const globeDiameter = Math.max(
+      Math.max(...globeProjected.map((point) => point.x)) -
+        Math.min(...globeProjected.map((point) => point.x)),
+      Math.max(...globeProjected.map((point) => point.y)) -
+        Math.min(...globeProjected.map((point) => point.y)),
+    );
+    expect(globeDiameter).toBeGreaterThanOrEqual(120);
   });
 });

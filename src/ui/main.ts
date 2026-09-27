@@ -166,6 +166,7 @@ function setStation(station: Station, side: Side): void {
   document
     .querySelectorAll('.pwonly')
     .forEach((e) => ((e as HTMLElement).style.opacity = station === 'temporal' ? '1' : '0.4'));
+  $('navigatorLegend').hidden = station !== 'temporal';
   s.pwOn = false;
   $('pw').classList.remove('on');
   ($('cine') as HTMLButtonElement).disabled = true;
