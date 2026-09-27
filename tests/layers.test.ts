@@ -12,7 +12,8 @@ const allowed = {
   doppler: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'domain']),
   domain: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler']),
   app: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler', 'domain']),
-  ui: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler', 'domain', 'app']),
+  render: new Set(['core', 'domain', 'ultrasound']),
+  ui: new Set(['core', 'anatomy', 'physiology', 'ultrasound', 'doppler', 'domain', 'app', 'render']),
 } as const;
 
 const anatomyPhysiologyDataModule = 'physiology/params.ts';
@@ -32,9 +33,13 @@ function firstLayer(path: string): string {
 }
 
 function resolveImport(source: string, specifier: string): string | null {
-  const base = resolve(dirname(source), specifier);
-  const candidates = [base, `${base}.ts`, resolve(base, 'index.ts')];
-  return candidates.find((candidate) => filesUnder(resolve(candidate, '..')).includes(candidate)) ?? null;
+  const base = resolve(dirname(source), specifier.replace(/\?raw$/, ''));
+  const candidates = [base, `${base}.ts`, ...(base.endsWith('.ts') ? [resolve(base, 'index.ts')] : [])];
+  return (
+    candidates.find(
+      (candidate) => candidate.endsWith('.ts') && filesUnder(resolve(candidate, '..')).includes(candidate),
+    ) ?? null
+  );
 }
 
 function importsOf(source: string): Array<{ specifier: string; typeOnly: boolean }> {
@@ -98,7 +103,7 @@ describe('fronteras de capas', () => {
       /(?<![\w.])(?:document|window)\s*(?:\.|\[)|\bHTMLCanvasElement\b|\bCanvasRenderingContext2D\b|\bOffscreenCanvas\b|\bImageData\b|\bnavigator\b|\blocalStorage\b|\brequestAnimationFrame\b/;
     const violations = filesUnder(root)
       .filter((file) => browserReference.test(readFileSync(file, 'utf8')))
-      .filter((file) => firstLayer(file) !== 'ui');
+      .filter((file) => !['ui', 'render'].includes(firstLayer(file)));
     expect(violations).toEqual([]);
   });
 });

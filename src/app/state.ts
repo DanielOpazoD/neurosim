@@ -42,6 +42,7 @@ export interface AppState {
   volume: number;
   sweepSeconds: 2 | 3 | 4 | 6;
   spectralColormap: 'gris' | 'ambar';
+  renderer: 'cpu' | 'gpu';
   teachingMode: boolean;
   navCamera: { yawDeg: number; pitchDeg: number };
   debrief: DebriefLog;
@@ -74,6 +75,7 @@ export function createInitialState(): AppState {
     volume: 40,
     sweepSeconds: 4,
     spectralColormap: 'gris',
+    renderer: 'cpu',
     teachingMode: false,
     navCamera: { yawDeg: -25, pitchDeg: -18 },
     debrief: new DebriefLog(0),

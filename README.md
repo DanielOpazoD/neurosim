@@ -27,6 +27,8 @@ exacta; una señal ausente no acredita cese circulatorio.
   de la ganancia B-mode.
 - Audio PW direccional con control de volumen 0–100 %, separación overlap-add,
   AGC lento y paso bajo de equipo.
+- Renderizador B-mode CPU por defecto; `?renderer=gpu` activa WebGL2 cuando
+  está disponible y el selector Renderizador aparece en Equipo.
 - Navegador 3D ortográfico de la sonda, con cámara arrastrable derivada de la
   pose y de la anatomía adquirida.
 - Debriefing docente determinista con línea de tiempo, hallazgos cuantitativos

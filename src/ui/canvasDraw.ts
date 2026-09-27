@@ -5,6 +5,7 @@
 import type { BModeFrame } from '../ultrasound/bmode';
 import type { SpectralColumn } from '../doppler/spectral';
 import type { ScanGeometry } from '../ultrasound/probe';
+import { scanConvert } from './scanConvert';
 import { nyquistVelocityCms } from '../core/units';
 import {
   rasterizeSpectrogram,
@@ -25,61 +26,18 @@ export function drawBMode(
   frame: BModeFrame,
   settings: { dynamicRangeDb: number },
 ): { pxPerMmZ: number; pxPerU: number } {
-  const { width, height, db, scan, depthMm } = frame;
+  const { scan, depthMm } = frame;
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
   const img = ctx.createImageData(W, H);
-  const px = img.data;
-  px.fill(0);
-  for (let i = 3; i < px.length; i += 4) px[i] = 255;
-
-  if (scan.kind === 'linear') {
-    const sx = W / width;
-    const sy = H / height;
-    for (let zi = 0; zi < height; zi++) {
-      for (let li = 0; li < width; li++) {
-        const g = gray(db[zi * width + li]!, settings.dynamicRangeDb);
-        const x0 = Math.floor(li * sx);
-        const y0 = Math.floor(zi * sy);
-        for (let y = y0; y < Math.min(H, y0 + sy + 1); y++) {
-          for (let x = x0; x < Math.min(W, x0 + sx + 1); x++) {
-            const k = (y * W + x) * 4;
-            px[k] = px[k + 1] = px[k + 2] = g;
-          }
-        }
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-    return { pxPerMmZ: H / depthMm, pxPerU: W / scan.widthMmOrRad };
-  }
-
-  // sector: cada píxel proyecta a coordenadas (ángulo, radio)
-  const half = scan.widthMmOrRad / 2;
-  const cx = W / 2;
-  const cy = 0;
-  const rMax = Math.min(H * 1.15, Math.hypot(W / 2, H));
-  const scale = rMax / depthMm;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const dx = x - cx;
-      const dy = y - cy;
-      const r = Math.hypot(dx, dy) / scale;
-      const a = Math.atan2(dx, dy);
-      if (a < -half || a > half || r >= depthMm || r < 0) continue;
-      const zi = Math.floor((r / depthMm) * height);
-      const li = Math.floor(((a + half) / (2 * half)) * width);
-      const g = gray(db[zi * width + li]!, settings.dynamicRangeDb);
-      const k = (y * W + x) * 4;
-      px[k] = px[k + 1] = px[k + 2] = g;
-    }
-  }
+  img.data.set(scanConvert(frame, settings, W, H));
   ctx.putImageData(img, 0, 0);
-  return { pxPerMmZ: scale, pxPerU: scale };
-}
-
-function gray(db: number, drDb: number): number {
-  const x = db / drDb + 1; // db∈[-dr,0] → [0,1]
-  return Math.round(255 * Math.min(1, Math.max(0, x)));
+  return scan.kind === 'linear'
+    ? { pxPerMmZ: H / depthMm, pxPerU: W / scan.widthMmOrRad }
+    : {
+        pxPerMmZ: Math.min(H * 1.15, Math.hypot(W / 2, H)) / depthMm,
+        pxPerU: Math.min(H * 1.15, Math.hypot(W / 2, H)) / depthMm,
+      };
 }
 
 /** Superpone el mapa Doppler color (rojo hacia la sonda, azul alejándose). */
