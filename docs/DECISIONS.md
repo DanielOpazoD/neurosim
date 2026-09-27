@@ -132,3 +132,8 @@
 35. **DEC-35** — El audio direccional usa ventanas Hann con overlap-add del 50 %,
     un paso bajo relativo a PRF/2 y un AGC lento. El resampleo lineal conserva
     la relación PRF–AudioContext; volumen y paleta son controles de equipo.
+36. **DEC-36** — La etapa post-IQ determinista puede ejecutarse en WebGL2:
+    PSF, TGC, compresión logarítmica y scan conversion usan coeficientes
+    calculados en TypeScript y compartidos con GLSL. El trazado de rayos,
+    clasificación de materiales, artefactos y ruido permanecen en CPU/Worker.
+    CPU es el renderizador por defecto hasta medir paridad en el dispositivo.

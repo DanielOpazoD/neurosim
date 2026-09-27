@@ -43,6 +43,7 @@
 | LIM-15 | Flujo vascular simplificado         | —                                                          |
 | LIM-22 | Debriefing por reglas               | —                                                          |
 | LIM-23 | Audio de equipo                     | —                                                          |
+| LIM-24 | Paridad WebGL2                      | —                                                          |
 
 ## IDs de decisiones
 
@@ -83,6 +84,7 @@
 | DEC-33 | El debriefing docente se construye con evidencia numérica del           | —                          |
 | DEC-34 | El espectrograma de equipo se presenta recorriendo cada fila de         | —                          |
 | DEC-35 | El audio direccional usa ventanas Hann con overlap-add del 50 %,        | —                          |
+| DEC-36 | La etapa post-IQ determinista puede ejecutarse en WebGL2:               | —                          |
 
 ## Parámetros registrados
 

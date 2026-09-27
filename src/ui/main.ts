@@ -33,6 +33,9 @@ import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdPr
 import { buildDebrief } from '../app/debrief';
 import { currentPose } from '../app/poses';
 import { drawNavigator, navigatorCameraPreset } from './navigator3d';
+import { isWebGL2Available } from '../render/gl/context';
+import { GlBmodePipeline } from '../render/gl/glPipeline';
+import { probeBeamSpec } from '../ultrasound/beam';
 
 const WILLIS_VARIANTS: readonly WillisVariant[] = [
   'normal',
@@ -70,12 +73,35 @@ const navigatorCtx = navigatorCv.getContext('2d')!;
 const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
 const renderer = createRenderClient();
+const gpuCanvas = document.createElement('canvas');
+gpuCanvas.width = bmodeCv.width;
+gpuCanvas.height = bmodeCv.height;
+const gpuPipeline = GlBmodePipeline.create(gpuCanvas);
+const gpuAvailable = gpuPipeline !== null && isWebGL2Available();
+const rendererParam = new URLSearchParams(window.location.search).get('renderer');
+if (gpuAvailable && rendererParam === 'gpu') s.renderer = 'gpu';
 let lastRender = 0;
 let lastT = performance.now();
 let renderInFlight = false;
 let renderId = 0;
 let currentScan: RenderResponse['scan'] | null = null;
 let alaraLogged = false;
+
+function drawGpuBMode(
+  bmode: RenderResponse['bmode'],
+  scan: RenderResponse['scan'],
+  settings: AcquisitionSettings,
+): void {
+  if (!gpuPipeline) return;
+  gpuPipeline.render(bmode.iqMagnitude, bmode.width, bmode.height, {
+    dz: bmode.dzMm,
+    scan,
+    settings,
+    beam: probeBeamSpec(settings.transducer, settings),
+  });
+  bCtx.clearRect(0, 0, bmodeCv.width, bmodeCv.height);
+  bCtx.drawImage(gpuCanvas, 0, 0);
+}
 
 function createRenderClient(): RenderClientLike {
   if (typeof Worker === 'undefined') return new SyncRenderClient();
@@ -203,7 +229,11 @@ function toggleFreeze(): void {
 function drawFrame(response: RenderResponse): void {
   const { frame, bmode, scan, color } = response;
   currentScan = scan;
-  drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
+  if (s.renderer === 'gpu' && gpuPipeline) {
+    drawGpuBMode(bmode, scan, frame.settings);
+  } else {
+    drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
+  }
   if (frame.station === 'temporal' && color) {
     drawColorOverlay(
       bCtx,
@@ -331,7 +361,11 @@ function updateAcousticLabel(): void {
 function drawCineFrame(): void {
   const item = nextCine(s);
   if (!item) return;
-  drawBMode(bCtx, item.bmode, { dynamicRangeDb: item.frame.settings.dynamicRangeDb });
+  if (s.renderer === 'gpu' && gpuPipeline) {
+    drawGpuBMode(item.bmode, item.scan, item.frame.settings);
+  } else {
+    drawBMode(bCtx, item.bmode, { dynamicRangeDb: item.frame.settings.dynamicRangeDb });
+  }
   $('hint').textContent =
     `Cine ${s.cineIdx + 1}/${s.cine.length} · cuadro t=${item.frame.tSeconds.toFixed(2)} s`;
 }
@@ -453,6 +487,13 @@ const colormapInput = $('colormap') as HTMLSelectElement;
 colormapInput.value = s.spectralColormap;
 colormapInput.addEventListener('change', () => {
   s.spectralColormap = colormapInput.value as 'gris' | 'ambar';
+});
+const rendererInput = $('renderer') as HTMLSelectElement;
+const rendererControl = $('rendererCtl');
+rendererControl.hidden = !gpuAvailable;
+rendererInput.value = s.renderer;
+rendererInput.addEventListener('change', () => {
+  s.renderer = rendererInput.value as 'cpu' | 'gpu';
 });
 const volumeInput = $('volume') as HTMLInputElement;
 const volumeValue = $('volumeV');

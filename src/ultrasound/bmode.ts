@@ -21,8 +21,9 @@ import {
 } from '../anatomy/materials';
 import { dot, normalize, type Vec3 } from '../core/vec3';
 import type { AcquisitionSettings } from '../domain/contracts';
-import { lateralFwhmMm, probeBeamSpec, sigmaFromFwhm, sidelobeLevelDb } from './beam';
+import { probeBeamSpec } from './beam';
 import type { ScanGeometry } from './probe';
+import { applyPsfAndCompression } from './postIq';
 import { scatterComplex } from './speckle';
 import { FISICA_US } from './params';
 import { SeededRandom } from '../core/random';
@@ -35,6 +36,7 @@ export interface BModeFrame {
   /** Magnitud IQ antes de PSF, TGC y compresión logarítmica. */
   readonly iqMagnitude: Float32Array;
   readonly depthMm: number;
+  readonly dzMm: number;
   readonly scan: ScanGeometry;
 }
 
@@ -262,69 +264,13 @@ export function renderBMode(
     }
   }
 
-  // PSF separable: σ axial ≈ pulso; σ lateral crece con |z − foco|.
-  const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / f0 / dz); // en muestras
-  const out = new Float32Array(width * height);
-  const tmp = new Float32Array(width * height);
   const iqMagnitude = new Float32Array(width * height);
-
-  // convolución axial de la magnitud compleja
-  const env = (idx: number) => Math.hypot(iQ[2 * idx]!, iQ[2 * idx + 1]!);
   for (let idx = 0; idx < iqMagnitude.length; idx++) {
-    iqMagnitude[idx] = env(idx);
+    iqMagnitude[idx] = Math.hypot(iQ[2 * idx]!, iQ[2 * idx + 1]!);
   }
-  const kernA = gaussKernel(sigmaAxial);
-  for (let li = 0; li < width; li++) {
-    for (let zi = 0; zi < height; zi++) {
-      let acc = 0;
-      for (let t = -kernA.r; t <= kernA.r; t++) {
-        const zz = Math.min(height - 1, Math.max(0, zi + t));
-        acc += env(zz * width + li) * kernA.w[t + kernA.r]!;
-      }
-      tmp[zi * width + li] = acc;
-    }
-  }
+  const outBuf = applyPsfAndCompression(iqMagnitude, width, height, dz, scan, settings, beam);
 
-  const sidelobeEpsilon = Math.pow(10, sidelobeLevelDb(beam) / 20);
-  const outBuf = out;
-  for (let zi = 0; zi < height; zi++) {
-    const zMm = zi * dz;
-    const pitchMm =
-      scan.kind === 'linear'
-        ? scan.widthMmOrRad / Math.max(1, scan.lineCount - 1)
-        : Math.max(1e-6, (zMm * scan.widthMmOrRad) / Math.max(1, scan.lineCount - 1));
-    const sigmaL = Math.max(0.6, sigmaFromFwhm(lateralFwhmMm(beam, zMm)) / pitchMm);
-    const kern = beamKernel(sigmaL, sidelobeEpsilon);
-    for (let li = 0; li < width; li++) {
-      let acc = 0;
-      for (let t = -kern.r; t <= kern.r; t++) {
-        const ll = Math.min(width - 1, Math.max(0, li + t));
-        acc += tmp[zi * width + ll]! * kern.w[t + kern.r]!;
-      }
-      outBuf[zi * width + li] = acc;
-    }
-  }
-
-  // TGC + compresión logarítmica dentro del rango dinámico.
-  // tgcDb: 8 potenciómetros repartidos a lo largo de la profundidad.
-  const maxRef = 4.0;
-  const tgcAt = (zMm: number): number => {
-    const n = settings.tgcDb.length;
-    const f = Math.min(1, Math.max(0, zMm / Math.max(1, settings.depthMm))) * (n - 1);
-    const i0 = Math.floor(f);
-    const i1 = Math.min(n - 1, i0 + 1);
-    return settings.tgcDb[i0]! * (i1 - f) + settings.tgcDb[i1]! * (f - i0);
-  };
-  for (let zi = 0; zi < height; zi++) {
-    const tgcDb = tgcAt(zi * dz);
-    for (let li = 0; li < width; li++) {
-      const v = outBuf[zi * width + li]! / maxRef;
-      const db = 20 * Math.log10(v + 1e-6) + settings.gainDb + tgcDb;
-      outBuf[zi * width + li] = db;
-    }
-  }
-
-  return { width, height, db: outBuf, iqMagnitude, depthMm: settings.depthMm, scan };
+  return { width, height, db: outBuf, iqMagnitude, depthMm: settings.depthMm, dzMm: dz, scan };
 }
 
 function isThinStrongMaterial(id: MaterialId): boolean {
@@ -361,34 +307,4 @@ function addCometEchoes(
     if (zi >= height) break;
     addArtifactEcho(iQ, width, height, lineIndex, zi, rc * Math.pow(0.6, n) * INTERFACE_ECHO_GAIN, 0);
   }
-}
-
-function gaussKernel(sigma: number): { w: Float32Array; r: number } {
-  const r = Math.max(1, Math.ceil(sigma * 2.5));
-  const w = new Float32Array(2 * r + 1);
-  let sum = 0;
-  for (let i = -r; i <= r; i++) {
-    const v = Math.exp(-(i * i) / (2 * sigma * sigma));
-    w[i + r] = v;
-    sum += v;
-  }
-  for (let i = 0; i < w.length; i++) w[i]! /= sum;
-  return { w, r };
-}
-
-function beamKernel(sigma: number, sidelobeEpsilon: number): { w: Float32Array; r: number } {
-  const main = gaussKernel(sigma);
-  const broad = gaussKernel(3 * sigma);
-  const r = Math.max(main.r, broad.r);
-  const w = new Float32Array(2 * r + 1);
-  let sum = 0;
-  for (let i = -r; i <= r; i++) {
-    const mainWeight = Math.abs(i) <= main.r ? main.w[i + main.r]! : 0;
-    const broadWeight = Math.abs(i) <= broad.r ? broad.w[i + broad.r]! : 0;
-    const value = (1 - sidelobeEpsilon) * mainWeight + sidelobeEpsilon * broadWeight;
-    w[i + r] = value;
-    sum += value;
-  }
-  for (let i = 0; i < w.length; i++) w[i]! /= sum;
-  return { w, r };
 }

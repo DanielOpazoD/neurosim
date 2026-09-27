@@ -83,3 +83,9 @@ a WebGL2 en bloques posteriores.
   respuesta auditiva individual. El simulador tampoco infiere una auto-traza
   de equipos comerciales; la separación, AGC y filtrado son una presentación
   determinista de la señal IQ.
+- **LIM-24 · Paridad WebGL2**: el trazado y la adquisición siguen en CPU; la
+  ruta GPU solo cubre post-IQ y usa coma flotante `highp`. No se promete
+  igualdad bit a bit entre CPU y GPU: la equivalencia se evalúa con tolerancias
+  de intensidad y puede depender de la implementación de WebGL2 del navegador.
+  En sectores, la textura lateral GPU limita el radio a 64 taps para mantener
+  un tamaño finito cerca del ápice; la ruta CPU conserva el kernel de referencia.
