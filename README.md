@@ -1,5 +1,7 @@
 # neurosim
 
+[![check](https://github.com/DanielOpazoD/neurosim/actions/workflows/check.yml/badge.svg)](https://github.com/DanielOpazoD/neurosim/actions/workflows/check.yml)
+
 Simulador educativo de neurosonología en el navegador: medición del diámetro
 de la vaina del nervio óptico (DVNO/ONSD) y Doppler transcraneal de la
 arteria cerebral media (TCCD/TCCS). Imagen, color y espectro emergen de un
@@ -20,6 +22,8 @@ exacta; una señal ausente no acredita cese circulatorio.
   bloques posteriores (ver `docs/LIMITATIONS.md`).
 
 ## Desarrollo
+
+Los hooks se instalan con `npm install`.
 
 ```bash
 npm install
