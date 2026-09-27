@@ -46,3 +46,5 @@
     síncrono.
 16. **DEC-16** — Las pruebas E2E cubren el flujo docente completo pero no
     gatean `check` local; gatean CI.
+17. **DEC-17** — `noUncheckedIndexedAccess` está activo; `!` se permite solo
+    en bucles indexados acotados y tablas constantes.
