@@ -132,7 +132,7 @@ describe('salida acústica ALARA', () => {
     ).toBe(true);
   });
 
-  it('reduce la SNR B-mode al bajar potencia aunque aumente la ganancia', () => {
+  it('reduce la SNR lineal y conserva la visibilidad al bajar potencia', () => {
     const sim = buildReferenceCase(REFERENCE_SEED);
     const base = defaultEyeSettings();
     const scan = buildScan(eyePose(sim, 'der'), 'linear', 64);
@@ -143,28 +143,57 @@ describe('salida acústica ALARA', () => {
         { ...base, outputPowerDb, gainDb },
         `acoustic-snr-${outputPowerDb}-${gainDb}`,
       );
+    const noiseless = renderBMode(
+      { classify: (p) => classifyEye(sim.eyes.der, p) },
+      scan,
+      { ...base, outputPowerDb: 0 },
+      'acoustic-snr-noiseless',
+      { electronicNoise: false },
+    );
     const reference = render(0, base.gainDb);
     const low = render(-20, base.gainDb + 20);
-    const snr = (frame: ReturnType<typeof render>) => {
+    const samples = (frame: ReturnType<typeof render>) => {
       const sclera: number[] = [];
       const vitreous: number[] = [];
+      const scleraDb: number[] = [];
+      const vitreousDb: number[] = [];
       for (let zi = 0; zi < frame.height; zi += 2) {
         const zMm = ((zi + 0.5) / frame.height) * base.depthMm;
         for (let li = 0; li < frame.width; li += 2) {
           const material = classifyEye(sim.eyes.der, samplePoint(scan, li, zMm));
-          const amplitude = 10 ** (frame.db[zi * frame.width + li]! / 20);
-          if (material === 'paredGlobo') sclera.push(amplitude);
-          if (material === 'vitrio') vitreous.push(amplitude);
+          const index = zi * frame.width + li;
+          if (material === 'paredGlobo' && zMm >= 25 && zMm < 26) {
+            sclera.push(frame.iqMagnitude[index]!);
+            scleraDb.push(frame.db[index]!);
+          }
+          if (material === 'vitrio' && zMm >= 14 && zMm < 22) {
+            vitreous.push(frame.iqMagnitude[index]!);
+            vitreousDb.push(frame.db[index]!);
+          }
         }
       }
-      const mean = sclera.reduce((sum, value) => sum + value, 0) / sclera.length;
-      const meanVitreous = vitreous.reduce((sum, value) => sum + value, 0) / vitreous.length;
-      const variance =
-        vitreous.reduce((sum, value) => sum + (value - meanVitreous) ** 2, 0) /
-        Math.max(1, vitreous.length - 1);
-      return 20 * Math.log10(mean / Math.sqrt(variance));
+      const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+      const displayMean = (values: number[]) =>
+        mean(values.map((db) => 255 * Math.min(1, Math.max(0, db / base.dynamicRangeDb + 1))));
+      return {
+        scleraIq: mean(sclera),
+        vitreousIq: mean(vitreous),
+        snrDb: 20 * Math.log10(mean(sclera) / mean(vitreous)),
+        scleraDisplay: displayMean(scleraDb),
+        vitreousDisplay: displayMean(vitreousDb),
+      };
     };
-    expect(snr(reference) - snr(low)).toBeGreaterThanOrEqual(6);
+    const noiselessMetrics = samples(noiseless);
+    expect(noiselessMetrics.scleraIq).toBeGreaterThan(10 * noiselessMetrics.vitreousIq);
+    const referenceMetrics = samples(reference);
+    const lowMetrics = samples(low);
+    const snrDropDb = referenceMetrics.snrDb - lowMetrics.snrDb;
+    expect(snrDropDb).toBeGreaterThanOrEqual(10);
+    expect(snrDropDb).toBeLessThanOrEqual(20);
+    expect(lowMetrics.vitreousDisplay).toBeGreaterThanOrEqual(referenceMetrics.vitreousDisplay + 0.08 * 255);
+    expect(Math.abs(referenceMetrics.scleraDisplay - lowMetrics.scleraDisplay)).toBeLessThanOrEqual(
+      0.25 * 255,
+    );
   });
 
   it('reduce la potencia espectral PW aproximadamente 20 dB a -20 dB', () => {

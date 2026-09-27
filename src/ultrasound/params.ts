@@ -214,13 +214,21 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     sources: ['plan-simulador-2026'],
     note: 'Salida temporal de fábrica relativa al máximo del transductor.',
   },
-  bmodeNoiseFloor: {
-    value: -55,
-    unit: 'dB relativo',
-    range: [-70, -40],
+  eyeScleraRefIq: {
+    value: 0.0854749,
+    unit: 'iq',
+    range: [0, 1],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Piso gaussiano electrónico relativo al eco máximo de referencia.',
+    note: 'Media |iQ| de la ROI de esclera posterior a 0 dB sin ruido, preset ocular.',
+  },
+  bmodeNoiseSnrDb: {
+    value: 30,
+    unit: 'dB',
+    range: [20, 40],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Piso gaussiano electrónico constante del receptor, 30 dB por debajo de la media |iQ| de esclera posterior a 0 dB, preset ocular.',
   },
   defaultEyeFrequencyMhz: {
     value: 10,
