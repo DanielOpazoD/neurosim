@@ -49,3 +49,9 @@ del motor.
   imaging. J Ultrasound Med. 1986;5:227-37.
 - **feldman-artifacts-2009** — Feldman MK et al. US artifacts. Radiographics.
   2009;29:1179-89.
+- **walter-tccs-2007** — Walter U. Transcranial sonography in brain
+  disorders. Ultraschall Med. 2007.
+- **berg-midbrain-2008** — Berg D, Godau J, Walter U. Transcranial
+  sonography in movement disorders. Lancet Neurol. 2008;7:1044-55.
+- **seidel-tcs-1995** — Seidel G, Kaps M, Gerriets T. Potential and
+  limitations of transcranial color-coded sonography. Stroke. 1995;26:2061-6.

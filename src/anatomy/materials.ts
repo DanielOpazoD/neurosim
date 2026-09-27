@@ -45,6 +45,10 @@ export type MaterialId =
   | 'musculoRecto'
   | 'hueso' // tabla ósea / pared orbitaria / cráneo
   | 'tejidoCerebral'
+  | 'sustanciaNegra' // bandas hiperecoicas mesencefálicas
+  | 'ependimo' // paredes ventriculares
+  | 'talamo' // tálamo hipoecoico
+  | 'pineal' // glándula pineal ecogénica
   | 'cisterna' // LCR basal
   | 'vaso' // sangre arterial dentro de un vaso
   | 'aire'; // fuera del paciente
@@ -88,6 +92,11 @@ export const MATERIALS: Readonly<Record<MaterialId, Material>> = Object.freeze({
   // Hueso: α₀=4 conserva α(2 MHz)=16 dB/cm del modelo previo.
   hueso: m('hueso', 2800, 1850, 4.0, 2.0, 0.15, 0.9),
   tejidoCerebral: m('tejidoCerebral', 1560, 1030, 0.6, 1.2, 0.5, 0.4),
+  // Berg et al. 2008: hiperecogenicidad de sustancia negra en TCS.
+  sustanciaNegra: m('sustanciaNegra', 1560, 1040, 0.6, 1.2, 0.7, 0.5),
+  ependimo: m('ependimo', 1560, 1040, 0.6, 1.2, 0.85, 0.3),
+  talamo: m('talamo', 1560, 1035, 0.6, 1.2, 0.45, 0.3),
+  pineal: m('pineal', 1600, 1100, 0.7, 1.2, 0.9, 0.4),
   // Las cisternas basales son ecogénicas (pliegues aracnoideos): el «corazón
   // en estrella» de la referencia TCCD. No es LCR anecogénico.
   // Líquidos craneales ajustados para conservar α(2 MHz) del modelo previo.

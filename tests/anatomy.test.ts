@@ -7,10 +7,12 @@ import {
   sheathRadiiAt,
   trueOnsdMm,
 } from '../src/anatomy/eye';
-import { classifyHead, inTemporalWindow, skullThicknessAt, vesselAt } from '../src/anatomy/head';
-import { ANATOMIA_OJO } from '../src/anatomy/params';
+import { classifyHead, inTemporalWindow, landmarkAt, skullThicknessAt, vesselAt } from '../src/anatomy/head';
+import { ANATOMIA_CABEZA, ANATOMIA_OJO } from '../src/anatomy/params';
 import { buildReferenceCase } from '../src/domain/referenceCase';
 import { dist, type Vec3 } from '../src/core/vec3';
+import { temporalPose } from '../src/app/poses';
+import { buildScan } from '../src/ultrasound/probe';
 
 describe('ojo de referencia N1', () => {
   const rng = new SeededRandom(0x0c12ab);
@@ -113,5 +115,94 @@ describe('cráneo de referencia N1', () => {
     expect(d).toBeGreaterThan(30);
     expect(d).toBeLessThan(75);
     expect(vesselAt(h, m1.points[2]!)).toBe(m1);
+    expect(classifyHead(h, m1.points[2]!)).toBe('vaso');
+  });
+
+  it('modela pedúnculos, muesca interpeduncular y sustancia negra', () => {
+    const offset = ANATOMIA_CABEZA.params.peduncleOffsetXmm.value;
+    const c = h.midbrainCenter;
+    expect(classifyHead(h, [c[0] - offset, c[1], c[2]])).toBe('tejidoCerebral');
+    expect(classifyHead(h, [c[0] + offset, c[1], c[2]])).toBe('tejidoCerebral');
+    expect(classifyHead(h, [c[0], c[1], c[2] + 4])).toBe('cisterna');
+
+    const snCenter: Vec3 = [c[0] + offset, c[1], c[2] + ANATOMIA_CABEZA.params.snCenterZOffsetMm.value];
+    expect(classifyHead(h, snCenter)).toBe('sustanciaNegra');
+    const snHalfWidth = ANATOMIA_CABEZA.params.snHalfWidthMm.value;
+    const snHalfHeight = (ANATOMIA_CABEZA.params.snAreaCm2.value * 100) / (Math.PI * snHalfWidth);
+    let areaMm2 = 0;
+    for (let x = -snHalfWidth; x <= snHalfWidth; x += 0.1) {
+      for (let y = -snHalfHeight; y <= snHalfHeight; y += 0.1) {
+        if (classifyHead(h, [snCenter[0] + x, snCenter[1] + y, snCenter[2]]) === 'sustanciaNegra') {
+          areaMm2 += 0.01;
+        }
+      }
+    }
+    const areaCm2 = areaMm2 / 100;
+    expect(areaCm2).toBeGreaterThan(ANATOMIA_CABEZA.params.snAreaCm2.value * 0.8);
+    expect(areaCm2).toBeLessThan(ANATOMIA_CABEZA.params.snAreaCm2.value * 1.2);
+  });
+
+  it('clasifica el plano diencefálico y sus hitos', () => {
+    const c = h.thirdVentricleCenter;
+    expect(classifyHead(h, c)).toBe('lcrVaina');
+    expect(classifyHead(h, [c[0] + 2.75, c[1], c[2]])).toBe('ependimo');
+    expect(classifyHead(h, [c[0] + 10, c[1], c[2]])).toBe('talamo');
+    expect(classifyHead(h, [c[0], c[1], c[2] - 7])).toBe('pineal');
+    expect(landmarkAt(h, h.midbrainCenter)).toBe('mesencefalo');
+    expect(
+      landmarkAt(h, [
+        h.midbrainCenter[0] + 6,
+        h.midbrainCenter[1],
+        h.midbrainCenter[2] + ANATOMIA_CABEZA.params.snCenterZOffsetMm.value,
+      ]),
+    ).toBe('sustanciaNegra');
+    expect(landmarkAt(h, c)).toBe('tercerVentriculo');
+    expect(landmarkAt(h, [c[0] + 10, c[1], c[2]])).toBe('talamo');
+    expect(landmarkAt(h, [c[0], c[1], c[2] - 7])).toBe('pineal');
+    expect(landmarkAt(h, [h.midbrainCenter[0], h.midbrainCenter[1], h.midbrainCenter[2] + 4])).toBe(
+      'cisternaInterpeduncular',
+    );
+    expect(landmarkAt(h, [h.midbrainCenter[0] + 3, h.midbrainCenter[1] + 1, h.midbrainCenter[2] - 4])).toBe(
+      'nucleoRojo',
+    );
+    expect(landmarkAt(h, [h.midbrainCenter[0], h.midbrainCenter[1], h.midbrainCenter[2] - 2])).toBe('rafe');
+    expect(landmarkAt(h, [c[0] + 10, c[1], c[2] + 15])).toBe('cuernoFrontal');
+    expect(landmarkAt(h, [h.midbrainCenter[0] + 20, h.midbrainCenter[1] - 4, h.midbrainCenter[2] - 30])).toBe(
+      'penasco',
+    );
+  });
+
+  it('separa el plano mesencefálico del diencefálico mediante el tilt', () => {
+    const countsAtTilt = (tiltDeg: number): { midbrain: number; ventricle: number } => {
+      const pose = temporalPose(buildReferenceCase(), {
+        side: 'der',
+        station: 'temporal',
+        tiltDeg,
+        offsetMm: 0,
+        rotDeg: 0,
+        press: 0.3,
+      });
+      const scan = buildScan(pose, 'sector', 65);
+      let midbrain = 0;
+      let ventricle = 0;
+      for (const line of scan.lines) {
+        for (let i = 0; i <= 1000; i++) {
+          const p: Vec3 = [
+            line.origin[0] + line.dir[0] * i * 0.1,
+            line.origin[1] + line.dir[1] * i * 0.1,
+            line.origin[2] + line.dir[2] * i * 0.1,
+          ];
+          if (landmarkAt(h, p) === 'mesencefalo') midbrain++;
+          if (landmarkAt(h, p) === 'tercerVentriculo') ventricle++;
+        }
+      }
+      return { midbrain, ventricle };
+    };
+    const mesencephalic = countsAtTilt(0);
+    const diencephalic = countsAtTilt(10);
+    expect(mesencephalic.midbrain).toBeGreaterThan(0);
+    expect(mesencephalic.ventricle).toBe(0);
+    expect(diencephalic.ventricle).toBeGreaterThan(0);
+    expect(diencephalic.midbrain).toBe(0);
   });
 });

@@ -59,13 +59,14 @@
 | DEC-18 | La ampolla retrobulbar se parametriza y se ancla al valor               | —                          |
 | DEC-19 | El haz B-mode usa FWHM gaussiano `λF/D`, lóbulos laterales              | `src/ultrasound/bmode.ts`  |
 | DEC-20 | La reverberación, el espejo y la cola de cometa emergen de              | —                          |
+| DEC-21 | Los hitos transtemporales emergen de regiones anatómicas 3D             | —                          |
 
 ## Parámetros registrados
 
 | Conjunto             | Parámetros |
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
-| `anatomia-cabeza`    |         40 |
+| `anatomia-cabeza`    |         67 |
 | `doppler`            |         22 |
 | `fisiologia`         |         18 |
 | `fisica-ultrasonido` |         28 |
