@@ -13,7 +13,7 @@
  */
 import { MATERIALS, type Material, type MaterialId, reflectionCoeff } from '../anatomy/materials';
 import type { Vec3 } from '../core/vec3';
-import type { AcquisitionSettings, ProbePose } from '../domain/contracts';
+import type { AcquisitionSettings } from '../domain/contracts';
 import type { ScanGeometry } from './probe';
 import { scatterComplex } from './speckle';
 
@@ -66,7 +66,6 @@ function addScaled(p: Vec3, d: Vec3, s: number): Vec3 {
 export function renderBMode(
   scene: SceneQuery,
   scan: ScanGeometry,
-  _pose: ProbePose,
   settings: AcquisitionSettings,
   seedLabel: string,
   opts: { axialStepMm?: number; extraAttenuationDb?: number; speckle?: boolean } = {},

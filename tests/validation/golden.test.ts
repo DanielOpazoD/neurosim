@@ -21,7 +21,6 @@ function eyeHash(seed: number): string {
   const frame = renderBMode(
     { classify: (p) => classifyEye(sim.eyes.der, p) },
     buildScan(pose, 'linear', 64),
-    pose,
     settings,
     `seed-${sim.patient.seed}-der`,
   );
@@ -35,7 +34,6 @@ function temporalHash(): string {
   const frame = renderBMode(
     { classify: (p) => classifyHead(sim.head, p) },
     buildScan(pose, 'sector', 64),
-    pose,
     settings,
     `seed-${sim.patient.seed}-der`,
   );

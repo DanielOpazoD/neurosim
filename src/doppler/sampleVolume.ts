@@ -21,7 +21,6 @@ import { dopplerShiftHz } from '../core/units';
 import { MATERIALS } from '../anatomy/materials';
 import type { HeadGeometry, Vessel } from '../anatomy/head';
 import { classifyHead, vesselAt, vesselClosest, vesselDistance, vesselFlowDir } from '../anatomy/head';
-import type { CerebralFlow } from '../physiology/flow';
 import { vesselVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
 
@@ -120,8 +119,6 @@ export class SampleVolumeIQ {
 
   constructor(
     private readonly head: HeadGeometry,
-    // Se conserva en la firma: la fisiología entra por vesselVelocityCms/flowBasis.
-    _flow: CerebralFlow,
     seed: number,
   ) {
     this.rng = new SeededRandom(seed ^ 0xd0991e);

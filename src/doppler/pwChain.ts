@@ -34,8 +34,8 @@ export class PwDopplerChain {
   private pending = 0;
   private prfHz = 4000;
 
-  constructor(head: HeadGeometry, flow: CerebralFlow, seed: number, audio: AudioSink = SILENT_AUDIO) {
-    this.sampleVolume = new SampleVolumeIQ(head, flow, seed);
+  constructor(head: HeadGeometry, _flow: CerebralFlow, seed: number, audio: AudioSink = SILENT_AUDIO) {
+    this.sampleVolume = new SampleVolumeIQ(head, seed);
     this.wallFilter = new WallFilter(50, this.prfHz);
     this.spectral = new SpectralProcessor({ fftSize: 128, hop: 24 });
     this.audio = audio;

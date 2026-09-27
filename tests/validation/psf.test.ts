@@ -87,8 +87,8 @@ function psfSetup() {
 
 describe('validación del PSF', () => {
   it.fails('la placa de 0,8 mm reproduce la predicción caja-gaussiana', () => {
-    const { settings, pose, pitch, scan, plateRow, scene } = psfSetup();
-    const frame = renderBMode(scene, scan, pose, settings, 'psf');
+    const { settings, pitch, scan, plateRow, scene } = psfSetup();
+    const frame = renderBMode(scene, scan, settings, 'psf');
     const lateral = Array.from({ length: frame.width }, (_, li) => frame.db[plateRow * frame.width + li]!);
     const measured = fwhm(lateral, pitch);
     const beamSigma0 = Math.max(0.8, 6 / settings.frequencyMhz);
@@ -100,13 +100,13 @@ describe('validación del PSF', () => {
   });
 
   it('mide la PSF pura de una placa de una línea', () => {
-    const { settings, pose, pitch, scan, plateRow } = psfSetup();
+    const { settings, pitch, scan, plateRow } = psfSetup();
     const scene = {
       classify(p: Vec3) {
         return Math.abs(p[2] - settings.focusMm) < 0.25 && Math.abs(p[0]) < 0.05 ? 'paredGlobo' : 'vitrio';
       },
     };
-    const frame = renderBMode(scene, scan, pose, settings, 'psf-pura', { speckle: false });
+    const frame = renderBMode(scene, scan, settings, 'psf-pura', { speckle: false });
     const lateral = Array.from({ length: frame.width }, (_, li) => frame.db[plateRow * frame.width + li]!);
     const measured = fwhm(lateral, pitch);
     const sigmaL = Math.max(0.6, Math.max(0.8, 6 / settings.frequencyMhz) * 0.6);
@@ -116,8 +116,8 @@ describe('validación del PSF', () => {
   });
 
   it('mide el ancho axial y el ensanchamiento por desenfoque', () => {
-    const { settings, pose, pitch, scan, plateRow, dz, scene } = psfSetup();
-    const frame = renderBMode(scene, scan, pose, settings, 'psf-limpio', { speckle: false });
+    const { settings, pitch, scan, plateRow, dz, scene } = psfSetup();
+    const frame = renderBMode(scene, scan, settings, 'psf-limpio', { speckle: false });
     const centerLine = Math.floor(scan.lineCount / 2);
     const axial = Array.from({ length: frame.height }, (_, zi) => frame.db[zi * frame.width + centerLine]!);
     const sigmaAxial = Math.max(1, 2.2 / settings.frequencyMhz / dz);
