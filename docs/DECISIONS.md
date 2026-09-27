@@ -116,3 +116,10 @@
     sagital por cada lado) y un DTE transversal por ojo. El informe normaliza
     la media DVNO por el tamaño del globo mediante DVNO/ETD y solo informa
     umbrales educativos; no diagnostica PIC ni sustituye la decisión clínica.
+32. **DEC-32** — El navegador 3D es una vista derivada de la misma pose,
+    `ScanGeometry` y anatomía que alimentan la adquisición. No dibuja
+    estructuras que no existan en el modelo; la proyección ortográfica solo
+    cambia la representación.
+33. **DEC-33** — El debriefing docente se construye con evidencia numérica del
+    estado, eventos y mediciones. Sus umbrales viven en registros de parámetros
+    con evidencia y sus verdades del modelo no entran en la exportación clínica.

@@ -21,6 +21,10 @@ exacta; una señal ausente no acredita cese circulatorio.
 - Protocolo DVNO 2×2 (transversal/sagital por ojo), DTE, ratio DVNO/ETD e
   informe educativo exportable.
 - Rótulo acústico MI/TI por modo y alerta ALARA oftálmica en modo docente.
+- Navegador 3D ortográfico de la sonda, con cámara arrastrable derivada de la
+  pose y de la anatomía adquirida.
+- Debriefing docente determinista con línea de tiempo, hallazgos cuantitativos
+  y exportación separada de verdades del modelo.
 - Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:
   bloques posteriores (ver `docs/LIMITATIONS.md`).
 
