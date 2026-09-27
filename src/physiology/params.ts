@@ -90,9 +90,9 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     value: 0.18,
     unit: 's',
     range: [0.1, 2],
-    evidence: 'consenso',
-    sources: ['westerhof-windkessel-2009'],
-    note: 'Constante RC del Windkessel arterial de dos elementos.',
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Constante efectiva de decaimiento de la onda de velocidad ACM normalizada, ajustada para media≈0,36; no es la RC sistémica (1–2 s, Westerhof 2009) porque el modelo omite reflexiones e impedancia característica',
   },
   backflowFraction: {
     value: 0.12,
