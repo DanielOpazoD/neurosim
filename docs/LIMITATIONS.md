@@ -37,6 +37,9 @@ siguiente existe todavía por diseño del plan:
 - **LIM-13 · PW en hilo principal**: el procesamiento PW, el audio y las
   mediciones espectrales todavía corren en el hilo principal; solo B-mode y
   Doppler color se renderizan en Worker.
+- **LIM-14 · Artefactos 1D**: espejo y cola de cometa se aproximan copiando
+  muestras sobre una línea de adquisición; no modelan propagación 2D/3D,
+  aperturas múltiples ni trayectorias reverberantes completas.
 
 Decisiones pendientes del plan §19: equivalencia TS/GLSL solo si se porta
 a WebGL2 en bloques posteriores.

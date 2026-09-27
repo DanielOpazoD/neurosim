@@ -37,6 +37,7 @@ export interface BasalPhysiology {
 
 /** Tipo físico de transductor. */
 export type TransducerKind = 'linear' | 'sector';
+export type LineDensity = 'baja' | 'media' | 'alta';
 
 /** Pose completa de la sonda: nunca un nombre de vista. */
 export interface ProbePose {
@@ -58,6 +59,8 @@ export interface ProbePose {
 /** Ajustes del equipo con efecto observable definido. Unidades explícitas. */
 export interface AcquisitionSettings {
   readonly transducer: TransducerKind;
+  /** Densidad lateral de líneas adquiridas. */
+  readonly lineDensity: LineDensity;
   /** Frecuencia central de emisión, MHz. */
   readonly frequencyMhz: number;
   /** Profundidad mostrada, mm. */

@@ -33,6 +33,7 @@
 | LIM-11 | Advección en cuerda                 | `src/doppler/sampleVolume.ts`                              |
 | LIM-12 | Densidad de sangre sembrada         | `src/doppler/sampleVolume.ts`                              |
 | LIM-13 | PW en hilo principal                | —                                                          |
+| LIM-14 | Artefactos 1D                       | —                                                          |
 
 ## IDs de decisiones
 
@@ -57,6 +58,7 @@
 | DEC-17 | `noUncheckedIndexedAccess` está activo; `!` se permite solo             | —                          |
 | DEC-18 | La ampolla retrobulbar se parametriza y se ancla al valor               | —                          |
 | DEC-19 | El haz B-mode usa FWHM gaussiano `λF/D`, lóbulos laterales              | `src/ultrasound/bmode.ts`  |
+| DEC-20 | La reverberación, el espejo y la cola de cometa emergen de              | —                          |
 
 ## Parámetros registrados
 
@@ -66,4 +68,4 @@
 | `anatomia-cabeza`    |         40 |
 | `doppler`            |         22 |
 | `fisiologia`         |         18 |
-| `fisica-ultrasonido` |         24 |
+| `fisica-ultrasonido` |         27 |

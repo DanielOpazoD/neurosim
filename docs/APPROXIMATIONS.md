@@ -34,6 +34,17 @@ calibración.
 - **anatomia-cabeza.windowAzimuthTurns**, **anatomia-cabeza.windowElevationRad**, **anatomia-cabeza.windowAnteriorFactor**, **anatomia-cabeza.m1OriginXmm**, **anatomia-cabeza.m1OriginYmm**, **anatomia-cabeza.m1OriginZmm**, **anatomia-cabeza.m1Point1Xmm**, **anatomia-cabeza.m1Point1Ymm**, **anatomia-cabeza.m1Point1Zmm**, **anatomia-cabeza.m1Point3Xmm**, **anatomia-cabeza.m1Point3Ymm**, **anatomia-cabeza.m1Point3Zmm**, **anatomia-cabeza.m1Point4Xmm**, **anatomia-cabeza.m1Point4Ymm**, **anatomia-cabeza.m1Point4Zmm** — orientación y puntos del segmento M1; calibrar con atlas/angiografía de referencia.
 - **fisica-ultrasonido.axialPulseMmMhz**, **fisica-ultrasonido.interfaceEpsMm** — aproximaciones de resolución axial y normal; calibrar contra secuencias y fantomas.
 - **fisica-ultrasonido.beamDivergenceGamma**, **fisica-ultrasonido.elevationDivergenceGamma**, **fisica-ultrasonido.linearApertureActiveMm**, **fisica-ultrasonido.linearElevationApertureMm**, **fisica-ultrasonido.linearElevationFocusMm**, **fisica-ultrasonido.sectorApertureActiveMm**, **fisica-ultrasonido.sectorElevationApertureMm**, **fisica-ultrasonido.sectorElevationFocusMm** — parámetros geométricos estimados del haz; la lateral combina transmisión desenfocada con recepción de foco dinámico y la elevacional conserva foco fijo; calibrar con la respuesta de cada transductor y fantomas de resolución.
+- **materiales.attenuationDbCmMhz**, **materiales.attenuationExponent** — ley de
+  potencia α(f)=α₀·fⁿ, con α₀ por material y exponentes entre 1 y 2,2;
+  tejidos y líquidos siguen Duck 1990 y Szabo 2014 cap. 4, con ajustes
+  explícitos para conservar referencias del modelo lineal anterior.
+- **fisica-ultrasonido.reverbRcThreshold**, **fisica-ultrasonido.reverbGain**,
+  **fisica-ultrasonido.mirrorGain**, **fisica-ultrasonido.cometStepMm** —
+  reglas de reverberación, espejo y cola de cometa basadas en Kremkau 1986 y
+  Feldman 2009; espejo y cometa son aproximaciones unidimensionales.
+- **adquisicion.lineDensity** — número de líneas por cuadro (128, 176 o 256);
+  la densidad media conserva el fixture y el coste de render emerge del
+  Worker.
 - **fisica-ultrasonido.defaultEyeDepthMm**, **fisica-ultrasonido.defaultEyeFocusMm**, **fisica-ultrasonido.defaultEyeGainDb**, **fisica-ultrasonido.defaultEyeDynamicRangeDb**, **fisica-ultrasonido.defaultEyePersistence**, **fisica-ultrasonido.defaultEyePrfHz**, **fisica-ultrasonido.defaultEyeGateMm**, **fisica-ultrasonido.defaultEyeWallFilterHz** — prescripción de fábrica del fixture; calibrar contra protocolos docentes.
 - **fisica-ultrasonido.defaultTgcDb** — TGC inicial plano; calibrar contra la curva de ganancia del equipo.
 - **doppler.ruidoElectronico**, **doppler.amplitudSangre**, **doppler.scatterersTotal**, **doppler.scatterersVesselMax** — señal y población virtual; calibrar contra SNR y estabilidad de persistencia.

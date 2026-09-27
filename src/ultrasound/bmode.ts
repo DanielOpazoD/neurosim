@@ -4,7 +4,7 @@
  * Cadena por línea de haz:
  *   raymarch axial → material en cada muestra → eco de interfaz (ΔZ con
  *   peso especular según la normal local) + speckle coherente intratejido →
- *   atenuación acumulada ida y vuelta (dB·cm⁻¹·MHz⁻¹ × f0) → convolución
+ *   atenuación acumulada ida y vuelta (α₀·fⁿ en dB/cm) → convolución
  *   por una PSF gaussiana separable cuyo ancho lateral deriva de la apertura,
  *   el foco y el pitch real por profundidad.
  *
@@ -12,7 +12,13 @@
  * del cristalino, realce posterior al vítreo, atenuación ósea y de ventana,
  * saturación en aire.
  */
-import { MATERIALS, type Material, type MaterialId, reflectionCoeff } from '../anatomy/materials';
+import {
+  attenuationDbCm,
+  MATERIALS,
+  type Material,
+  type MaterialId,
+  reflectionCoeff,
+} from '../anatomy/materials';
 import { dot, normalize, type Vec3 } from '../core/vec3';
 import type { AcquisitionSettings } from '../domain/contracts';
 import { lateralFwhmMm, probeBeamSpec, sigmaFromFwhm, sidelobeLevelDb } from './beam';
@@ -31,6 +37,17 @@ export interface BModeFrame {
 
 interface SceneQuery {
   classify(p: Vec3): MaterialId;
+}
+
+interface InterfaceEvent {
+  readonly zi: number;
+  readonly rc: number;
+  readonly attDb: number;
+}
+
+interface ThinStrongEntry {
+  readonly zi: number;
+  readonly rc: number;
 }
 
 const EPS = FISICA_US.params.interfaceEpsMm.value;
@@ -113,13 +130,17 @@ export function renderBMode(
     let lensShadowDb = 0;
     let p = line.origin;
     let dir = line.dir;
+    const interfaceEvents: InterfaceEvent[] = [];
+    const cometEvents: ThinStrongEntry[] = [];
+    let mirror: { zi: number; rc: number } | null = null;
+    let thinStrong: ThinStrongEntry | null = null;
 
     for (let zi = 0; zi < height; zi++) {
       const matId = scene.classify(p);
       const m = MATERIALS[matId];
 
       // Atenuación del tramo recorrido (ida y vuelta).
-      attDb += prevM.attenuationDbCmMhz * f0 * (dz / 10) * 2;
+      attDb += attenuationDbCm(prevM, f0) * (dz / 10) * 2;
 
       let re = 0;
       let im = 0;
@@ -132,7 +153,23 @@ export function renderBMode(
         const gain = Math.pow(Math.max(0, 1 - cosA), specularPow(m)); // ⊥ a la interfaz = 0 deg → máx
         const amp = rc * (0.4 + 0.6 * gain) * 8;
         re += amp;
-        if (matId === 'cristalino' || prevMat === 'cristalino') {
+        const involvesLens = matId === 'cristalino' || prevMat === 'cristalino';
+        if (Math.abs(reflectionCoeff(prevM, m)) > FISICA_US.params.reverbRcThreshold.value && !involvesLens) {
+          interfaceEvents.push({ zi, rc, attDb });
+        }
+        if (rc > 0.5 && cosA > 0.8 && (!mirror || rc > mirror.rc)) {
+          mirror = { zi, rc };
+        }
+        if (isThinStrongMaterial(matId) && rc > 0.5) {
+          thinStrong = { zi, rc };
+        } else if (thinStrong && isThinStrongMaterial(prevMat)) {
+          const thicknessMm = (zi - thinStrong.zi) * dz;
+          if (thicknessMm < 1.5) {
+            cometEvents.push({ zi, rc: thinStrong.rc });
+          }
+          thinStrong = null;
+        }
+        if (involvesLens) {
           // Borde del cristalino: sombra posterior dependiente de oblicuidad.
           const edge = Math.min(1, rc * 6) * (1 - cosA);
           lensShadowDb += edge * 3.5;
@@ -158,6 +195,48 @@ export function renderBMode(
       prevMat = matId;
       prevM = m;
       p = addScaled(p, dir, dz * (m.cMs / cRef));
+    }
+
+    if (mirror && mirror.zi > 0) {
+      const mirrorLength = Math.min(mirror.zi, Math.round(15 / dz));
+      const mirrorScale = mirror.rc * FISICA_US.params.mirrorGain.value;
+      for (let offset = 1; offset <= mirrorLength; offset++) {
+        const sourceZi = mirror.zi - offset;
+        const targetZi = mirror.zi + offset;
+        if (targetZi >= height) break;
+        const source = (sourceZi * width + li) * 2;
+        const target = (targetZi * width + li) * 2;
+        iQ[target]! += iQ[source]! * mirrorScale;
+        iQ[target + 1]! += iQ[source + 1]! * mirrorScale;
+      }
+    }
+
+    for (const event of interfaceEvents) {
+      const eventDepthMm = Math.max(dz, (event.zi + 1) * dz);
+      const attenuationRate = event.attDb / eventDepthMm;
+      const secondZi = event.zi * 2;
+      const thirdZi = event.zi * 3;
+      addArtifactEcho(
+        iQ,
+        width,
+        height,
+        li,
+        secondZi,
+        event.rc * event.rc * FISICA_US.params.reverbGain.value * 8,
+        attenuationRate * Math.max(0, secondZi - event.zi) * dz,
+      );
+      addArtifactEcho(
+        iQ,
+        width,
+        height,
+        li,
+        thirdZi,
+        event.rc * event.rc * event.rc * Math.pow(FISICA_US.params.reverbGain.value, 2) * 8,
+        attenuationRate * Math.max(0, thirdZi - event.zi) * dz,
+      );
+    }
+    for (const event of cometEvents) {
+      addCometEchoes(iQ, width, height, li, event.zi, event.rc, dz);
     }
   }
 
@@ -220,6 +299,42 @@ export function renderBMode(
   }
 
   return { width, height, db: outBuf, depthMm: settings.depthMm, scan };
+}
+
+function isThinStrongMaterial(id: MaterialId): boolean {
+  return id === 'hueso' || id === 'laminaCribosa' || id === 'duraVaina';
+}
+
+function addArtifactEcho(
+  iQ: Float32Array,
+  width: number,
+  height: number,
+  lineIndex: number,
+  zi: number,
+  amplitude: number,
+  extraAttenuationDb: number,
+): void {
+  if (zi < 0 || zi >= height) return;
+  const k = (zi * width + lineIndex) * 2;
+  const attenuation = Math.pow(10, -extraAttenuationDb / 20);
+  iQ[k]! += amplitude * attenuation;
+}
+
+function addCometEchoes(
+  iQ: Float32Array,
+  width: number,
+  height: number,
+  lineIndex: number,
+  startZi: number,
+  rc: number,
+  dz: number,
+): void {
+  const stepSamples = Math.max(1, Math.round(FISICA_US.params.cometStepMm.value / dz));
+  for (let n = 1; n <= 6; n++) {
+    const zi = startZi + n * stepSamples;
+    if (zi >= height) break;
+    addArtifactEcho(iQ, width, height, lineIndex, zi, rc * Math.pow(0.6, n) * 8, 0);
+  }
 }
 
 function gaussKernel(sigma: number): { w: Float32Array; r: number } {

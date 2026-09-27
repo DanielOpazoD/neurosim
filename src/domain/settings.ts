@@ -9,6 +9,7 @@ import { DOPPLER } from '../doppler/params';
 export function defaultEyeSettings(): AcquisitionSettings {
   return {
     transducer: 'linear',
+    lineDensity: 'media',
     frequencyMhz: FISICA_US.params.defaultEyeFrequencyMhz.value,
     depthMm: FISICA_US.params.defaultEyeDepthMm.value,
     focusMm: FISICA_US.params.defaultEyeFocusMm.value,
@@ -29,6 +30,7 @@ export function defaultEyeSettings(): AcquisitionSettings {
 export function defaultTemporalSettings(): AcquisitionSettings {
   return {
     transducer: 'sector',
+    lineDensity: 'media',
     frequencyMhz: DOPPLER.params.tcdF0Mhz.value,
     depthMm: DOPPLER.params.defaultTemporalDepthMm.value,
     focusMm: DOPPLER.params.defaultTemporalFocusMm.value,

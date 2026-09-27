@@ -2,7 +2,7 @@
  * Atenuación acumulada a lo largo de una trayectoria (ida y vuelta, dB).
  * La marcha clasifica cada milímetro; el hueso y la ventana temporal mandan.
  */
-import { MATERIALS } from '../anatomy/materials';
+import { attenuationDbCm, MATERIALS } from '../anatomy/materials';
 import type { HeadGeometry } from '../anatomy/head';
 import { classifyHead } from '../anatomy/head';
 import { dist, type Vec3 } from '../core/vec3';
@@ -24,7 +24,7 @@ export function skullAttenuationDb(head: HeadGeometry, from: Vec3, to: Vec3, f0M
       from[2] + (to[2] - from[2]) * t,
     ];
     const m = MATERIALS[classifyHead(head, p)];
-    acc += m.attenuationDbCmMhz * f0Mhz * ds;
+    acc += attenuationDbCm(m, f0Mhz) * ds;
   }
   return 2 * acc;
 }

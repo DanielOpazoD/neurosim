@@ -9,9 +9,8 @@ import type { ReferenceCase } from '../domain/referenceCase';
 import { renderColorDoppler } from '../doppler/color';
 import { buildReferenceCase } from '../domain/referenceCase';
 import { renderBMode, type BModeFrame } from '../ultrasound/bmode';
-import { buildScan, type ScanGeometry } from '../ultrasound/probe';
+import { buildScan, linesFor, type ScanGeometry } from '../ultrasound/probe';
 import { currentPose, type PoseInput } from './poses';
-import { LINES } from './acquisition';
 
 export interface RenderRequest {
   readonly id: number;
@@ -62,7 +61,7 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
     press: req.press,
   };
   const pose = currentPose(sim, poseInput);
-  const scan = buildScan(pose, req.settings.transducer, LINES);
+  const scan = buildScan(pose, req.settings.transducer, linesFor(req.settings.lineDensity));
   const scene =
     req.station === 'ojo'
       ? { classify: (p: Parameters<typeof classifyEye>[1]) => classifyEye(sim.eyes[req.side], p) }

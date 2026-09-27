@@ -34,8 +34,8 @@ del motor.
 - **plan-simulador-2026** — Plan del simulador de neurosonografía
   (documento de trabajo del usuario): fixture N1, decisiones de alcance.
 - **szabo-diagnostic-ultrasound-2014** — Szabo TL. _Diagnostic Ultrasound
-  Imaging: Inside Out_. 2nd ed. Academic Press; 2014: capítulos 6–7,
-  propagación, apertura y resolución del haz.
+  Imaging: Inside Out_. 2nd ed. Academic Press; 2014: capítulos 4 y 6–7,
+  atenuación, propagación, apertura y resolución del haz.
 - **jensen-fieldii-1996** — Jensen JA. Field: A Program for Simulating
   Ultrasound Systems. Med Biol Eng Comput. 1996;34 Suppl 1:351-353.
 - **hedrick-hykes-ultrasound** — Hedrick WR, Hykes DL, Starchman DE.
@@ -43,3 +43,9 @@ del motor.
 - **tablas-acusticas-estandar** — Tablas estándar de propiedades acústicas de
   tejidos y materiales para simulación educativa; valores aproximados del
   modelo, no una calibración clínica.
+- **duck-tissue-1990** — Duck FA. _Physical Properties of Tissue: A
+  Comprehensive Reference Book_. Academic Press; 1990.
+- **kremkau-artifacts** — Kremkau FW, Taylor KJ. Artifacts in ultrasound
+  imaging. J Ultrasound Med. 1986;5:227-37.
+- **feldman-artifacts-2009** — Feldman MK et al. US artifacts. Radiographics.
+  2009;29:1179-89.

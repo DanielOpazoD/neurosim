@@ -57,3 +57,6 @@
     foco dinámico en recepción; el cristalino aplica refracción de Snell y
     velocidad acústica material para que la compresión axial emerja de la
     adquisición.
+20. **DEC-20** — La reverberación, el espejo y la cola de cometa emergen de
+    interfaces acústicas y atenuación acumulada mediante reglas 1D
+    parametrizadas; sus ganancias se registran como parámetros de consenso.
