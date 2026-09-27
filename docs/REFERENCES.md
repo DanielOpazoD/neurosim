@@ -59,3 +59,9 @@ del motor.
   morphologic variation on 3D TOF MR angiograms. Radiology. 1998.
 - **murray-minimum-work-1926** — Murray CD. The physiological principle of
   minimum work. Proc Natl Acad Sci USA. 1926.
+- **kasai-autocorrelation-1985** — Kasai C et al. Real-time two-dimensional
+  blood flow imaging using an autocorrelation technique. IEEE Trans Sonics
+  Ultrason. 1985.
+- **evans-mcdicken-doppler-2000** — Evans DH, McDicken WN. _Doppler
+  Ultrasound: Physics, Instrumentation, and Clinical Applications_. 2nd ed.
+  Wiley; 2000.

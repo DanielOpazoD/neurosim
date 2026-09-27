@@ -20,6 +20,7 @@
 
 | ID     | Título                              | Citas en `src/` y `tests/`                                 |
 | ------ | ----------------------------------- | ---------------------------------------------------------- |
+| LIM-16 | Color Kasai reducido                | `src/doppler/color.ts`                                     |
 | LIM-01 | Patología                           | —                                                          |
 | LIM-02 | Lindegaard                          | —                                                          |
 | LIM-03 | DVNO y PIC                          | —                                                          |
@@ -62,6 +63,7 @@
 | DEC-20 | La reverberación, el espejo y la cola de cometa emergen de              | —                          |
 | DEC-21 | Los hitos transtemporales emergen de regiones anatómicas 3D             | —                          |
 | DEC-22 | El polígono de Willis se representa como un grafo de                    | —                          |
+| DEC-23 | El color Doppler sintetiza ensembles IQ deterministas por               | —                          |
 
 ## Parámetros registrados
 
@@ -69,6 +71,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
-| `doppler`            |         22 |
+| `doppler`            |         27 |
 | `fisiologia`         |         21 |
 | `fisica-ultrasonido` |         28 |

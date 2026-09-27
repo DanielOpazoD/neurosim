@@ -7,12 +7,13 @@ import { buildReferenceCase, REFERENCE_SEED } from '../../src/domain/referenceCa
 import { defaultEyeSettings, defaultTemporalSettings } from '../../src/domain/settings';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
 import { renderBMode } from '../../src/ultrasound/bmode';
+import { renderColorDoppler } from '../../src/doppler/color';
 import { buildScan } from '../../src/ultrasound/probe';
 import { eyePose, m1Gate, temporalPose } from './helpers';
-import { hashBMode, hashSpectral } from './hash';
+import { hashBMode, hashColor, hashSpectral } from './hash';
 
 const goldenPath = resolve(process.cwd(), 'tests/validation/golden.json');
-type Goldens = { eyeDerBmode: string; temporalDerBmode: string; pwM1Point2: string };
+type Goldens = { eyeDerBmode: string; temporalDerBmode: string; pwM1Point2: string; colorM1Der: string };
 
 function eyeHash(seed: number): string {
   const sim = buildReferenceCase(seed);
@@ -55,12 +56,31 @@ function pwHash(): string {
   return hashSpectral(chain.spectral.columns);
 }
 
+function colorHash(): string {
+  const sim = buildReferenceCase();
+  const settings = defaultTemporalSettings();
+  const pose = temporalPose(sim, 'der');
+  const [vel, pow] = renderColorDoppler(
+    sim.head,
+    sim.flow,
+    buildScan(pose, 'sector', 64),
+    pose,
+    settings,
+    sim.patient.seed,
+    0.2,
+    64,
+    64,
+  );
+  return hashColor(vel, pow);
+}
+
 describe('goldens deterministas', () => {
   it('mantiene los hashes de referencia', () => {
     const values: Goldens = {
       eyeDerBmode: eyeHash(REFERENCE_SEED),
       temporalDerBmode: temporalHash(),
       pwM1Point2: pwHash(),
+      colorM1Der: colorHash(),
     };
     if (process.env.GOLDEN_UPDATE === '1') {
       writeFileSync(goldenPath, `${JSON.stringify(values, null, 2)}\n`);

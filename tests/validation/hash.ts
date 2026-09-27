@@ -20,3 +20,10 @@ export function hashBMode(frame: BModeFrame): string {
 export function hashSpectral(columns: readonly SpectralColumn[]): string {
   return fnv1a(columns.flatMap((column) => Array.from(column.powerDb, (v) => Math.round(v * 1000))));
 }
+
+export function hashColor(vel: Float32Array, pow: Float32Array): string {
+  return fnv1a([
+    ...Array.from(vel, (v) => (Number.isFinite(v) ? Math.round(v * 1000) : 0x7fc00000)),
+    ...Array.from(pow, (v) => Math.round(v * 1000)),
+  ]);
+}
