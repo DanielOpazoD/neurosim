@@ -206,12 +206,12 @@ export const DOPPLER = defineParameters('doppler', {
     note: 'Ruido complejo relativo de la señal color.',
   },
   colorPowerThreshold: {
-    value: 0.008,
+    value: 0.05,
     unit: 'fracción',
     range: [0, 0.1],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Umbral de potencia para pintar color.',
+    note: 'Fracción mínima de la potencia esperada para una celda completamente sanguínea, atenuada.',
   },
   colorVarianceMax: {
     value: 0.8,

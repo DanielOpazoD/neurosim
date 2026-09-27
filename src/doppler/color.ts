@@ -172,12 +172,14 @@ export function renderColorDoppler(
       const estimate = kasaiEstimate(re, im, ensemble);
       const vCms = kasaiVelocityCms(estimate.r1Re, estimate.r1Im, settings.prfHz, f0Hz, SOUND_SPEED_MS);
       const varNorm = kasaiVariance(estimate.r0, estimate.r1Re, estimate.r1Im);
-      const power = Math.min(
-        1,
-        Math.pow(10, (settings.dopplerGainDb - attDb) / 10) *
-          (estimate.r0 / Math.max(1, ensemble * DOPPLER.params.amplitudSangre.value ** 2)) *
-          32,
-      );
+      const gainLinear = Math.pow(10, settings.dopplerGainDb / 10);
+      const bloodReferencePower =
+        gainLinear *
+        ensemble *
+        scatterers.length *
+        DOPPLER.params.amplitudSangre.value ** 2 *
+        transmission ** 2;
+      const power = Math.min(1, (gainLinear * estimate.r0) / Math.max(Number.EPSILON, bloodReferencePower));
       const idx = zi * cols + ci;
       if (
         power >= DOPPLER.params.colorPowerThreshold.value &&
