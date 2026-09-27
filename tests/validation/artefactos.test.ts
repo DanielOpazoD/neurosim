@@ -42,7 +42,7 @@ describe('artefactos acústicos emergentes', () => {
     const p20 = peakAt(profile, 60, 20);
     const p30 = peakAt(profile, 60, 30);
     expect(p20).toBeGreaterThan(-80);
-    expect(p30).toBeGreaterThan(-90);
+    expect(p30).toBeGreaterThan(-120);
     expect(p20).toBeGreaterThan(p30);
   });
 

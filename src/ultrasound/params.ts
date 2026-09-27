@@ -47,7 +47,7 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     note: 'Nivel de lóbulos laterales de una apodización rectangular.',
   },
   reverbRcThreshold: {
-    value: 0.3,
+    value: 0.5,
     unit: 'adimensional',
     range: [0.15, 0.6],
     evidence: 'consenso',
@@ -55,7 +55,7 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     note: 'Umbral de reflexión para réplicas de reverberación.',
   },
   reverbGain: {
-    value: 0.35,
+    value: 0.1,
     unit: 'adimensional',
     range: [0.1, 0.7],
     evidence: 'consenso',
@@ -63,7 +63,7 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     note: 'Ganancia de la réplica a dos profundidades de una interfaz.',
   },
   mirrorGain: {
-    value: 0.25,
+    value: 0.05,
     unit: 'adimensional',
     range: [0.05, 0.6],
     evidence: 'consenso',

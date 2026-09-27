@@ -51,6 +51,7 @@ interface ThinStrongEntry {
 }
 
 const EPS = FISICA_US.params.interfaceEpsMm.value;
+const INTERFACE_ECHO_GAIN = 8;
 
 /** LIM-05: aproxima la normal contando cambios de material por eje. */
 export function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
@@ -151,10 +152,10 @@ export function renderBMode(
         const n = interfaceNormal(scene, p, prevMat);
         const cosA = n ? Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) : 0.5;
         const gain = Math.pow(Math.max(0, 1 - cosA), specularPow(m)); // ⊥ a la interfaz = 0 deg → máx
-        const amp = rc * (0.4 + 0.6 * gain) * 8;
+        const amp = rc * (0.4 + 0.6 * gain) * INTERFACE_ECHO_GAIN;
         re += amp;
         const involvesLens = matId === 'cristalino' || prevMat === 'cristalino';
-        if (Math.abs(reflectionCoeff(prevM, m)) > FISICA_US.params.reverbRcThreshold.value && !involvesLens) {
+        if (rc > FISICA_US.params.reverbRcThreshold.value && zi * dz >= 2 && !involvesLens) {
           interfaceEvents.push({ zi, rc, attDb });
         }
         if (rc > 0.5 && cosA > 0.8 && (!mirror || rc > mirror.rc)) {
@@ -222,7 +223,7 @@ export function renderBMode(
         height,
         li,
         secondZi,
-        event.rc * event.rc * FISICA_US.params.reverbGain.value * 8,
+        event.rc * event.rc * FISICA_US.params.reverbGain.value * 0.5 * INTERFACE_ECHO_GAIN,
         attenuationRate * Math.max(0, secondZi - event.zi) * dz,
       );
       addArtifactEcho(
@@ -231,7 +232,12 @@ export function renderBMode(
         height,
         li,
         thirdZi,
-        event.rc * event.rc * event.rc * Math.pow(FISICA_US.params.reverbGain.value, 2) * 8,
+        event.rc *
+          event.rc *
+          event.rc *
+          Math.pow(FISICA_US.params.reverbGain.value, 2) *
+          0.25 *
+          INTERFACE_ECHO_GAIN,
         attenuationRate * Math.max(0, thirdZi - event.zi) * dz,
       );
     }
@@ -302,7 +308,7 @@ export function renderBMode(
 }
 
 function isThinStrongMaterial(id: MaterialId): boolean {
-  return id === 'hueso' || id === 'laminaCribosa' || id === 'duraVaina';
+  return id === 'hueso' || id === 'laminaCribosa';
 }
 
 function addArtifactEcho(
@@ -333,7 +339,7 @@ function addCometEchoes(
   for (let n = 1; n <= 6; n++) {
     const zi = startZi + n * stepSamples;
     if (zi >= height) break;
-    addArtifactEcho(iQ, width, height, lineIndex, zi, rc * Math.pow(0.6, n) * 8, 0);
+    addArtifactEcho(iQ, width, height, lineIndex, zi, rc * Math.pow(0.6, n) * INTERFACE_ECHO_GAIN, 0);
   }
 }
 
