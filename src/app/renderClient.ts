@@ -21,7 +21,7 @@ export class SyncRenderClient implements RenderClientLike {
   }
 }
 
-class SupersededRenderRequest extends Error {}
+export class SupersededRenderRequest extends Error {}
 
 interface Pending {
   request: RenderRequest;

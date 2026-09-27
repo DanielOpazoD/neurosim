@@ -13,7 +13,12 @@ import { PwController } from '../app/pwController';
 import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
 import { exportSession } from '../app/exporter';
-import { RenderClient, SyncRenderClient, type RenderClientLike } from '../app/renderClient';
+import {
+  RenderClient,
+  SupersededRenderRequest,
+  SyncRenderClient,
+  type RenderClientLike,
+} from '../app/renderClient';
 import type { RenderResponse } from '../app/renderRequest';
 import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
 
@@ -186,7 +191,7 @@ function frameLoop(now: number): void {
           })
           .catch((error) => {
             renderInFlight = false;
-            if (!(error instanceof Error && error.message.includes('reemplazado'))) {
+            if (!(error instanceof SupersededRenderRequest)) {
               logError('worker', error);
             }
           });
