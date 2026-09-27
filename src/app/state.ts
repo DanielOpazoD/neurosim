@@ -8,6 +8,7 @@ import type { ImagePoint } from '../domain/measure';
 import type { ScanGeometry } from '../ultrasound/probe';
 import { defaultEyeSettings } from '../domain/settings';
 import { createOnsdProtocolState, type OnsdProtocolState } from '../domain/onsdProtocol';
+import { DebriefLog } from './debrief';
 
 export interface CineItem {
   frame: AcquiredFrame;
@@ -39,6 +40,8 @@ export interface AppState {
   gateUMm: number;
   audioOn: boolean;
   teachingMode: boolean;
+  navCamera: { yawDeg: number; pitchDeg: number };
+  debrief: DebriefLog;
 }
 
 export function createInitialState(): AppState {
@@ -66,5 +69,7 @@ export function createInitialState(): AppState {
     gateUMm: 0,
     audioOn: false,
     teachingMode: false,
+    navCamera: { yawDeg: -25, pitchDeg: -18 },
+    debrief: new DebriefLog(0),
   };
 }

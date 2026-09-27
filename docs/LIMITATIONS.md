@@ -75,3 +75,7 @@ siguiente existe todavía por diseño del plan:
 
 Decisiones pendientes del plan §19: equivalencia TS/GLSL solo si se porta
 a WebGL2 en bloques posteriores.
+
+- **LIM-22 · Debriefing por reglas**: no se registra una trayectoria continua
+  de la sonda ni métricas de ergonomía. Los hallazgos son reglas educativas
+  basadas en el estado y no un modelo experto de desempeño.

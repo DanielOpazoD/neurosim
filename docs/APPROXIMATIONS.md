@@ -99,3 +99,12 @@ calibración.
 - **fisiologia.onsdCutoffMm**, **fisiologia.onsdEtdRatioCutoff** — umbrales
   docentes del informe DVNO (5,5 mm y 0,25); son reglas de cribado del
   simulador y no un diagnóstico ni una curva ROC.
+- **doppler.debriefBloodFractionMin** — fracción mínima estimada de sangre
+  dentro de la puerta PW para señalar una puerta fuera del vaso durante el
+  debriefing; no sustituye una segmentación vascular clínica.
+- **doppler.debriefAngleMaxDeg**, **doppler.debriefGainSaturationDb**,
+  **doppler.debriefOffsetTargetMm**, **doppler.debriefOffsetToleranceMm**,
+  **doppler.debriefMeasurementErrorMm**, **doppler.debriefPiTolerance** —
+  umbrales docentes para advertir de ángulo, ganancia, posición DVNO, error de
+  medición y discrepancia de PI; son parámetros educativos con evidencia
+  explícita y no reglas diagnósticas.

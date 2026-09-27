@@ -30,6 +30,9 @@ import type { RenderResponse } from '../app/renderRequest';
 import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
+import { buildDebrief } from '../app/debrief';
+import { currentPose } from '../app/poses';
+import { drawNavigator, navigatorCameraPreset } from './navigator3d';
 
 const WILLIS_VARIANTS: readonly WillisVariant[] = [
   'normal',
@@ -62,7 +65,8 @@ sim.setPhysiology(initialPhysiology);
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const bmodeCv = $<HTMLCanvasElement>('bmode');
 const spectralCv = $<HTMLCanvasElement>('spectral');
-const pospad = $<HTMLCanvasElement>('pospad');
+const navigatorCv = $<HTMLCanvasElement>('navigator');
+const navigatorCtx = navigatorCv.getContext('2d')!;
 const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
 const renderer = createRenderClient();
@@ -70,6 +74,8 @@ let lastRender = 0;
 let lastT = performance.now();
 let renderInFlight = false;
 let renderId = 0;
+let currentScan: RenderResponse['scan'] | null = null;
+let alaraLogged = false;
 
 function createRenderClient(): RenderClientLike {
   if (typeof Worker === 'undefined') return new SyncRenderClient();
@@ -109,6 +115,8 @@ function bindRange(id: string, out: string, apply: (v: number) => void, fmt: (v:
     const v = parseFloat(input.value);
     label.textContent = fmt(v);
     apply(v);
+    s.debrief.setTime(clock.t);
+    s.debrief.record('settings', `${id}=${v}`, { id, value: v });
   };
   input.addEventListener('input', update);
   update();
@@ -132,6 +140,7 @@ function setTiltPreset(value: number): void {
 function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
+  s.navCamera = navigatorCameraPreset(station, side);
   s.settings = station === 'ojo' ? defaultEyeSettings() : defaultTemporalSettings();
   const values = {
     depth: s.settings.depthMm,
@@ -157,17 +166,21 @@ function setStation(station: Station, side: Side): void {
   document
     .querySelectorAll('.pwonly')
     .forEach((e) => ((e as HTMLElement).style.opacity = station === 'temporal' ? '1' : '0.4'));
+  $('navigatorLegend').hidden = station !== 'temporal';
   s.pwOn = false;
   $('pw').classList.remove('on');
   ($('cine') as HTMLButtonElement).disabled = true;
   s.cine.length = 0;
   s.cineIdx = 0;
   s.frozen = false;
+  currentScan = null;
   $('freeze').textContent = 'Congelar Esp';
   $('hint').textContent =
     station === 'ojo'
       ? 'DVNO: activa «DVNO 3 mm» y marca los dos bordes de la vaina a 3 mm retroglobo.'
       : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
+  s.debrief.setTime(clock.t);
+  s.debrief.record('station', `${station} ${side}`, { station, side });
 }
 
 function toggleFreeze(): void {
@@ -175,10 +188,19 @@ function toggleFreeze(): void {
   $('freeze').textContent = s.frozen ? 'Reanudar' : 'Congelar';
   $('freeze').classList.toggle('on', s.frozen);
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
+  const composition = pw.composition();
+  const summary = pw.latestMcaMeasure();
+  s.debrief.setTime(clock.t);
+  s.debrief.record('freeze', s.frozen ? 'congelar' : 'reanudar', {
+    frozen: s.frozen,
+    bloodFraction: composition?.bloodFraction ?? 0,
+    pi: summary?.pi ?? Number.NaN,
+  });
 }
 
 function drawFrame(response: RenderResponse): void {
   const { frame, bmode, scan, color } = response;
+  currentScan = scan;
   drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
   if (frame.station === 'temporal' && color) {
     drawColorOverlay(
@@ -196,6 +218,37 @@ function drawFrame(response: RenderResponse): void {
   }
   drawCaliperMarks(bCtx, s);
   drawScale(bCtx, sim, s, s.currentFrame);
+}
+
+function recordMeasurement(): void {
+  const measurement = s.measurements[s.measurements.length - 1];
+  if (!measurement) return;
+  const angle = pw.insonation();
+  s.debrief.setTime(clock.t);
+  s.debrief.record('measurement', measurement.kind, {
+    kind: measurement.kind,
+    side: measurement.side,
+    gainDb: s.settings.gainDb,
+    referenceOffsetMm: measurement.referenceOffsetMm ?? Number.NaN,
+    realDeg: angle?.realDeg ?? Number.NaN,
+  });
+}
+
+function updateDebriefPanel(): void {
+  const report = buildDebrief(s.debrief, sim, s, pw.hemodynamics());
+  const panel = $('debriefReport');
+  const severityClass = (severity: string) => `debrief-${severity}`;
+  panel.innerHTML = [
+    `<div>Eventos: ${report.summary.nEvents} · Mediciones: ${report.summary.nMeasurements} · Hallazgos: ${report.summary.nFindings}</div>`,
+    ...report.findings.map(
+      (finding) =>
+        `<div class="${severityClass(finding.severity)}"><b>${finding.severity}</b> ${finding.code}: ${finding.text}</div>`,
+    ),
+    '<hr>',
+    ...report.events
+      .slice(-12)
+      .map((event) => `<div>${event.t.toFixed(2)} s · ${event.kind} · ${event.detail}</div>`),
+  ].join('');
 }
 
 function syncProtocolControls(): void {
@@ -253,6 +306,16 @@ function updateAcousticLabel(): void {
   const el = $('acousticLabel');
   el.textContent = `MI ${output.mi.toFixed(2)}  ${output.tiKind} ${output.ti.toFixed(2)}`;
   el.classList.toggle('warn', output.ocularLimitExceeded);
+  if (output.ocularLimitExceeded && !alaraLogged) {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('alara', 'límite ocular excedido', {
+      ocularLimitExceeded: true,
+      mi: output.mi,
+      ti: output.ti,
+    });
+    alaraLogged = true;
+  }
+  if (!output.ocularLimitExceeded) alaraLogged = false;
 }
 
 function drawCineFrame(): void {
@@ -310,10 +373,14 @@ function frameLoop(now: number): void {
     } else if (s.frozen && s.cinePlaying && s.cine.length) {
       drawCineFrame();
     }
+    const gateCenter =
+      s.pwOn && s.station === 'temporal' ? pw.gateGeometry(currentPose(sim, s)).center : null;
+    drawNavigator(navigatorCtx, sim, s, currentScan, s.navCamera, gateCenter);
     drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
     updateReadouts($('readouts'), sim, s, pw);
     syncProtocolControls();
     updateOnsdReport();
+    updateDebriefPanel();
     updateAcousticLabel();
   } catch (err) {
     logError('frame', err);
@@ -390,6 +457,8 @@ $('pw').addEventListener('click', () => {
   s.pwOn = !s.pwOn;
   $('pw').classList.toggle('on', s.pwOn);
   if (s.pwOn) pw.reset();
+  s.debrief.setTime(clock.t);
+  s.debrief.record(s.pwOn ? 'pw-on' : 'pw-off', s.pwOn ? 'PW activar' : 'PW desactivar', { pwOn: s.pwOn });
 });
 $('audio').addEventListener('click', () => {
   s.audioOn = !s.audioOn;
@@ -400,6 +469,8 @@ $('teaching').addEventListener('click', () => {
   s.teachingMode = !s.teachingMode;
   $('teaching').classList.toggle('on', s.teachingMode);
   ($('scenarioPanel') as HTMLDetailsElement).open = s.teachingMode;
+  $('debrief').hidden = !s.teachingMode;
+  $('exportDebrief').hidden = !s.teachingMode;
 });
 $('caliper').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dist' ? 'none' : 'dist';
@@ -431,6 +502,10 @@ $('onsdProtocol').addEventListener('click', () => {
   s.caliperPts = [];
   $('onsdProtocol').classList.toggle('on', s.onsdActive);
   $('dvno').classList.toggle('on', s.onsdActive);
+  s.debrief.setTime(clock.t);
+  s.debrief.record('protocol', s.onsdActive ? 'protocolo DVNO iniciar' : 'protocolo DVNO reiniciar', {
+    started: s.onsdActive,
+  });
 });
 bmodeCv.addEventListener('click', (e) => {
   const r = bmodeCv.getBoundingClientRect();
@@ -447,6 +522,7 @@ bmodeCv.addEventListener('click', (e) => {
     return;
   }
   addCaliperPoint(sim, s, point);
+  if (s.measurements.length > 0 && s.caliperPts.length === 0) recordMeasurement();
 });
 $('export').addEventListener('click', () => {
   const download = (name: string, href: string) => {
@@ -465,16 +541,49 @@ $('exportOnsd').addEventListener('click', () => {
     a.click();
   };
   exportOnsdReport(sim, s, download);
+  s.debrief.setTime(clock.t);
+  s.debrief.record('export', 'informe DVNO');
 });
-pospad.addEventListener('pointermove', (e) => {
-  if (e.buttons !== 1) return;
-  const r = pospad.getBoundingClientRect();
-  s.offsetMm = ((e.clientX - r.left) / r.width - 0.5) * 36;
-  s.tiltDeg = ((e.clientY - r.top) / r.height - 0.5) * 70;
-  ($('shift') as HTMLInputElement).value = String(s.offsetMm);
-  ($('tilt') as HTMLInputElement).value = String(s.tiltDeg);
-  $('shiftV').textContent = `${s.offsetMm.toFixed(0)} mm`;
-  $('tiltV').textContent = `${s.tiltDeg.toFixed(0)}°`;
+$('export').addEventListener('click', () => {
+  s.debrief.setTime(clock.t);
+  s.debrief.record('export', 'sesión clínica');
+});
+$('debrief').addEventListener('click', () => {
+  if (!s.teachingMode) return;
+  ($('debriefPanel') as HTMLDetailsElement).open = true;
+});
+$('exportDebrief').addEventListener('click', () => {
+  if (!s.teachingMode) return;
+  s.debrief.setTime(clock.t);
+  s.debrief.record('export', 'debriefing');
+  const data = JSON.stringify(buildDebrief(s.debrief, sim, s, pw.hemodynamics()), null, 2);
+  const href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.download = `neurosono-debrief-${Date.now()}.json`;
+  a.href = href;
+  a.click();
+});
+let draggingNavigator = false;
+let lastNavigatorX = 0;
+let lastNavigatorY = 0;
+navigatorCv.addEventListener('pointerdown', (e) => {
+  draggingNavigator = true;
+  lastNavigatorX = e.clientX;
+  lastNavigatorY = e.clientY;
+  navigatorCv.setPointerCapture(e.pointerId);
+});
+navigatorCv.addEventListener('pointermove', (e) => {
+  if (!draggingNavigator) return;
+  s.navCamera = {
+    yawDeg: s.navCamera.yawDeg + (e.clientX - lastNavigatorX) * 0.7,
+    pitchDeg: Math.max(-80, Math.min(80, s.navCamera.pitchDeg + (e.clientY - lastNavigatorY) * 0.7)),
+  };
+  lastNavigatorX = e.clientX;
+  lastNavigatorY = e.clientY;
+});
+navigatorCv.addEventListener('pointerup', (e) => {
+  draggingNavigator = false;
+  navigatorCv.releasePointerCapture(e.pointerId);
 });
 
 setStation('ojo', 'der');

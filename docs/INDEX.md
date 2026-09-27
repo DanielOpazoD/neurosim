@@ -41,6 +41,7 @@
 | LIM-13 | PW en hilo principal                | —                                                          |
 | LIM-14 | Artefactos 1D                       | —                                                          |
 | LIM-15 | Flujo vascular simplificado         | —                                                          |
+| LIM-22 | Debriefing por reglas               | —                                                          |
 
 ## IDs de decisiones
 
@@ -77,6 +78,8 @@
 | DEC-29 | La autorregulación de Lassen y la reactividad al CO₂ actúan             | —                          |
 | DEC-30 | MI y TI se calculan por adquisición a partir de presión pico            | —                          |
 | DEC-31 | El protocolo DVNO registra cuatro planos (transversal y                 | —                          |
+| DEC-32 | El navegador 3D es una vista derivada de la misma pose,                 | —                          |
+| DEC-33 | El debriefing docente se construye con evidencia numérica del           | —                          |
 
 ## Parámetros registrados
 
@@ -84,6 +87,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
-| `doppler`            |         31 |
+| `doppler`            |         38 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         38 |
