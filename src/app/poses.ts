@@ -8,19 +8,28 @@ import type { ReferenceCase } from '../domain/referenceCase';
 import { rotateAround } from '../ultrasound/probe';
 import type { AppState } from './state';
 
-export function eyePose(sim: ReferenceCase, s: AppState, side = s.side): ProbePose {
+export type PoseInput = Pick<AppState, 'side' | 'station' | 'tiltDeg' | 'offsetMm'> &
+  Partial<Pick<AppState, 'rotDeg' | 'press'>>;
+
+export function eyePose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbePose {
   const eye = sim.eyes[side];
   const anterior: Vec3 = [0, 0, 1];
   const lateral: Vec3 = [1, 0, 0];
   const tilt = (s.tiltDeg * Math.PI) / 180;
-  const rot = (s.rotDeg * Math.PI) / 180;
+  const rot = ((s.rotDeg ?? 0) * Math.PI) / 180;
   const origin = add(eye.center, add(scale(anterior, eye.globeRadiusMm + 3.2), scale(lateral, s.offsetMm)));
   const fwd = normalize(rotateAround(scale(anterior, -1), lateral, tilt));
   const lat = rotateAround(lateral, fwd, rot);
-  return { origin, forward: fwd, lateral: normalize(lat), markerAngleRad: rot, contactPressure: s.press };
+  return {
+    origin,
+    forward: fwd,
+    lateral: normalize(lat),
+    markerAngleRad: rot,
+    contactPressure: s.press ?? 0.3,
+  };
 }
 
-export function temporalPose(sim: ReferenceCase, s: AppState, side = s.side): ProbePose {
+export function temporalPose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbePose {
   const wc = sim.head.windowCenter[side];
   const inward = normalize([
     sim.head.midbrainCenter[0] - wc[0],
@@ -35,17 +44,23 @@ export function temporalPose(sim: ReferenceCase, s: AppState, side = s.side): Pr
   ];
   lateral = normalize(lateral);
   const tilt = (s.tiltDeg * Math.PI) / 180;
-  const rot = (s.rotDeg * Math.PI) / 180;
+  const rot = ((s.rotDeg ?? 0) * Math.PI) / 180;
   const fwd = normalize(rotateAround(inward, lateral, tilt));
   const origin = add(add(wc, scale(fwd, -3)), scale(lateral, s.offsetMm));
   const lat = rotateAround(lateral, fwd, rot);
-  return { origin, forward: fwd, lateral: normalize(lat), markerAngleRad: rot, contactPressure: s.press };
+  return {
+    origin,
+    forward: fwd,
+    lateral: normalize(lat),
+    markerAngleRad: rot,
+    contactPressure: s.press ?? 0.3,
+  };
 }
 
-export function currentPose(sim: ReferenceCase, s: AppState): ProbePose {
+export function currentPose(sim: ReferenceCase, s: PoseInput): ProbePose {
   return s.station === 'ojo' ? eyePose(sim, s) : temporalPose(sim, s);
 }
 
-export function poseForSide(sim: ReferenceCase, s: AppState, side: Side): ProbePose {
+export function poseForSide(sim: ReferenceCase, s: PoseInput, side: Side): ProbePose {
   return s.station === 'ojo' ? eyePose(sim, s, side) : temporalPose(sim, s, side);
 }

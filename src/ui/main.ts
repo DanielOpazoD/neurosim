@@ -8,14 +8,18 @@ import { buildReferenceCase } from '../domain/referenceCase';
 import type { AcquisitionSettings, Side, Station } from '../domain/contracts';
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
 import { drawBMode, drawColorOverlay } from './canvasDraw';
-import { renderColorDoppler } from '../doppler/color';
-import { acquire } from '../app/acquisition';
-import { currentPose } from '../app/poses';
 import { createInitialState } from '../app/state';
 import { PwController } from '../app/pwController';
 import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
 import { exportSession } from '../app/exporter';
+import {
+  RenderClient,
+  SupersededRenderRequest,
+  SyncRenderClient,
+  type RenderClientLike,
+} from '../app/renderClient';
+import type { RenderResponse } from '../app/renderRequest';
 import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
 
 const sim = buildReferenceCase();
@@ -28,8 +32,21 @@ const spectralCv = $<HTMLCanvasElement>('spectral');
 const pospad = $<HTMLCanvasElement>('pospad');
 const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
+const renderer = createRenderClient();
 let lastRender = 0;
 let lastT = performance.now();
+let renderInFlight = false;
+let renderId = 0;
+
+function createRenderClient(): RenderClientLike {
+  if (typeof Worker === 'undefined') return new SyncRenderClient();
+  try {
+    return new RenderClient(new Worker(new URL('./renderWorker.ts', import.meta.url), { type: 'module' }));
+  } catch (error) {
+    logError('worker', error);
+    return new SyncRenderClient();
+  }
+}
 
 function updateErrorBadge(): void {
   const count = errors().length;
@@ -111,32 +128,20 @@ function toggleFreeze(): void {
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
 }
 
-function drawFrame(
-  bmode: ReturnType<typeof acquire>['bmode'],
-  scan: ReturnType<typeof acquire>['scan'],
-): void {
-  drawBMode(bCtx, bmode, { dynamicRangeDb: s.settings.dynamicRangeDb });
-  if (s.station === 'temporal') {
-    const [vel, pow] = renderColorDoppler(
-      sim.head,
-      sim.flow,
-      scan,
-      currentPose(sim, s),
-      s.settings,
-      sim.cardiac.phaseAt(clock.t),
-      64,
-      64,
-    );
+function drawFrame(response: RenderResponse): void {
+  const { frame, bmode, scan, color } = response;
+  drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
+  if (frame.station === 'temporal' && color) {
     drawColorOverlay(
       bCtx,
-      vel,
-      pow,
-      64,
-      64,
+      color.vel,
+      color.pow,
+      color.w,
+      color.h,
       scan,
-      s.settings.depthMm,
-      s.settings.prfHz,
-      s.settings.frequencyMhz,
+      frame.settings.depthMm,
+      frame.settings.prfHz,
+      frame.settings.frequencyMhz,
     );
     if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
   }
@@ -160,10 +165,37 @@ function frameLoop(now: number): void {
     pw.step(clock, elapsed);
     if (now - lastRender > 90 && !s.frozen) {
       lastRender = now;
-      const item = acquire(sim, s, clock);
-      s.currentFrame = item.frame;
-      pushCine(s, item);
-      drawFrame(item.bmode, item.scan);
+      if (!renderInFlight) {
+        renderInFlight = true;
+        const requestId = ++renderId;
+        renderer
+          .request({
+            id: requestId,
+            seed: sim.patient.seed,
+            side: s.side,
+            station: s.station,
+            settings: { ...s.settings },
+            tiltDeg: s.tiltDeg,
+            offsetMm: s.offsetMm,
+            rotDeg: s.rotDeg,
+            press: s.press,
+            t: clock.t,
+            cardiacPhase: sim.cardiac.phaseAt(clock.t),
+            color: s.station === 'temporal',
+          })
+          .then((response) => {
+            renderInFlight = false;
+            s.currentFrame = response.frame;
+            pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
+            drawFrame(response);
+          })
+          .catch((error) => {
+            renderInFlight = false;
+            if (!(error instanceof SupersededRenderRequest)) {
+              logError('worker', error);
+            }
+          });
+      }
     } else if (s.frozen && s.cinePlaying && s.cine.length) {
       drawCineFrame();
     }

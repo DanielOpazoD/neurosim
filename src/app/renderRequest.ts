@@ -1,0 +1,105 @@
+/**
+ * Solicitud y ejecución pura de render B-mode/color para un caso reproducible.
+ * No accede al DOM; el entry del worker y el fallback síncrono lo invocan aquí.
+ */
+import { classifyEye } from '../anatomy/eye';
+import { classifyHead } from '../anatomy/head';
+import type { AcquisitionSettings, AcquiredFrame, Side, Station } from '../domain/contracts';
+import type { ReferenceCase } from '../domain/referenceCase';
+import { renderColorDoppler } from '../doppler/color';
+import { buildReferenceCase } from '../domain/referenceCase';
+import { renderBMode, type BModeFrame } from '../ultrasound/bmode';
+import { buildScan, type ScanGeometry } from '../ultrasound/probe';
+import { currentPose, type PoseInput } from './poses';
+import { LINES } from './acquisition';
+
+export interface RenderRequest {
+  readonly id: number;
+  readonly seed: number;
+  readonly side: Side;
+  readonly station: Station;
+  readonly settings: AcquisitionSettings;
+  readonly tiltDeg: number;
+  readonly offsetMm: number;
+  readonly rotDeg?: number;
+  readonly press?: number;
+  readonly t: number;
+  readonly cardiacPhase: number;
+  readonly color: boolean;
+}
+
+export interface RenderResponse {
+  readonly id: number;
+  readonly frame: AcquiredFrame;
+  readonly bmode: BModeFrame;
+  readonly scan: ScanGeometry;
+  readonly color?: {
+    readonly vel: Float32Array;
+    readonly pow: Float32Array;
+    readonly w: 64;
+    readonly h: 64;
+  };
+}
+
+const cases = new Map<number, ReferenceCase>();
+
+export function renderCase(seed: number): ReferenceCase {
+  let sim = cases.get(seed);
+  if (!sim) {
+    sim = buildReferenceCase(seed);
+    cases.set(seed, sim);
+  }
+  return sim;
+}
+
+export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderResponse {
+  const poseInput: PoseInput = {
+    side: req.side,
+    station: req.station,
+    tiltDeg: req.tiltDeg,
+    offsetMm: req.offsetMm,
+    rotDeg: req.rotDeg,
+    press: req.press,
+  };
+  const pose = currentPose(sim, poseInput);
+  const scan = buildScan(pose, req.settings.transducer, LINES);
+  const scene =
+    req.station === 'ojo'
+      ? { classify: (p: Parameters<typeof classifyEye>[1]) => classifyEye(sim.eyes[req.side], p) }
+      : { classify: (p: Parameters<typeof classifyHead>[1]) => classifyHead(sim.head, p) };
+  const bmode = renderBMode(scene, scan, req.settings, `seed-${sim.patient.seed}-${req.side}`);
+  const frame: AcquiredFrame = {
+    tSeconds: req.t,
+    geometry: {
+      kind: scan.kind,
+      apex: scan.apex,
+      scanOrigin: scan.lines[0]!.origin,
+      lateralDir: scan.lateralDir,
+      axialDir: scan.axialDir,
+      widthMmOrRad: scan.widthMmOrRad,
+      depthMm: req.settings.depthMm,
+    },
+    settings: { ...req.settings },
+    side: req.side,
+    station: req.station,
+    caseId: sim.patient.label,
+    seed: sim.patient.seed,
+  };
+  const color =
+    req.color && req.station === 'temporal'
+      ? (() => {
+          const [vel, pow] = renderColorDoppler(
+            sim.head,
+            sim.flow,
+            scan,
+            pose,
+            req.settings,
+            req.cardiacPhase,
+            64,
+            64,
+          );
+          return { vel, pow, w: 64 as const, h: 64 as const };
+        })()
+      : undefined;
+  return { id: req.id, frame, bmode, scan, color };
+}
