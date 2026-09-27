@@ -18,21 +18,21 @@
 
 ## IDs de limitaciones
 
-| ID     | Título                      | Citas en `src/` y `tests/`                                 |
-| ------ | --------------------------- | ---------------------------------------------------------- |
-| LIM-01 | Patología                   | —                                                          |
-| LIM-02 | Lindegaard                  | —                                                          |
-| LIM-03 | DVNO y PIC                  | —                                                          |
-| LIM-04 | Realismo acústico parcial   | —                                                          |
-| LIM-05 | Normal de interfaz          | `src/ultrasound/bmode.ts`                                  |
-| LIM-06 | Tejido estático             | —                                                          |
-| LIM-07 | Audio                       | —                                                          |
-| LIM-08 | Medición DVNO               | —                                                          |
-| LIM-09 | Sesgo diastólico            | `src/doppler/measureMca.ts`, `tests/validation/pw.test.ts` |
-| LIM-10 | PSF heurística              | `src/ultrasound/bmode.ts`, `tests/validation/psf.test.ts`  |
-| LIM-11 | Advección en cuerda         | `src/doppler/sampleVolume.ts`                              |
-| LIM-12 | Densidad de sangre sembrada | `src/doppler/sampleVolume.ts`                              |
-| LIM-13 | PW en hilo principal        | —                                                          |
+| ID     | Título                              | Citas en `src/` y `tests/`                                 |
+| ------ | ----------------------------------- | ---------------------------------------------------------- |
+| LIM-01 | Patología                           | —                                                          |
+| LIM-02 | Lindegaard                          | —                                                          |
+| LIM-03 | DVNO y PIC                          | —                                                          |
+| LIM-04 | Realismo acústico parcial           | —                                                          |
+| LIM-05 | Normal de interfaz                  | `src/ultrasound/bmode.ts`                                  |
+| LIM-06 | Tejido estático                     | —                                                          |
+| LIM-07 | Audio                               | —                                                          |
+| LIM-08 | Medición DVNO                       | —                                                          |
+| LIM-09 | Sesgo diastólico                    | `src/doppler/measureMca.ts`, `tests/validation/pw.test.ts` |
+| LIM-10 | PSF analítica (resuelta/redirigida) | —                                                          |
+| LIM-11 | Advección en cuerda                 | `src/doppler/sampleVolume.ts`                              |
+| LIM-12 | Densidad de sangre sembrada         | `src/doppler/sampleVolume.ts`                              |
+| LIM-13 | PW en hilo principal                | —                                                          |
 
 ## IDs de decisiones
 
@@ -56,6 +56,7 @@
 | DEC-16 | Las pruebas E2E cubren el flujo docente completo pero no                | —                          |
 | DEC-17 | `noUncheckedIndexedAccess` está activo; `!` se permite solo             | —                          |
 | DEC-18 | La ampolla retrobulbar se parametriza y se ancla al valor               | —                          |
+| DEC-19 | El haz B-mode usa FWHM gaussiano `λF/D`, lóbulos laterales              | `src/ultrasound/bmode.ts`  |
 
 ## Parámetros registrados
 
@@ -65,4 +66,4 @@
 | `anatomia-cabeza`    |         40 |
 | `doppler`            |         22 |
 | `fisiologia`         |         18 |
-| `fisica-ultrasonido` |         17 |
+| `fisica-ultrasonido` |         23 |

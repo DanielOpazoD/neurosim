@@ -9,9 +9,9 @@ siguiente existe todavía por diseño del plan:
 - **LIM-02 · Lindegaard**: no hay ACI extracraneal todavía (bloque post-N1).
 - **LIM-03 · DVNO y PIC**: sin mapeo DVNO→PIC ni PI→PIC; la PIC es un
   parámetro latente del paciente, nunca derivado de la imagen.
-- **LIM-04 · Realismo acústico parcial**: el renderer B-mode es CPU con PSF
-  separable aproximada; sin reverb de multicamino, sin shadowing complejo
-  detrás del cristalino más allá de una sombra angular simple.
+- **LIM-04 · Realismo acústico parcial**: el renderer B-mode es CPU con haz
+  gaussiano por apertura, lóbulos laterales y refracción del cristalino; aún
+  no modela reverb de multicamino ni shadowing complejo fuera de esa interfaz.
 - **LIM-05 · Normal de interfaz**: se estima contando cambios de material por
   eje (±0,3 mm); es no signada y cuantizada, suficiente para el peso
   especular.
@@ -24,9 +24,10 @@ siguiente existe todavía por diseño del plan:
 - **LIM-09 · Sesgo diastólico**: sobre una onda sintética conocida, EDV se
   sobreestima ≈+18 % (PSV +2 %, TAMax +3 %) por la resolución FFT (PRF/128)
   y la envolvente por percentil; pendiente de estimador mejorado.
-- **LIM-10 · PSF heurística**: la anchura lateral renderizada en foco (≈1,3 mm
-  para una placa de 0,8 mm a 7,5 MHz) excede la predicción caja⊗gaussiana del
-  propio modelo; se sustituye por un modelo de haz (PR 12).
+- **LIM-10 · PSF analítica (resuelta/redirigida)**: la anchura lateral ya no
+  usa el coeficiente heurístico anterior; se valida contra el modelo de haz
+  caja⊗gaussiana de `src/ultrasound/beam.ts`. Las limitaciones acústicas
+  residuales quedan en LIM-04.
 - **LIM-11 · Advección en cuerda**: la sangre cruza el volumen muestral en
   línea recta con dirección congelada al clasificar; el re-anclaje periódico
   al eje del vaso limita la deriva pero puede teletransportar un dispersor

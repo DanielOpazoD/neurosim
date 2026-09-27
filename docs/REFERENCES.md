@@ -33,9 +33,13 @@ del motor.
   spatial relationships. Invest Ophthalmol Vis Sci 2004;45:2660-5.
 - **plan-simulador-2026** — Plan del simulador de neurosonografía
   (documento de trabajo del usuario): fixture N1, decisiones de alcance.
-- **szabo-diagnostic-ultrasound-2014** — Szabo, _Diagnostic Ultrasound
-  Imaging: Inside Out_: velocidad acústica, longitud de onda y resolución
-  axial como referencias físicas de ultrasonido.
+- **szabo-diagnostic-ultrasound-2014** — Szabo TL. _Diagnostic Ultrasound
+  Imaging: Inside Out_. 2nd ed. Academic Press; 2014: capítulos 6–7,
+  propagación, apertura y resolución del haz.
+- **jensen-fieldii-1996** — Jensen JA. Field: A Program for Simulating
+  Ultrasound Systems. Med Biol Eng Comput. 1996;34 Suppl 1:351-353.
+- **hedrick-hykes-ultrasound** — Hedrick WR, Hykes DL, Starchman DE.
+  _Ultrasound Physics and Instrumentation_. 4th ed. Mosby; 2005.
 - **tablas-acusticas-estandar** — Tablas estándar de propiedades acústicas de
   tejidos y materiales para simulación educativa; valores aproximados del
   modelo, no una calibración clínica.

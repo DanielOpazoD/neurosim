@@ -5,16 +5,17 @@
  *   raymarch axial → material en cada muestra → eco de interfaz (ΔZ con
  *   peso especular según la normal local) + speckle coherente intratejido →
  *   atenuación acumulada ida y vuelta (dB·cm⁻¹·MHz⁻¹ × f0) → convolución
- *   por una PSF gaussiana separable cuyo ancho lateral crece lejos del foco
- *   (LIM-10).
+ *   por una PSF gaussiana separable cuyo ancho lateral deriva de la apertura,
+ *   el foco y el pitch real por profundidad.
  *
  * Artefactos emergentes (no dibujados): ensanchamiento/sombra en el borde
  * del cristalino, realce posterior al vítreo, atenuación ósea y de ventana,
  * saturación en aire.
  */
 import { MATERIALS, type Material, type MaterialId, reflectionCoeff } from '../anatomy/materials';
-import type { Vec3 } from '../core/vec3';
+import { dot, normalize, type Vec3 } from '../core/vec3';
 import type { AcquisitionSettings } from '../domain/contracts';
+import { lateralFwhmMm, probeBeamSpec, sigmaFromFwhm, sidelobeLevelDb } from './beam';
 import type { ScanGeometry } from './probe';
 import { scatterComplex } from './speckle';
 import { FISICA_US } from './params';
@@ -62,6 +63,23 @@ function addScaled(p: Vec3, d: Vec3, s: number): Vec3 {
 }
 
 /**
+ * Refracción vectorial según Snell. La normal se orienta contra el rayo
+ * incidente; una razón que produzca reflexión total conserva la dirección.
+ */
+export function refractDirection(dir: Vec3, normal: Vec3, indexRatio: number): Vec3 {
+  const n: Vec3 = dot(normal, dir) > 0 ? [-normal[0], -normal[1], -normal[2]] : normal;
+  const cosIncident = -dot(n, dir);
+  const sinTransmittedSquared = indexRatio * indexRatio * (1 - cosIncident * cosIncident);
+  if (sinTransmittedSquared >= 1) return dir;
+  const cosTransmitted = Math.sqrt(1 - sinTransmittedSquared);
+  return normalize([
+    indexRatio * dir[0] + (indexRatio * cosIncident - cosTransmitted) * n[0],
+    indexRatio * dir[1] + (indexRatio * cosIncident - cosTransmitted) * n[1],
+    indexRatio * dir[2] + (indexRatio * cosIncident - cosTransmitted) * n[2],
+  ]);
+}
+
+/**
  * Renderiza un fotograma B-mode.
  * `scene.classify` decide el material por punto del paciente (mm, levógiro).
  */
@@ -82,6 +100,8 @@ export function renderBMode(
   const width = scan.lineCount;
   const iQ = new Float32Array(width * height * 2); // re, im intercalado
   const seed = `speckle-${seedLabel}`;
+  const beam = probeBeamSpec(settings.transducer, settings);
+  const cRef = FISICA_US.params.soundSpeedMs.value;
 
   const specularPow = (m: Material): number => (m.id === 'hueso' || m.id === 'duraVaina' ? 2.2 : 1.2);
 
@@ -91,10 +111,10 @@ export function renderBMode(
     let prevMat = scene.classify(line.origin);
     let prevM = MATERIALS[prevMat];
     let lensShadowDb = 0;
+    let p = line.origin;
+    let dir = line.dir;
 
     for (let zi = 0; zi < height; zi++) {
-      const zMm = zi * dz;
-      const p = addScaled(line.origin, line.dir, zMm);
       const matId = scene.classify(p);
       const m = MATERIALS[matId];
 
@@ -108,7 +128,7 @@ export function renderBMode(
         // Eco de interfaz: |ΔZ| con peso especular según normal local.
         const rc = Math.abs(reflectionCoeff(prevM, m));
         const n = interfaceNormal(scene, p, prevMat);
-        const cosA = n ? Math.abs(n[0] * line.dir[0] + n[1] * line.dir[1] + n[2] * line.dir[2]) : 0.5;
+        const cosA = n ? Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) : 0.5;
         const gain = Math.pow(Math.max(0, 1 - cosA), specularPow(m)); // ⊥ a la interfaz = 0 deg → máx
         const amp = rc * (0.4 + 0.6 * gain) * 8;
         re += amp;
@@ -116,6 +136,9 @@ export function renderBMode(
           // Borde del cristalino: sombra posterior dependiente de oblicuidad.
           const edge = Math.min(1, rc * 6) * (1 - cosA);
           lensShadowDb += edge * 3.5;
+        }
+        if ((matId === 'cristalino' || prevMat === 'cristalino') && n) {
+          dir = refractDirection(dir, n, prevM.cMs / m.cMs);
         }
       }
 
@@ -126,7 +149,7 @@ export function renderBMode(
         im += si;
       }
 
-      // LIM-10: ensanchamiento del haz aproximado por la PSF lateral.
+      // DEC-19: ensanchamiento lateral por apertura, foco y lóbulos laterales.
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
       const k = (zi * width + li) * 2;
       iQ[k] = re * attLin;
@@ -134,6 +157,7 @@ export function renderBMode(
 
       prevMat = matId;
       prevM = m;
+      p = addScaled(p, dir, dz * (m.cMs / cRef));
     }
   }
 
@@ -156,16 +180,16 @@ export function renderBMode(
     }
   }
 
-  const focusSample = settings.focusMm / dz;
-  const beamSigma0 = Math.max(
-    FISICA_US.params.beamSigmaFloorLines.value,
-    FISICA_US.params.beamSigma0Coeff.value / f0,
-  ); // líneas
+  const sidelobeEpsilon = Math.pow(10, sidelobeLevelDb(beam) / 20);
   const outBuf = out;
   for (let zi = 0; zi < height; zi++) {
-    const defocus = Math.abs(zi - focusSample) * dz;
-    const sigmaL = Math.max(0.6, beamSigma0 * (0.6 + defocus / (settings.depthMm * 0.6)));
-    const kern = gaussKernel(sigmaL);
+    const zMm = zi * dz;
+    const pitchMm =
+      scan.kind === 'linear'
+        ? scan.widthMmOrRad / Math.max(1, scan.lineCount - 1)
+        : Math.max(1e-6, (zMm * scan.widthMmOrRad) / Math.max(1, scan.lineCount - 1));
+    const sigmaL = Math.max(0.6, sigmaFromFwhm(lateralFwhmMm(beam, zMm)) / pitchMm);
+    const kern = beamKernel(sigmaL, sidelobeEpsilon);
     for (let li = 0; li < width; li++) {
       let acc = 0;
       for (let t = -kern.r; t <= kern.r; t++) {
@@ -206,6 +230,23 @@ function gaussKernel(sigma: number): { w: Float32Array; r: number } {
     const v = Math.exp(-(i * i) / (2 * sigma * sigma));
     w[i + r] = v;
     sum += v;
+  }
+  for (let i = 0; i < w.length; i++) w[i]! /= sum;
+  return { w, r };
+}
+
+function beamKernel(sigma: number, sidelobeEpsilon: number): { w: Float32Array; r: number } {
+  const main = gaussKernel(sigma);
+  const broad = gaussKernel(3 * sigma);
+  const r = Math.max(main.r, broad.r);
+  const w = new Float32Array(2 * r + 1);
+  let sum = 0;
+  for (let i = -r; i <= r; i++) {
+    const mainWeight = Math.abs(i) <= main.r ? main.w[i + main.r]! : 0;
+    const broadWeight = Math.abs(i) <= broad.r ? broad.w[i + broad.r]! : 0;
+    const value = (1 - sidelobeEpsilon) * mainWeight + sidelobeEpsilon * broadWeight;
+    w[i + r] = value;
+    sum += value;
   }
   for (let i = 0; i < w.length; i++) w[i]! /= sum;
   return { w, r };
