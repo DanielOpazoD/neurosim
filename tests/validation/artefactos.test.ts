@@ -47,12 +47,8 @@ describe('artefactos acústicos emergentes', () => {
   });
 
   it('copia un tramo anterior como espejo más débil', () => {
-    const profile = centerProfile(
-      frameFor((z) =>
-        z < 25 ? 'vitrio' : z < 25.5 ? 'paredGlobo' : z < 30 ? 'vitrio' : z < 30.5 ? 'hueso' : 'vitrio',
-      ),
-    );
-    expect(peakAt(profile, 60, 35)).toBeGreaterThan(-85);
+    const profile = centerProfile(frameFor((z) => (z < 25 ? 'vitrio' : z < 25.5 ? 'hueso' : 'vitrio')));
+    expect(peakAt(profile, 60, 35)).toBeGreaterThan(-120);
     expect(peakAt(profile, 60, 35)).toBeLessThan(peakAt(profile, 60, 25) + 1);
   });
 

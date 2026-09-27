@@ -158,7 +158,8 @@ export function renderBMode(
         if (rc > FISICA_US.params.reverbRcThreshold.value && zi * dz >= 2 && !involvesLens) {
           interfaceEvents.push({ zi, rc, attDb });
         }
-        if (rc > 0.5 && cosA > 0.8 && (!mirror || rc > mirror.rc)) {
+        const involvesBone = matId === 'hueso' || prevMat === 'hueso';
+        if (involvesBone && rc > 0.5 && cosA > 0.8 && (!mirror || rc > mirror.rc)) {
           mirror = { zi, rc };
         }
         if (isThinStrongMaterial(matId) && rc > 0.5) {
