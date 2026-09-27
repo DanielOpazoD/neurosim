@@ -34,6 +34,7 @@ export interface AppState {
   gateDepthMm: number;
   gateUMm: number;
   audioOn: boolean;
+  teachingMode: boolean;
 }
 
 export function createInitialState(): AppState {
@@ -57,5 +58,6 @@ export function createInitialState(): AppState {
     gateDepthMm: 52,
     gateUMm: 0,
     audioOn: false,
+    teachingMode: false,
   };
 }

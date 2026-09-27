@@ -13,6 +13,8 @@ import { skullAttenuationDb } from '../ultrasound/attenuation';
 import { MATERIALS } from '../anatomy/materials';
 import { DOPPLER } from './params';
 import { ensembleWallFilter, kasaiEstimate, kasaiVariance, kasaiVelocityCms } from './kasai';
+import { tissueVelocityMmS } from './clutter';
+import { FISIOLOGIA } from '../physiology/params';
 
 export interface ColorCell {
   /** Velocidad proyectada con signo hacia la sonda, cm/s. NaN = sin flujo. */
@@ -52,6 +54,7 @@ function cellScatterers(
   zi: number,
   ci: number,
   cardiacPhase: number,
+  heartRateBpm: number,
   primaryVessel: Vessel,
 ): ColorScatterer[] {
   const rng = new SeededRandom((seed ^ hash3(zi, ci, 0, 0x4b534149)) >>> 0);
@@ -73,6 +76,16 @@ function cellScatterers(
       const velocity = flow.velocityAt(closest.point, cardiacPhase);
       velocityTowardCms = -(velocity[0] * axial[0] + velocity[1] * axial[1] + velocity[2] * axial[2]) / 10;
       amplitude = DOPPLER.params.amplitudSangre.value;
+    } else {
+      const tissueVelocity = tissueVelocityMmS({
+        head,
+        point: p,
+        cardiacPhase,
+        heartRateBpm,
+        tSec: (cardiacPhase * 60) / heartRateBpm,
+      });
+      velocityTowardCms =
+        -(tissueVelocity[0] * axial[0] + tissueVelocity[1] * axial[1] + tissueVelocity[2] * axial[2]) / 10;
     }
     result.push({
       phase: rng.range(0, 2 * Math.PI),
@@ -106,6 +119,8 @@ export function renderColorDoppler(
   const ensemble = DOPPLER.params.colorEnsemble.value;
   const f0Hz = settings.frequencyMhz * 1e6;
   const phaseScale = (4 * Math.PI * f0Hz) / (SOUND_SPEED_MS * 1000);
+  const heartRateBpm = FISIOLOGIA.params.heartRateBpm.value;
+  const wallVelocityCms = (SOUND_SPEED_MS * settings.wallFilterHz * 100) / (2 * f0Hz);
   const elevation = elevationDirection(pose);
   const attenuationCache = new Map<number, number>();
   for (let zi = 0; zi < rows; zi += 1) {
@@ -143,6 +158,7 @@ export function renderColorDoppler(
         zi,
         ci,
         cardiacPhase,
+        heartRateBpm,
         primaryVessel,
       );
       const re = new Float32Array(ensemble);
@@ -183,7 +199,8 @@ export function renderColorDoppler(
       const idx = zi * cols + ci;
       if (
         power >= DOPPLER.params.colorPowerThreshold.value &&
-        varNorm <= DOPPLER.params.colorVarianceMax.value
+        varNorm <= DOPPLER.params.colorVarianceMax.value &&
+        Math.abs(vCms) >= wallVelocityCms
       ) {
         vel[idx] = vCms;
         pow[idx] = power;

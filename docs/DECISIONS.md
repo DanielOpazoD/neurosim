@@ -79,3 +79,14 @@
     sanguínea y atenuada, y la potencia y la varianza se umbralizan antes de
     pintar; el aliasing emerge exclusivamente de `atan2` de `R(1)`, sin plegado
     analítico adicional.
+24. **DEC-24** — El clutter Doppler emerge del movimiento material: la pared
+    arterial tiene una pulsación radial atenuada con la distancia y el cerebro
+    una pulsación anterior uniforme; el temblor determinista de la mano entra
+    como velocidad relativa de la sonda. El filtro de pared es un compromiso
+    observable: un corte alto elimina más movimiento lento, pero también puede
+    borrar flujo diastólico.
+25. **DEC-25** — La docencia distingue ángulo real tridimensional, ángulo
+    proyectado en el plano de imagen y ángulo introducido por el operador. La
+    corrección de velocidad se compara con el factor
+    `cos(θ_real)/cos(θ_user)` sin cambiar la medición adquirida ni ocultar la
+    geometría elevacional.

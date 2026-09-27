@@ -4,9 +4,15 @@ Alcance del bloque N1 — maqueta normal de alta fidelidad. Nada de lo
 siguiente existe todavía por diseño del plan:
 
 - **LIM-16 · Color Kasai reducido**: el ensemble color solo sintetiza
-  dispersores dentro de celdas cuyo corte alcanza un vaso; todavía no hay
-  clutter espacial fuera de vasos (reservado para PR 17), el filtro de pared
-  es de orden cero y no se hace submuestreo espacial dentro de cada celda.
+  dispersores dentro de celdas cuyo corte alcanza un vaso; el clutter espacial
+  fuera de esas celdas sigue sin sintetizarse y no se hace submuestreo espacial
+  dentro de cada celda. El filtro color usa un criterio de velocidad
+  equivalente al corte configurado.
+
+- **LIM-17 · Movimiento tisular reducido**: el tejido combina pulsación radial
+  de pared y pulsación cerebral anterior uniforme; no hay respiración todavía,
+  reservada para PR 18. El temblor de mano es determinista para una semilla,
+  pero todavía no está acoplado a la pose visual de la sonda.
 
 - **LIM-01 · Patología**: sin casos con PIC elevada, vasoespasmo, ni parada
   circulatoria. La señal ausente NO acredita cese circulatorio (ni en el

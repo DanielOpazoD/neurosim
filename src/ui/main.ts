@@ -123,6 +123,9 @@ function setStation(station: Station, side: Side): void {
     base: s.settings.baseline,
   };
   for (const [id, value] of Object.entries(values)) $<HTMLInputElement>(id).value = String(value);
+  for (const id of Object.keys(values)) {
+    $<HTMLInputElement>(id).dispatchEvent(new Event('input'));
+  }
   ($('densidad') as HTMLSelectElement).value = s.settings.lineDensity;
   document.querySelectorAll('.tab').forEach((el) => {
     const t = el as HTMLElement;
@@ -267,6 +270,7 @@ document.addEventListener('keydown', (e) => {
     toggleFreeze();
   } else if (e.key === 'p') $('pw').click();
   else if (e.key === 'c') $('caliper').click();
+  else if (e.key === 'd') $('teaching').click();
 });
 $('cine').addEventListener('click', () => {
   s.cinePlaying = !s.cinePlaying;
@@ -282,6 +286,10 @@ $('audio').addEventListener('click', () => {
   s.audioOn = !s.audioOn;
   pw.setAudioEnabled(s.audioOn);
   $('audio').classList.toggle('on', s.audioOn);
+});
+$('teaching').addEventListener('click', () => {
+  s.teachingMode = !s.teachingMode;
+  $('teaching').classList.toggle('on', s.teachingMode);
 });
 $('caliper').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dist' ? 'none' : 'dist';
