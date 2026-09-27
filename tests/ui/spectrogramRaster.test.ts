@@ -112,4 +112,58 @@ describe('rasterización pura del espectrograma', () => {
     };
     expect(rasterizeSpectrogram(input, opts)).toEqual(rasterizeSpectrogram(input, opts));
   });
+
+  it('mantiene el ruido casi negro con ganancia espectral neutra', () => {
+    const input = Array.from({ length: 12 }, (_, t) =>
+      column(
+        t * 0.1,
+        Array.from({ length: 32 }, (_, k) => -42 + (((t * 17 + k * 11) % 9) - 4)),
+      ),
+    );
+    const rgba = rasterizeSpectrogram(input, {
+      width: 24,
+      height: 32,
+      fftSize: 32,
+      baseline: 0.5,
+      invert: false,
+      sweepSeconds: 2,
+      gainDb: 0,
+      drDb: 55,
+      floorOffsetDb: 6,
+    });
+    const mean =
+      Array.from({ length: 24 * 32 }, (_, i) => rgba[i * 4]! / 255).reduce((sum, value) => sum + value, 0) /
+      (24 * 32);
+    expect(mean).toBeGreaterThanOrEqual(0.01);
+    expect(mean).toBeLessThanOrEqual(0.08);
+  });
+
+  it('presenta una sinusoide con pico y gradiente, no una meseta', () => {
+    const powers = Array(32).fill(-50);
+    powers[16] = -20;
+    powers[15] = -22;
+    powers[17] = -22;
+    powers[14] = -24;
+    powers[18] = -24;
+    const rgba = rasterizeSpectrogram([column(0, powers)], {
+      width: 1,
+      height: 33,
+      fftSize: 32,
+      baseline: 0.5,
+      invert: false,
+      sweepSeconds: 1,
+      gainDb: 0,
+      drDb: 26,
+      floorOffsetDb: 6,
+      gamma: 0.7,
+    });
+    const values = Array.from({ length: 33 }, (_, y) => grayAt(rgba, 1, 0, y) / 255);
+    const peak = Math.max(...values);
+    const peakY = values.indexOf(peak);
+    expect(peak).toBeGreaterThanOrEqual(0.9);
+    expect(values[peakY - 1]!).toBeLessThan(peak);
+    expect(values[peakY + 1]!).toBeLessThan(peak);
+    expect(values[peakY - 2]!).toBeLessThan(values[peakY - 1]!);
+    expect(values[peakY + 2]!).toBeLessThan(values[peakY + 1]!);
+  });
 });

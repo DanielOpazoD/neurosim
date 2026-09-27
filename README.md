@@ -23,7 +23,8 @@ exacta; una señal ausente no acredita cese circulatorio.
 - Rótulo acústico MI/TI por modo y alerta ALARA oftálmica en modo docente.
 - Espectro PW rasterizado por interpolación de filas, con barrido seleccionable
   de 2/3/4/6 s, eje de velocidad en cm/s y aliasing desplazado por la línea
-  base.
+  base. La ganancia espectral (−20…+20 dB) se activa con PW y es independiente
+  de la ganancia B-mode.
 - Audio PW direccional con control de volumen 0–100 %, separación overlap-add,
   AGC lento y paso bajo de equipo.
 - Navegador 3D ortográfico de la sonda, con cámara arrastrable derivada de la

@@ -165,6 +165,14 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['aium-tcd-guia'],
     note: 'Filtro inicial de la cadena PW.',
   },
+  spectralFloorOffsetDb: {
+    value: 6,
+    unit: 'dB',
+    range: [0, 12],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Margen sobre el piso adaptativo para mantener el ruido de fondo casi negro sin ocultar su textura.',
+  },
   tcdF0Mhz: {
     value: 2,
     unit: 'MHz',

@@ -113,6 +113,8 @@ calibración.
   `powerDb` ni las mediciones.
 - **doppler.spectralFloorPercentile** — `0,2`, percentil estimado de la ventana
   visible usado como piso adaptativo del mapa de intensidad.
+- **doppler.spectralFloorOffsetDb** — `6 dB`, margen estimado sobre el piso
+  adaptativo para mantener el ruido casi negro sin eliminar su textura.
 - **doppler.audioAgcTauS** — `0,5 s`, constante de tiempo estimada del AGC
   lento del audio direccional.
 - **doppler.audioLowpassFrac** — `0,9` de PRF/2, corte estimado del paso bajo

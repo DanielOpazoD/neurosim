@@ -12,6 +12,7 @@ export interface SpectrogramRasterOptions {
   readonly sweepSeconds: number;
   readonly gainDb: number;
   readonly drDb: number;
+  readonly floorOffsetDb?: number;
   readonly gamma?: number;
   readonly floorPercentile?: number;
   readonly colormap?: SpectralColormap;
@@ -114,8 +115,8 @@ export function rasterizeSpectrogram(
     const fraction = rowFrequencyFraction(y + 0.5, height, opts.baseline, opts.invert);
     const index = (fraction + 1) * (N / 2);
     for (let x = 0; x < width; x++) {
-      const dbv = interpolateBin(profiles[x]!, index) + opts.gainDb;
-      const u = Math.min(1, Math.max(0, (dbv - floorDb) / dr));
+      const dbv = interpolateBin(profiles[x]!, index);
+      const u = Math.min(1, Math.max(0, (dbv + opts.gainDb - (floorDb + (opts.floorOffsetDb ?? 6))) / dr));
       const level = 4 + Math.round(251 * Math.pow(u, gamma));
       const offset = (y * width + x) * 4;
       if (opts.colormap === 'ambar') {

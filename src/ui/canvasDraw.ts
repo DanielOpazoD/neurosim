@@ -169,6 +169,7 @@ export function drawSpectrum(
     invert: boolean;
     windowSeconds?: number;
     gainDb?: number;
+    floorOffsetDb?: number;
     drDb?: number;
     colormap?: SpectralColormap;
     gamma?: number;
@@ -190,6 +191,7 @@ export function drawSpectrum(
       sweepSeconds: opts.sweepSeconds ?? opts.windowSeconds ?? 4,
       gainDb: opts.gainDb ?? 0,
       drDb: opts.drDb ?? 55,
+      floorOffsetDb: opts.floorOffsetDb,
       gamma: opts.gamma,
       floorPercentile: opts.floorPercentile,
       colormap: opts.colormap,

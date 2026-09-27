@@ -152,6 +152,7 @@ function setStation(station: Station, side: Side): void {
     wf: s.settings.wallFilterHz,
     ang: s.settings.angleCorrectionDeg,
     base: s.settings.baseline,
+    spectralGain: s.settings.spectralGainDb,
     outputPower: s.settings.outputPowerDb,
   };
   for (const [id, value] of Object.entries(values)) $<HTMLInputElement>(id).value = String(value);
@@ -169,6 +170,7 @@ function setStation(station: Station, side: Side): void {
   $('navigatorLegend').hidden = station !== 'temporal';
   s.pwOn = false;
   $('pw').classList.remove('on');
+  syncSpectralGainControl();
   ($('cine') as HTMLButtonElement).disabled = true;
   s.cine.length = 0;
   s.cineIdx = 0;
@@ -218,6 +220,14 @@ function drawFrame(response: RenderResponse): void {
   }
   drawCaliperMarks(bCtx, s);
   drawScale(bCtx, sim, s, s.currentFrame);
+}
+
+function syncSpectralGainControl(): void {
+  const active = s.station === 'temporal' && s.pwOn;
+  const control = $('spectralGainCtl');
+  const input = $<HTMLInputElement>('spectralGain');
+  control.hidden = !active;
+  input.disabled = !active;
 }
 
 function recordMeasurement(): void {
@@ -402,6 +412,7 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
   ['wf', 'wfV', (v: number) => setSetting('wallFilterHz', v), (v: number) => `${v} Hz`],
   ['ang', 'angV', (v: number) => setSetting('angleCorrectionDeg', v), (v: number) => `${v}°`],
   ['base', 'baseV', (v: number) => setSetting('baseline', v), (v: number) => `${Math.round(v * 100)}%`],
+  ['spectralGain', 'spectralGainV', (v: number) => setSetting('spectralGainDb', v), (v: number) => `${v} dB`],
   ['outputPower', 'outputPowerV', (v: number) => setSetting('outputPowerDb', v), (v: number) => `${v} dB`],
   [
     'map',
@@ -478,6 +489,7 @@ $('pw').addEventListener('click', () => {
   if (s.station !== 'temporal') return;
   s.pwOn = !s.pwOn;
   $('pw').classList.toggle('on', s.pwOn);
+  syncSpectralGainControl();
   if (s.pwOn) pw.reset();
   s.debrief.setTime(clock.t);
   s.debrief.record(s.pwOn ? 'pw-on' : 'pw-off', s.pwOn ? 'PW activar' : 'PW desactivar', { pwOn: s.pwOn });

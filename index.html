@@ -92,6 +92,9 @@
         margin: 8px 0;
         font-size: 12px;
       }
+      label.ctl[hidden] {
+        display: none;
+      }
       label.ctl span {
         display: flex;
         justify-content: space-between;
@@ -329,6 +332,10 @@
               <option value="ambar">Ámbar</option>
             </select>
           </label>
+          <label id="spectralGainCtl" class="ctl" hidden
+            ><span>Ganancia espectral <b id="spectralGainV">0 dB</b></span>
+            <input id="spectralGain" type="range" min="-20" max="20" step="1" value="0"
+          /></label>
           <label class="ctl"
             ><span>Volumen <b id="volumeV"></b></span>
             <input id="volume" type="range" min="0" max="100" step="1" value="40"

@@ -90,6 +90,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
-| `doppler`            |         42 |
+| `doppler`            |         43 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         38 |
