@@ -42,6 +42,7 @@
 | LIM-14 | Artefactos 1D                       | —                                                          |
 | LIM-15 | Flujo vascular simplificado         | —                                                          |
 | LIM-22 | Debriefing por reglas               | —                                                          |
+| LIM-23 | Audio de equipo                     | —                                                          |
 
 ## IDs de decisiones
 
@@ -80,6 +81,8 @@
 | DEC-31 | El protocolo DVNO registra cuatro planos (transversal y                 | —                          |
 | DEC-32 | El navegador 3D es una vista derivada de la misma pose,                 | —                          |
 | DEC-33 | El debriefing docente se construye con evidencia numérica del           | —                          |
+| DEC-34 | El espectrograma de equipo se presenta recorriendo cada fila de         | —                          |
+| DEC-35 | El audio direccional usa ventanas Hann con overlap-add del 50 %,        | —                          |
 
 ## Parámetros registrados
 
@@ -87,6 +90,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
-| `doppler`            |         38 |
+| `doppler`            |         43 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         38 |

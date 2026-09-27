@@ -1,30 +1,26 @@
 /**
- * Audio Doppler direccional (navegador): separa el espectro por signo con FFT
- * por bloques — frecuencias positivas (hacia la sonda) a un canal y negativas
- * al otro — y re-muestrea a la frecuencia de la AudioContext. La cadena PW le
- * inyecta este sumidero; sin audio real en pruebas.
+ * Audio Doppler direccional del equipo. La separación por signo y el moldeo
+ * previo al resampleo son puros; esta clase solo conecta Web Audio.
  */
-import { FFT } from '../core/fft';
+import { DOPPLER } from './params';
+import { applyAgc, lowPass, separateDirectional, type AgcState } from './audioShaping';
 import type { AudioSink } from './pwChain';
 
-const BLOCK = 256;
+const WORK = 1024;
+const KEEP = 256;
 
 export class DopplerAudio implements AudioSink {
-  private ctx: AudioContext;
-  private fft = new FFT(BLOCK);
-  private reB = new Float32Array(BLOCK);
-  private imB = new Float32Array(BLOCK);
-  private filled = 0;
-  /** Cola de muestras ya separadas en canales (a la PRF). */
-  private outL = new Float32Array(1 << 15);
-  private outR = new Float32Array(1 << 15);
+  private readonly ctx: AudioContext;
+  private pendingRe = new Float32Array(0);
+  private pendingIm = new Float32Array(0);
+  private readonly outL = new Float32Array(1 << 15);
+  private readonly outR = new Float32Array(1 << 15);
   private outLen = 0;
-  private gain: GainNode;
-  private wRe = new Float32Array(BLOCK);
-  private wIm = new Float32Array(BLOCK);
-  private hRe = new Float32Array(BLOCK);
-  private hIm = new Float32Array(BLOCK);
+  private readonly gain: GainNode;
   private prfHz = 4000;
+  private volume = 40;
+  private readonly agcL: AgcState = { level: 0 };
+  private readonly agcR: AgcState = { level: 0 };
 
   constructor() {
     this.ctx = new AudioContext();
@@ -34,98 +30,86 @@ export class DopplerAudio implements AudioSink {
     this.scheduleNext();
   }
 
-  /** Activa/silencia el sonido (el usuario controla el volumen real). */
+  setVolume(percent: number): void {
+    this.volume = Math.min(100, Math.max(0, percent));
+    this.gain.gain.setTargetAtTime(this.volume / 100, this.ctx.currentTime, 0.05);
+  }
+
+  /** Activa/silencia el sonido; el volumen permanece bajo control del equipo. */
   setMuted(m: boolean): void {
-    this.gain.gain.setTargetAtTime(m ? 0 : 0.4, this.ctx.currentTime, 0.05);
+    this.gain.gain.setTargetAtTime(m ? 0 : this.volume / 100, this.ctx.currentTime, 0.05);
     if (!m && this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
   pushIQ(re: Float32Array, im: Float32Array, n: number, prfHz: number): void {
     this.prfHz = prfHz;
-    for (let i = 0; i < n; i++) {
-      this.reB[this.filled] = re[i]!;
-      this.imB[this.filled] = im[i]!;
-      this.filled++;
-      if (this.filled === BLOCK) {
-        this.separate();
-        this.filled = 0;
-      }
-    }
+    const nextRe = new Float32Array(this.pendingRe.length + n);
+    const nextIm = new Float32Array(this.pendingIm.length + n);
+    nextRe.set(this.pendingRe);
+    nextIm.set(this.pendingIm);
+    nextRe.set(re.subarray(0, n), this.pendingRe.length);
+    nextIm.set(im.subarray(0, n), this.pendingIm.length);
+    this.pendingRe = nextRe;
+    this.pendingIm = nextIm;
+    if (this.pendingRe.length >= WORK) this.processPending();
   }
 
-  /** Divide el bloque IQ en canales por signo de frecuencia. */
-  private separate(): void {
-    const wRe = this.wRe;
-    const wIm = this.wIm;
-    wRe.set(this.reB);
-    wIm.set(this.imB);
-    this.fft.forward(wRe, wIm);
-    const half = BLOCK / 2;
-    // FFT directa: bins k ∈ [1, half) = frecuencias positivas (hacia la sonda),
-    // k ∈ (half, N) = negativas. Canal derecho = hacia la sonda.
-    this.hRe.set(wRe);
-    this.hIm.set(wIm);
-    for (let k = half; k < BLOCK; k++) {
-      this.hRe[k] = 0;
-      this.hIm[k] = 0;
-    }
-    const pos = this.ifftReal(this.hRe, this.hIm);
-    // canal «alejándose»
-    this.hRe.set(wRe);
-    this.hIm.set(wIm);
-    for (let k = 1; k < half; k++) {
-      this.hRe[k] = 0;
-      this.hIm[k] = 0;
-    }
-    const neg = this.ifftReal(this.hRe, this.hIm);
-    this.append(pos, neg);
+  private processPending(): void {
+    const separated = separateDirectional(this.pendingRe, this.pendingIm);
+    const emit = Math.max(0, separated.positive.length - KEEP);
+    this.append(separated.positive.subarray(0, emit), separated.negative.subarray(0, emit));
+    this.pendingRe = this.pendingRe.slice(emit);
+    this.pendingIm = this.pendingIm.slice(emit);
   }
 
-  private ifftReal(re: Float32Array, im: Float32Array): Float32Array {
-    // IFFT via conjugación: ifft(x) = conj(fft(conj(x)))/N
-    for (let i = 0; i < BLOCK; i++) im[i] = -im[i]!;
-    this.fft.forward(re, im);
-    const out = new Float32Array(BLOCK);
-    for (let i = 0; i < BLOCK; i++) out[i] = re[i]! / BLOCK;
-    for (let i = 0; i < BLOCK; i++) im[i] = -im[i]!;
-    return out;
-  }
-
-  private append(l: Float32Array, r: Float32Array): void {
-    if (this.outLen + BLOCK > this.outL.length) {
-      // buffer lleno: descarta la mitad más vieja (la cola es corta)
-      const drop = this.outL.length >> 1;
+  private append(left: Float32Array, right: Float32Array): void {
+    if (this.outLen + left.length > this.outL.length) {
+      const drop = Math.min(this.outLen, this.outL.length >> 1);
       this.outL.copyWithin(0, drop);
       this.outR.copyWithin(0, drop);
       this.outLen -= drop;
     }
-    this.outL.set(l, this.outLen);
-    this.outR.set(r, this.outLen);
-    this.outLen += BLOCK;
+    this.outL.set(left, this.outLen);
+    this.outR.set(right, this.outLen);
+    this.outLen += left.length;
   }
 
-  /** Programa el siguiente trozo de audio en el tiempo de la AudioContext. */
+  /** Programa el siguiente bloque de audio re-muestreado. */
   private scheduleNext(): void {
     const sr = this.ctx.sampleRate;
     const chunkSec = 0.2;
     const chunkOut = Math.floor(chunkSec * sr);
     if (this.outLen < 64) {
-      // sin señal: un poco de silencio para no quedarse parado
       const buf = this.ctx.createBuffer(2, chunkOut, sr);
       this.play(buf);
       return;
     }
     const take = Math.min(this.outLen, Math.floor(this.prfHz * chunkSec));
+    const rawL = this.outL.slice(0, take);
+    const rawR = this.outR.slice(0, take);
+    const cutoff = this.prfHz * 0.5 * DOPPLER.params.audioLowpassFrac.value;
+    const shapedL = applyAgc(
+      lowPass(rawL, this.prfHz, cutoff),
+      this.prfHz,
+      this.agcL,
+      DOPPLER.params.audioAgcTauS.value,
+    );
+    const shapedR = applyAgc(
+      lowPass(rawR, this.prfHz, cutoff),
+      this.prfHz,
+      this.agcR,
+      DOPPLER.params.audioAgcTauS.value,
+    );
     const buf = this.ctx.createBuffer(2, chunkOut, sr);
     const ch0 = buf.getChannelData(0);
     const ch1 = buf.getChannelData(1);
     for (let i = 0; i < chunkOut; i++) {
-      const idx = (i / chunkOut) * take;
+      const idx = (i / chunkOut) * Math.max(1, take - 1);
       const i0 = Math.floor(idx);
       const i1 = Math.min(take - 1, i0 + 1);
       const f = idx - i0;
-      ch0[i] = this.outL[i0]! * (1 - f) + this.outL[i1]! * f;
-      ch1[i] = this.outR[i0]! * (1 - f) + this.outR[i1]! * f;
+      ch0[i] = shapedL[i0]! * (1 - f) + shapedL[i1]! * f;
+      ch1[i] = shapedR[i0]! * (1 - f) + shapedR[i1]! * f;
     }
     this.outL.copyWithin(0, take);
     this.outR.copyWithin(0, take);
@@ -143,6 +127,9 @@ export class DopplerAudio implements AudioSink {
 
   reset(): void {
     this.outLen = 0;
-    this.filled = 0;
+    this.pendingRe = new Float32Array(0);
+    this.pendingIm = new Float32Array(0);
+    this.agcL.level = 0;
+    this.agcR.level = 0;
   }
 }

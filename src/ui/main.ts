@@ -152,6 +152,7 @@ function setStation(station: Station, side: Side): void {
     wf: s.settings.wallFilterHz,
     ang: s.settings.angleCorrectionDeg,
     base: s.settings.baseline,
+    spectralGain: s.settings.spectralGainDb,
     outputPower: s.settings.outputPowerDb,
   };
   for (const [id, value] of Object.entries(values)) $<HTMLInputElement>(id).value = String(value);
@@ -169,6 +170,7 @@ function setStation(station: Station, side: Side): void {
   $('navigatorLegend').hidden = station !== 'temporal';
   s.pwOn = false;
   $('pw').classList.remove('on');
+  syncSpectralGainControl();
   ($('cine') as HTMLButtonElement).disabled = true;
   s.cine.length = 0;
   s.cineIdx = 0;
@@ -218,6 +220,14 @@ function drawFrame(response: RenderResponse): void {
   }
   drawCaliperMarks(bCtx, s);
   drawScale(bCtx, sim, s, s.currentFrame);
+}
+
+function syncSpectralGainControl(): void {
+  const active = s.station === 'temporal' && s.pwOn;
+  const control = $('spectralGainCtl');
+  const input = $<HTMLInputElement>('spectralGain');
+  control.hidden = !active;
+  input.disabled = !active;
 }
 
 function recordMeasurement(): void {
@@ -402,6 +412,7 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
   ['wf', 'wfV', (v: number) => setSetting('wallFilterHz', v), (v: number) => `${v} Hz`],
   ['ang', 'angV', (v: number) => setSetting('angleCorrectionDeg', v), (v: number) => `${v}°`],
   ['base', 'baseV', (v: number) => setSetting('baseline', v), (v: number) => `${Math.round(v * 100)}%`],
+  ['spectralGain', 'spectralGainV', (v: number) => setSetting('spectralGainDb', v), (v: number) => `${v} dB`],
   ['outputPower', 'outputPowerV', (v: number) => setSetting('outputPowerDb', v), (v: number) => `${v} dB`],
   [
     'map',
@@ -430,6 +441,28 @@ ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
 ($('densidad') as HTMLSelectElement).addEventListener('change', (event) => {
   setLineDensity((event.target as HTMLSelectElement).value as LineDensity);
 });
+const sweepInput = $('sweep') as HTMLSelectElement;
+const sweepValue = $('sweepV');
+sweepInput.value = String(s.sweepSeconds);
+sweepValue.textContent = `${s.sweepSeconds} s`;
+sweepInput.addEventListener('change', () => {
+  s.sweepSeconds = Number(sweepInput.value) as 2 | 3 | 4 | 6;
+  sweepValue.textContent = `${s.sweepSeconds} s`;
+});
+const colormapInput = $('colormap') as HTMLSelectElement;
+colormapInput.value = s.spectralColormap;
+colormapInput.addEventListener('change', () => {
+  s.spectralColormap = colormapInput.value as 'gris' | 'ambar';
+});
+const volumeInput = $('volume') as HTMLInputElement;
+const volumeValue = $('volumeV');
+volumeInput.value = String(s.volume);
+volumeValue.textContent = `${s.volume}%`;
+volumeInput.addEventListener('input', () => {
+  s.volume = Number(volumeInput.value);
+  volumeValue.textContent = `${s.volume}%`;
+  pw.setVolume(s.volume);
+});
 $('planoMesencefalico').addEventListener('click', () => setTiltPreset(0));
 $('planoDiencefalico').addEventListener('click', () => setTiltPreset(10));
 
@@ -456,6 +489,7 @@ $('pw').addEventListener('click', () => {
   if (s.station !== 'temporal') return;
   s.pwOn = !s.pwOn;
   $('pw').classList.toggle('on', s.pwOn);
+  syncSpectralGainControl();
   if (s.pwOn) pw.reset();
   s.debrief.setTime(clock.t);
   s.debrief.record(s.pwOn ? 'pw-on' : 'pw-off', s.pwOn ? 'PW activar' : 'PW desactivar', { pwOn: s.pwOn });
@@ -463,6 +497,7 @@ $('pw').addEventListener('click', () => {
 $('audio').addEventListener('click', () => {
   s.audioOn = !s.audioOn;
   pw.setAudioEnabled(s.audioOn);
+  pw.setVolume(s.volume);
   $('audio').classList.toggle('on', s.audioOn);
 });
 $('teaching').addEventListener('click', () => {

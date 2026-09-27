@@ -79,3 +79,7 @@ a WebGL2 en bloques posteriores.
 - **LIM-22 · Debriefing por reglas**: no se registra una trayectoria continua
   de la sonda ni métricas de ergonomía. Los hallazgos son reglas educativas
   basadas en el estado y no un modelo experto de desempeño.
+- **LIM-23 · Audio de equipo**: no se modelan altavoz, sala, psicoacústica ni
+  respuesta auditiva individual. El simulador tampoco infiere una auto-traza
+  de equipos comerciales; la separación, AGC y filtrado son una presentación
+  determinista de la señal IQ.

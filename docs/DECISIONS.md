@@ -123,3 +123,12 @@
 33. **DEC-33** — El debriefing docente se construye con evidencia numérica del
     estado, eventos y mediciones. Sus umbrales viven en registros de parámetros
     con evidencia y sus verdades del modelo no entran en la exportación clínica.
+34. **DEC-34** — El espectrograma de equipo se presenta recorriendo cada fila de
+    píxel, interpolando `powerDb` entre bins y agregando columnas temporales sin
+    `max`. El piso adaptativo, gamma y paleta solo cambian la presentación:
+    las mediciones continúan usando `powerDb` adquirido sin modificar. La
+    ganancia espectral y el margen sobre el piso son controles independientes
+    de la ganancia B-mode.
+35. **DEC-35** — El audio direccional usa ventanas Hann con overlap-add del 50 %,
+    un paso bajo relativo a PRF/2 y un AGC lento. El resampleo lineal conserva
+    la relación PRF–AudioContext; volumen y paleta son controles de equipo.
