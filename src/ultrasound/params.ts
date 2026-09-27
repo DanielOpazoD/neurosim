@@ -23,12 +23,20 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     note: 'Ancho axial heurístico del pulso.',
   },
   beamDivergenceGamma: {
+    value: 1,
+    unit: 'adimensional',
+    range: [0.3, 1],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026', 'szabo-diagnostic-ultrasound-2014'],
+    note: 'Divergencia geométrica lateral de transmisión; la recepción usa foco dinámico.',
+  },
+  elevationDivergenceGamma: {
     value: 0.5,
     unit: 'adimensional',
     range: [0.3, 1],
     evidence: 'estimado',
     sources: ['plan-simulador-2026', 'szabo-diagnostic-ultrasound-2014'],
-    note: 'Atenuación geométrica de la divergencia fuera de foco.',
+    note: 'Atenuación geométrica de la divergencia elevacional fuera de foco.',
   },
   sidelobeDb: {
     value: -28,

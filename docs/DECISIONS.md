@@ -52,6 +52,8 @@
     medido a 3 mm, para conservar la convención DVNO del fixture mientras se
     representa la variación longitudinal de la vaina.
 19. **DEC-19** — El haz B-mode usa FWHM gaussiano `λF/D`, lóbulos laterales
-    parametrizados y pitch real dependiente de la profundidad; el cristalino
-    aplica refracción de Snell y velocidad acústica material para que la
-    compresión axial emerja de la adquisición.
+    parametrizados, pitch real dependiente de la profundidad y una PSF
+    bidireccional como producto de gaussianas de transmisión y recepción con
+    foco dinámico en recepción; el cristalino aplica refracción de Snell y
+    velocidad acústica material para que la compresión axial emerja de la
+    adquisición.

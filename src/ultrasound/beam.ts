@@ -29,19 +29,37 @@ function fwhm(
   frequencyMhz: number,
   soundSpeedMs: number,
   zMm: number,
+  divergenceGamma: number,
 ): number {
   const atFocus = fwhmAtFocus(apertureMm, focusMm, frequencyMhz, soundSpeedMs);
   const defocus = zMm - focusMm;
-  const divergence = defocus * (apertureMm / focusMm) * FISICA_US.params.beamDivergenceGamma.value;
+  const divergence = defocus * (apertureMm / focusMm) * divergenceGamma;
   return Math.sqrt(atFocus * atFocus + divergence * divergence);
 }
 
 export function lateralFwhmMm(spec: BeamSpec, zMm: number): number {
-  return fwhm(spec.apertureMm, spec.focusMm, spec.frequencyMhz, spec.soundSpeedMs, zMm);
+  const tx = fwhm(
+    spec.apertureMm,
+    spec.focusMm,
+    spec.frequencyMhz,
+    spec.soundSpeedMs,
+    zMm,
+    FISICA_US.params.beamDivergenceGamma.value,
+  );
+  const wavelengthMm = spec.soundSpeedMs / (spec.frequencyMhz * 1000);
+  const rx = (wavelengthMm * Math.max(zMm, 5)) / spec.apertureMm;
+  return 1 / Math.sqrt(1 / (tx * tx) + 1 / (rx * rx));
 }
 
 export function elevationFwhmMm(spec: BeamSpec, zMm: number): number {
-  return fwhm(spec.elevationApertureMm, spec.elevationFocusMm, spec.frequencyMhz, spec.soundSpeedMs, zMm);
+  return fwhm(
+    spec.elevationApertureMm,
+    spec.elevationFocusMm,
+    spec.frequencyMhz,
+    spec.soundSpeedMs,
+    zMm,
+    FISICA_US.params.elevationDivergenceGamma.value,
+  );
 }
 
 export function sidelobeLevelDb(_spec: BeamSpec): number {

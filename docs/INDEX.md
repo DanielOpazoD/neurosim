@@ -66,4 +66,4 @@
 | `anatomia-cabeza`    |         40 |
 | `doppler`            |         22 |
 | `fisiologia`         |         18 |
-| `fisica-ultrasonido` |         23 |
+| `fisica-ultrasonido` |         24 |

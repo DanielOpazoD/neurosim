@@ -6,7 +6,7 @@ import { elevationFwhmMm, lateralFwhmMm, probeBeamSpec, sigmaFromFwhm } from '..
 import { buildScan } from '../../src/ultrasound/probe';
 
 describe('modelo analítico del haz', () => {
-  it('cumple FWHM = lambda F / D en foco', () => {
+  it('combina transmisión y recepción dinámica en foco', () => {
     const spec = {
       apertureMm: 12,
       elevationApertureMm: 4,
@@ -16,9 +16,21 @@ describe('modelo analítico del haz', () => {
       soundSpeedMs: 1540,
     };
     const expected = (1540 / (7.5 * 1000)) * (35 / 12);
-    expect(lateralFwhmMm(spec, 35)).toBeCloseTo(expected, 6);
+    expect(lateralFwhmMm(spec, 35)).toBeCloseTo(expected / Math.sqrt(2), 6);
     expect(elevationFwhmMm(spec, 25)).toBeCloseTo((1540 / (7.5 * 1000)) * (25 / 4), 6);
-    expect(lateralFwhmMm(spec, 35)).toBeCloseTo(0.6, 1);
+    expect(lateralFwhmMm(spec, 35)).toBeCloseTo(0.6 / Math.sqrt(2), 1);
+  });
+
+  it('mantiene resolución lateral estrecha con recepción dinámica cerca de la superficie', () => {
+    const spec = {
+      apertureMm: 12,
+      elevationApertureMm: 4,
+      focusMm: 33,
+      elevationFocusMm: 25,
+      frequencyMhz: 7.5,
+      soundSpeedMs: 1540,
+    };
+    expect(lateralFwhmMm(spec, 10)).toBeLessThan(0.5);
   });
 
   it('ensancha el haz al alejarse del foco', () => {
