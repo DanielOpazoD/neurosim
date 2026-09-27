@@ -55,3 +55,7 @@ del motor.
   sonography in movement disorders. Lancet Neurol. 2008;7:1044-55.
 - **seidel-tcs-1995** — Seidel G, Kaps M, Gerriets T. Potential and
   limitations of transcranial color-coded sonography. Stroke. 1995;26:2061-6.
+- **krabbe-hartkamp-1998** — Krabbe-Hartkamp MJ et al. Circle of Willis:
+  morphologic variation on 3D TOF MR angiograms. Radiology. 1998.
+- **murray-minimum-work-1926** — Murray CD. The physiological principle of
+  minimum work. Proc Natl Acad Sci USA. 1926.

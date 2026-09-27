@@ -31,11 +31,11 @@ La UI es el único lugar que conoce el DOM y el canvas.
 - **ui**: composición, eventos, canvas, overlays y readouts.
 
 `tests/layers.test.ts` extrae las importaciones relativas de todos los
-TypeScript de `src/` y verifica esta matriz. La única excepción por módulo
-destino es `anatomy/head.ts → physiology/params.ts`, que permite a la anatomía
-consumir datos fisiológicos registrados sin importar lógica de fisiología. La
-prueba falla ante cualquier arista nueva que no esté en la matriz o en esta
-excepción explícita.
+TypeScript de `src/` y verifica esta matriz. Las excepciones explícitas
+`anatomy/head.ts` y `anatomy/willis.ts` → `physiology/params.ts` permiten a la
+anatomía consumir datos fisiológicos registrados sin importar lógica de
+fisiología. La prueba falla ante cualquier arista nueva que no esté en la
+matriz o en estas excepciones explícitas.
 
 ## Cadena causal
 

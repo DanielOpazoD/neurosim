@@ -82,7 +82,10 @@ describe('fronteras de capas', () => {
       if (from === to) return false;
       if (from === 'anatomy' && to === 'domain' && !typeOnly) return true;
       if (from === 'anatomy' && to === 'physiology') {
-        return !(file === 'src/anatomy/head.ts' && destination === anatomyPhysiologyDataModule);
+        return !(
+          (file === 'src/anatomy/head.ts' || file === 'src/anatomy/willis.ts') &&
+          destination === anatomyPhysiologyDataModule
+        );
       }
       if (allowed[from as keyof typeof allowed].has(to)) return false;
       return true;

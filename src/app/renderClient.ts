@@ -17,7 +17,7 @@ export interface RenderWorkerLike {
 
 export class SyncRenderClient implements RenderClientLike {
   request(request: RenderRequest): Promise<RenderResponse> {
-    return Promise.resolve(renderRequest(request, renderCase(request.seed)));
+    return Promise.resolve(renderRequest(request, renderCase(request.seed, request.willisVariant)));
   }
 }
 

@@ -34,6 +34,7 @@
 | LIM-12 | Densidad de sangre sembrada         | `src/doppler/sampleVolume.ts`                              |
 | LIM-13 | PW en hilo principal                | —                                                          |
 | LIM-14 | Artefactos 1D                       | —                                                          |
+| LIM-15 | Flujo vascular simplificado         | —                                                          |
 
 ## IDs de decisiones
 
@@ -60,13 +61,14 @@
 | DEC-19 | El haz B-mode usa FWHM gaussiano `λF/D`, lóbulos laterales              | `src/ultrasound/bmode.ts`  |
 | DEC-20 | La reverberación, el espejo y la cola de cometa emergen de              | —                          |
 | DEC-21 | Los hitos transtemporales emergen de regiones anatómicas 3D             | —                          |
+| DEC-22 | El polígono de Willis se representa como un grafo de                    | —                          |
 
 ## Parámetros registrados
 
 | Conjunto             | Parámetros |
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
-| `anatomia-cabeza`    |         67 |
+| `anatomia-cabeza`    |         72 |
 | `doppler`            |         22 |
-| `fisiologia`         |         18 |
+| `fisiologia`         |         21 |
 | `fisica-ultrasonido` |         28 |

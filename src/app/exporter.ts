@@ -10,6 +10,7 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
   return {
     case: sim.patient.label,
     seed: sim.patient.seed,
+    willisVariant: sim.willisVariant,
     frame: s.currentFrame,
     measurements: s.measurements,
     settings: s.settings,

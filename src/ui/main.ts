@@ -5,7 +5,7 @@
 import { SimulationClock } from '../core/clock';
 import { errors, logError, onError } from '../core/errorLog';
 import { buildReferenceCase } from '../domain/referenceCase';
-import type { AcquisitionSettings, LineDensity, Side, Station } from '../domain/contracts';
+import type { AcquisitionSettings, LineDensity, Side, Station, WillisVariant } from '../domain/contracts';
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
 import { drawBMode, drawColorOverlay } from './canvasDraw';
 import { createInitialState } from '../app/state';
@@ -22,7 +22,18 @@ import {
 import type { RenderResponse } from '../app/renderRequest';
 import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
 
-const sim = buildReferenceCase();
+const WILLIS_VARIANTS: readonly WillisVariant[] = [
+  'normal',
+  'aplasiaA1Der',
+  'aplasiaA1Izq',
+  'pcaFetalDer',
+  'pcaFetalIzq',
+];
+const requestedWillis = new URLSearchParams(window.location.search).get('willis');
+const willisVariant: WillisVariant = WILLIS_VARIANTS.includes(requestedWillis as WillisVariant)
+  ? (requestedWillis as WillisVariant)
+  : 'normal';
+const sim = buildReferenceCase(undefined, willisVariant);
 const clock = new SimulationClock();
 const s = createInitialState();
 const pw = new PwController(sim, s);
@@ -184,6 +195,7 @@ function frameLoop(now: number): void {
           .request({
             id: requestId,
             seed: sim.patient.seed,
+            willisVariant: sim.willisVariant,
             side: s.side,
             station: s.station,
             settings: { ...s.settings },
