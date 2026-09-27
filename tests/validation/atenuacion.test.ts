@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MATERIALS } from '../../src/anatomy/materials';
+import { attenuationDbCm, MATERIALS } from '../../src/anatomy/materials';
 import { buildReferenceHead, classifyHead } from '../../src/anatomy/head';
 import { dist, type Vec3 } from '../../src/core/vec3';
 import { SeededRandom } from '../../src/core/random';
@@ -18,7 +18,7 @@ describe('validación de atenuación', () => {
       expect(classifyHead(head, p)).toBe('tejidoCerebral');
     }
     const measured = skullAttenuationDb(head, a, b, 2);
-    const expected = 2 * 0.6 * 2 * (lengthMm / 10);
+    const expected = 2 * attenuationDbCm(MATERIALS.tejidoCerebral, 2) * (lengthMm / 10);
     expect(measured).toBeCloseTo(expected, 1);
   });
 
@@ -37,7 +37,7 @@ describe('validación de atenuación', () => {
         from[1] + (to[1] - from[1]) * t,
         from[2] + (to[2] - from[2]) * t,
       ];
-      oneWay += MATERIALS[classifyHead(head, p)].attenuationDbCmMhz * 2 * 2 * (lengthMm / steps / 10);
+      oneWay += 2 * attenuationDbCm(MATERIALS[classifyHead(head, p)], 2) * (lengthMm / steps / 10);
     }
     const expected = oneWay;
     const measured = skullAttenuationDb(head, from, to, 2);

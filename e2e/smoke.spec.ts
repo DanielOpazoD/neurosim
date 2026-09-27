@@ -68,10 +68,12 @@ test('flujo docente completo sin errores', async ({ page }) => {
   const payload = JSON.parse(await readFile(jsonPath!, 'utf8')) as {
     frame: unknown;
     measurements: unknown[];
+    settings: { lineDensity: string };
     errores: unknown[];
   };
   expect(payload.frame).not.toBeNull();
   expect(payload.measurements).toEqual(expect.any(Array));
+  expect(payload.settings.lineDensity).toBe('media');
   expect(payload.errores).toEqual([]);
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);

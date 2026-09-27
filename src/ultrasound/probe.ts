@@ -10,7 +10,7 @@
  * geometría resuelve qué intersecta cada línea.
  */
 import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
-import type { ProbePose, TransducerKind } from '../domain/contracts';
+import type { LineDensity, ProbePose, TransducerKind } from '../domain/contracts';
 
 export interface BeamLine {
   readonly origin: Vec3;
@@ -34,6 +34,17 @@ export interface ScanGeometry {
 export const LINEAR_APERTURE_MM = 38;
 /** Semiapertura angular de la sonda sectorial transcraneal, rad. */
 export const SECTOR_HALF_ANGLE_RAD = (40 * Math.PI) / 180;
+
+export function linesFor(density: LineDensity): number {
+  switch (density) {
+    case 'baja':
+      return 128;
+    case 'alta':
+      return 256;
+    case 'media':
+      return 176;
+  }
+}
 
 /** Eje elevacional (normal del plano imagen) de la pose. */
 export function elevAxis(pose: ProbePose): Vec3 {

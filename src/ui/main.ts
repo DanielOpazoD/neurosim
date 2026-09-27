@@ -5,7 +5,7 @@
 import { SimulationClock } from '../core/clock';
 import { errors, logError, onError } from '../core/errorLog';
 import { buildReferenceCase } from '../domain/referenceCase';
-import type { AcquisitionSettings, Side, Station } from '../domain/contracts';
+import type { AcquisitionSettings, LineDensity, Side, Station } from '../domain/contracts';
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
 import { drawBMode, drawColorOverlay } from './canvasDraw';
 import { createInitialState } from '../app/state';
@@ -85,6 +85,10 @@ function setSetting<K extends keyof AcquisitionSettings>(key: K, value: number):
   s.settings = { ...s.settings, [key]: value };
 }
 
+function setLineDensity(value: LineDensity): void {
+  s.settings = { ...s.settings, lineDensity: value };
+}
+
 function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
@@ -101,6 +105,7 @@ function setStation(station: Station, side: Side): void {
     base: s.settings.baseline,
   };
   for (const [id, value] of Object.entries(values)) $<HTMLInputElement>(id).value = String(value);
+  ($('densidad') as HTMLSelectElement).value = s.settings.lineDensity;
   document.querySelectorAll('.tab').forEach((el) => {
     const t = el as HTMLElement;
     t.classList.toggle('on', t.dataset.station === station && t.dataset.side === side);
@@ -223,6 +228,10 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
   ['base', 'baseV', (v: number) => setSetting('baseline', v), (v: number) => `${Math.round(v * 100)}%`],
 ];
 ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
+
+($('densidad') as HTMLSelectElement).addEventListener('change', (event) => {
+  setLineDensity((event.target as HTMLSelectElement).value as LineDensity);
+});
 
 document.querySelectorAll('.tab').forEach((el) =>
   el.addEventListener('click', () => {

@@ -8,11 +8,9 @@ import type { SimulationClock } from '../core/clock';
 import type { ReferenceCase } from '../domain/referenceCase';
 import type { AcquiredFrame } from '../domain/contracts';
 import { renderBMode, type BModeFrame } from '../ultrasound/bmode';
-import { buildScan, type ScanGeometry } from '../ultrasound/probe';
+import { buildScan, linesFor, type ScanGeometry } from '../ultrasound/probe';
 import type { AppState } from './state';
 import { currentPose } from './poses';
-
-export const LINES = 176;
 
 export function sceneClassify(sim: ReferenceCase, s: AppState) {
   if (s.station === 'ojo') {
@@ -28,7 +26,7 @@ export function acquire(
   clock: SimulationClock,
 ): { frame: AcquiredFrame; bmode: BModeFrame; scan: ScanGeometry } {
   const pose = currentPose(sim, s);
-  const scan = buildScan(pose, s.settings.transducer, LINES);
+  const scan = buildScan(pose, s.settings.transducer, linesFor(s.settings.lineDensity));
   const scene = sceneClassify(sim, s);
   const bmode = renderBMode(scene, scan, s.settings, `seed-${sim.patient.seed}-${s.side}`);
   const frame: AcquiredFrame = {
