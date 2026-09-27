@@ -4,8 +4,8 @@
 /**
  * Medición sobre el espectro ADQUIRIDO (envolvente observada), separada de la
  * verdad fisiológica. La velocidad rotulada depende de la corrección angular
- * que puso el operador; TAMax se integra sobre la envolvente verdadera por
- * latido — no es la aproximación (PSV+2·EDV)/3.
+ * que puso el operador; TAMax se integra sobre los intervalos finitos de la
+ * envolvente observada — no es la aproximación (PSV+2·EDV)/3.
  *
  * Índices: PI de Gosling = (PSV − EDV)/MFV ; IR = (PSV − EDV)/PSV.
  */
@@ -75,7 +75,8 @@ export interface SpectralTracePoint {
 
 /**
  * Traza observada: envolvente del percentil por columna + mediana temporal de
- * 5 puntos (≈ un equipo real). Devuelve velocidad en cm/s.
+ * 5 puntos (≈ un equipo real). Las columnas sin detección son `NaN` y no se
+ * convierten en velocidad cero.
  */
 export function observedTrace(
   columns: readonly SpectralColumn[],
@@ -88,15 +89,21 @@ export function observedTrace(
   for (const [i, col] of smoothed.entries()) {
     const floor = floors[i]!;
     const b = columnBandEnvelopes(col, opts.fftSize, floor, margin);
-    const fSigned = !b.detected ? 0 : b.ePos >= b.eNeg ? b.posHz : -b.negHz;
-    const vMm = velocityFromShiftMmS(fSigned, opts.f0Hz, opts.angleCorrectionRad);
-    const v = (Number.isFinite(vMm) ? mmsToCms(vMm) : 0) * (opts.invert ? -1 : 1);
+    const fSigned = !b.detected ? Number.NaN : b.ePos >= b.eNeg ? b.posHz : -b.negHz;
+    const vMm = Number.isFinite(fSigned)
+      ? velocityFromShiftMmS(fSigned, opts.f0Hz, opts.angleCorrectionRad)
+      : Number.NaN;
+    const v = (Number.isFinite(vMm) ? mmsToCms(vMm) : Number.NaN) * (opts.invert ? -1 : 1);
     raw.push({ t: col.t, vCms: v });
   }
   // mediana temporal de 5 puntos
   return raw.map((p, i) => {
     const win: number[] = [];
-    for (let j = Math.max(0, i - 2); j <= Math.min(raw.length - 1, i + 2); j++) win.push(raw[j]!.vCms);
+    for (let j = Math.max(0, i - 2); j <= Math.min(raw.length - 1, i + 2); j++) {
+      const v = raw[j]!.vCms;
+      if (Number.isFinite(v)) win.push(v);
+    }
+    if (win.length < 3) return { t: p.t, vCms: Number.NaN };
     win.sort((a, b) => a - b);
     return { t: p.t, vCms: win[win.length >> 1]! };
   });
@@ -104,7 +111,10 @@ export function observedTrace(
 
 /**
  * Medidas por latido sobre la traza observada. `beats` son ventanas
- * {tStart, rr} del reloj cardíaco (mismo reloj de simulación).
+ * {tStart, rr} del reloj cardíaco (mismo reloj de simulación). El EDV es el
+ * percentil 10 de la magnitud finita dentro del latido: emula el trazado de
+ * fin de diástole de un equipo frente a dropouts de una sola columna. TAMax
+ * integra únicamente entre puntos finitos consecutivos.
  */
 export function measureBeats(
   trace: readonly SpectralTracePoint[],
@@ -112,22 +122,38 @@ export function measureBeats(
 ): BeatMeasure[] {
   const out: BeatMeasure[] = [];
   for (const b of beats) {
-    const pts = trace.filter((p) => p.t >= b.tStart && p.t < b.tStart + b.rr);
+    const allPts = trace.filter((p) => p.t >= b.tStart && p.t < b.tStart + b.rr);
+    const pts = allPts.filter((p) => Number.isFinite(p.vCms));
     if (pts.length < 6) continue;
     const sign = pts.reduce((a, p) => a + p.vCms, 0) >= 0 ? 1 : -1;
     let psv = -Infinity;
-    let edv = Infinity;
+    const magnitudes: number[] = [];
     let integ = 0;
-    let lastT: number | null = null;
-    for (const p of pts) {
+    let coveredS = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i]!;
       const v = Math.abs(p.vCms);
       if (v > psv) psv = v;
-      if (v < edv) edv = v;
-      if (lastT !== null) integ += v * (p.t - lastT);
-      lastT = p.t;
+      magnitudes.push(v);
     }
-    if (!Number.isFinite(psv) || !Number.isFinite(edv)) continue;
-    const taMax = integ / Math.max(1e-6, lastT! - pts[0]!.t);
+    for (let i = 1; i < allPts.length; i++) {
+      const previous = allPts[i - 1]!;
+      const p = allPts[i]!;
+      if (!Number.isFinite(previous.vCms) || !Number.isFinite(p.vCms)) continue;
+      const dt = p.t - previous.t;
+      if (dt >= 0) {
+        integ += (Math.abs(previous.vCms) + Math.abs(p.vCms)) * 0.5 * dt;
+        coveredS += dt;
+      }
+    }
+    magnitudes.sort((a, b) => a - b);
+    const rank = 0.1 * (magnitudes.length - 1);
+    const lower = Math.floor(rank);
+    const upper = Math.ceil(rank);
+    const fraction = rank - lower;
+    const edv = magnitudes[lower]! + (magnitudes[upper]! - magnitudes[lower]!) * fraction;
+    if (!Number.isFinite(psv) || !Number.isFinite(edv) || coveredS <= 0) continue;
+    const taMax = integ / coveredS;
     const mfv = taMax > 0 ? taMax : Number.NaN;
     out.push({
       tStart: b.tStart,
