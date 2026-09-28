@@ -3,6 +3,7 @@
  * Aquí no hay física: solo mapeo con el rango dinámico y las paletas.
  */
 import type { BModeFrame } from '../ultrasound/bmode';
+import type { GrayMap } from '../domain/contracts';
 import type { SpectralColumn } from '../doppler/spectral';
 import type { ScanGeometry } from '../ultrasound/probe';
 import type { ColorBox } from '../domain/contracts';
@@ -26,7 +27,7 @@ export function dbToGray(db: number, dynamicRangeDb: number, gainDb: number): nu
 export function drawBMode(
   ctx: CanvasRenderingContext2D,
   frame: BModeFrame,
-  settings: { dynamicRangeDb: number },
+  settings: { dynamicRangeDb: number; grayMap?: GrayMap },
 ): { pxPerMmZ: number; pxPerU: number } {
   const { scan, depthMm } = frame;
   const W = ctx.canvas.width;

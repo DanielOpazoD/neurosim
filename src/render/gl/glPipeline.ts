@@ -22,6 +22,8 @@ export interface GlBmodeParams {
   readonly scan: ScanGeometry;
   readonly settings: AcquisitionSettings;
   readonly beam: BeamSpec;
+  /** 0 = lineal, 1 = sigmoide, 2 = gamma 0,8 (ui/scanConvert.ts). */
+  readonly grayMap?: number;
 }
 
 export class GlBmodePipeline {
@@ -142,6 +144,7 @@ export class GlBmodePipeline {
     uniform1f(gl, this.scanProgram, 'uDynamicRangeDb', params.settings.dynamicRangeDb);
     uniform1f(gl, this.scanProgram, 'uWidthMmOrRad', params.scan.widthMmOrRad);
     uniform1i(gl, this.scanProgram, 'uKind', params.scan.kind === 'linear' ? 0 : 1);
+    uniform1i(gl, this.scanProgram, 'uGrayMap', params.grayMap ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
   }

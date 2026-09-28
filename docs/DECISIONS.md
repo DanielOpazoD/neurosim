@@ -216,3 +216,31 @@
     `eyeDerBmode` cambia por los nuevos vóxeles `vaso` intraneurales y
     retrobulbares; se añade el dorado `colorAcrDer`. Caso `parkinson`:
     `snEchogenicity` 2,4 (scatterScale) y `snAreaCm2Scale` 1,8 (geometría).
+
+47. **DEC-47** — Persistencia B-mode (0–4) como promedio temporal de
+    presentación: `bmodePersist` mezcla fotogramas en dB
+    (`dbP = α·dbP + (1−α)·db`, α ∈ {0, 0,35, 0,55, 0,7, 0,8}) con clave
+    (estación, lado, dimensiones, profundidad, densidad, renderizador); se
+    reinicia al cambiar de estación, al descongelar y al cambiar el nivel. El
+    cine guarda el `db` crudo. En la ruta GPU la persistencia se aproxima por
+    composición alfa del canvas (globalAlpha = 1−α), ya que el pipeline
+    produce píxeles y no dB — es presentación, no adquisición. En modo
+    `?clock=fixed` (e2e) la persistencia se fuerza a 0: los fotogramas son
+    idénticos (idempotente) y la aproximación alfa de GPU queda fuera de la
+    comparación de paridad. Mapas de gris
+    (`lineal`, `sigmoide`, `gamma 0,8`) comparten la misma curva en
+    `scanConvert.ts` y `scanConvert.frag.glsl` vía el uniforme `uGrayMap`;
+    el dorado hashea `db`, no píxeles, así que no se mueve.
+
+48. **DEC-48** — Estenosis focal de M1 con turbulencia post-estenótica:
+    `Vessel.stenosis { sMm, lengthMm, radiusScale }` define una garganta
+    gaussiana sobre el arco (`vesselRadiusAt`); `vesselDistance` sólo cambia
+    de camino cuando hay estenosis (vasos sanos bit-idénticos). La velocidad
+    local escala por continuidad (R/r(s))² en `CerebralFlow.velocityAt` y en
+    `SampleVolumeIQ.flowBasisOf` (jet ~4× con radiusScale 0,5). Corriente
+    abajo (hasta 3·L) se añade turbulencia determinista de media cero
+    (σ = 0,35·(vJet − v₀), `hash3` sobre la posición cuantizada a 0,5 mm) en
+    el color (`velocityAt` de `cellScatterers`) y en el PW (`vMat`), lo que
+    produce el ensanchamiento espectral. El caso `estenosisM1` usa
+    `vesselStenosis` (s=12 mm, L=6 mm, scale 0,5) en lugar del escalado
+    difuso, que se reserva al vasoespasmo.

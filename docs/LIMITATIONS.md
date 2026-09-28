@@ -96,12 +96,14 @@ a WebGL2 en bloques posteriores.
   de intensidad y puede depender de la implementación de WebGL2 del navegador.
   En sectores, la textura lateral GPU limita el radio a 64 taps para mantener
   un tamaño finito cerca del ápice; la ruta CPU conserva el kernel de referencia.
-- **LIM-25 · Casos clínicos estáticos**: cada caso es un conjunto fijo de
-  parámetros (fisiología basal, radios vasculares escalados, espesor/calidad
-  de ventana). Vasoespasmo y estenosis escalan el radio de TODO el segmento —
-  continuidad eleva la velocidad, pero no hay chorro focal ni turbulencia
-  post-estenótica; tampoco hay progresión temporal ni respuesta a maniobras
-  más allá de la fisiología basal.
+- **LIM-25 · Estenosis focal idealizada**: el caso `estenosisM1` modela una
+  garganta gaussiana sobre la línea central (`vesselRadiusAt`) con aceleración
+  por continuidad (R/r(s))² y una turbulencia post-estenótica determinista de
+  media cero (σ = 0,35·(vJet − v₀), hasta 3·L corriente abajo, hash por
+  posición). No hay remodelado de la pared, jet excéntrico, ni dependencia de
+  la turbulencia con la fase; el vasoespasmo sigue siendo un escalado difuso
+  de todo el segmento. Los demás casos son parámetros fijos sin progresión
+  temporal ni respuesta a maniobras más allá de la fisiología basal.
 
 - **LIM-26 · Vasos oculares estilizados**: el grafo retrobulbar (ACR, VCR, AO,
   VOS y ciliares posteriores) son tubos de radio constante y fijo — sin

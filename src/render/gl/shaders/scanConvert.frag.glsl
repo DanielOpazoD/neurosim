@@ -9,6 +9,7 @@ uniform float uDepthMm;
 uniform float uDynamicRangeDb;
 uniform float uWidthMmOrRad;
 uniform int uKind;
+uniform int uGrayMap;
 
 out vec4 outColor;
 
@@ -52,6 +53,11 @@ void main() {
       ((a + halfWidth) / (2.0 * halfWidth)) * uSourceSize.x - 0.5,
       (r / uDepthMm) * uSourceSize.y - 0.5));
   }
-  float gray = clamp(db / uDynamicRangeDb + 1.0, 0.0, 1.0);
+  float x = clamp(db / uDynamicRangeDb + 1.0, 0.0, 1.0);
+  // Mapas compartidos con ui/scanConvert.ts (grayMap): mantener idénticos.
+  float gray;
+  if (uGrayMap == 1) gray = 0.5 * x + 0.5 * x * x * (3.0 - 2.0 * x);
+  else if (uGrayMap == 2) gray = pow(x, 0.8);
+  else gray = x;
   outColor = vec4(vec3(gray), 1.0);
 }

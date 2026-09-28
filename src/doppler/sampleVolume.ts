@@ -21,8 +21,8 @@ import { dist, scale } from '../core/vec3';
 import { dopplerShiftHz } from '../core/units';
 import { MATERIALS, type MaterialId } from '../anatomy/materials';
 import type { HeadGeometry, Vessel, VesselScene } from '../anatomy/head';
-import { classifyHead, vesselAt, vesselClosest, vesselDistance, vesselFlowDir } from '../anatomy/head';
-import { vesselVelocityCms } from '../physiology/flow';
+import { classifyHead, vesselAt, vesselClosest, vesselDistance, vesselRadiusAt } from '../anatomy/head';
+import { stenosisTurbulenceMms, vesselVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
 import { FISIOLOGIA } from '../physiology/params';
 import { DOPPLER } from './params';
@@ -289,11 +289,15 @@ export class SampleVolumeIQ {
    * curva con el tubo y su recta de vuelta coincide con la de ida.
    */
   private flowBasisOf(v: Vessel, m: Vec3): Vec3 {
-    const dir = vesselFlowDir(v, m); // tangente·flowSign, unitaria
+    const closest = vesselClosest(v, m);
+    const dir = scale(closest.tangent, v.flowSign); // tangente·flowSign, unitaria
     const d = vesselDistance(v, m); // <0 dentro
-    const r = Math.min(1, Math.max(0, (v.radiusMm + Math.max(d, -v.radiusMm)) / v.radiusMm));
+    const radius = vesselRadiusAt(v, closest.sMm);
+    const r = Math.min(1, Math.max(0, (radius + Math.max(d, -radius)) / radius));
     const profile = Math.max(0, 1 - FISIOLOGIA.params.laminarProfile.value * r * r);
-    return scale(dir, profile * 10);
+    // Continuidad: la estenosis acelera el flujo local por (R/r(s))².
+    const continuity = (v.radiusMm / Math.max(1e-6, radius)) ** 2;
+    return scale(dir, profile * 10 * continuity);
   }
 
   /**
@@ -505,6 +509,12 @@ export class SampleVolumeIQ {
               s.vMat[0] = s.flowBasis[0] * u;
               s.vMat[1] = s.flowBasis[1] * u;
               s.vMat[2] = s.flowBasis[2] * u;
+              if (s.vessel.stenosis) {
+                const tb = stenosisTurbulenceMms(s.vessel, vesselClosest(s.vessel, s.m).sMm, s.m, u);
+                s.vMat[0] += tb[0];
+                s.vMat[1] += tb[1];
+                s.vMat[2] += tb[2];
+              }
             } else {
               if (!s.tissueBasis) s.tissueBasis = tissueMotionBasis(this.scene, s.m);
               s.vMat = tissueVelocityFromBasis(s.tissueBasis, cardiacPhase, heartRateBpm, tSec);

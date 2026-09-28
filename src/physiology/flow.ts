@@ -7,12 +7,12 @@
  * TAMax emerge de integrar la envolvente real — NUNCA de (PSV+2·EDV)/3,
  * que es una aproximación clínica (plan §7.4).
  */
-import { hash3 } from '../core/random';
+import { hash3, hashString } from '../core/random';
 import type { Vec3 } from '../core/vec3';
 import { scale, normalize } from '../core/vec3';
 import type { BasalPhysiology } from '../domain/contracts';
 import type { Vessel, VesselScene } from '../anatomy/head';
-import { vesselAt, vesselClosest, vesselDistance } from '../anatomy/head';
+import { vesselAt, vesselClosest, vesselDistance, vesselRadiusAt } from '../anatomy/head';
 import { arterialShapeTable, FISIOLOGIA } from './params';
 import { Respiration } from './respiration';
 import type { HemodynamicState } from './hemodynamics';
@@ -126,11 +126,43 @@ export class CerebralFlow {
     const v = vesselAt(this.scene, p);
     if (!v) return [0, 0, 0];
     const d = vesselDistance(v, p); // <0 dentro
-    const r = v.radiusMm + d; // distancia al eje
-    const x = Math.min(1, Math.max(0, r / v.radiusMm));
+    const closest = vesselClosest(v, p);
+    const radius = vesselRadiusAt(v, closest.sMm);
+    const r = radius + d; // distancia al eje (d ya descuenta el radio local)
+    const x = Math.min(1, Math.max(0, r / radius));
     const profile = 1 - 0.85 * x * x;
-    const uCms = vesselVelocityCms(v, phase, modulation, hemo);
-    const dir = normalize(vesselClosest(v, p).tangent);
-    return scale(dir, v.flowSign * uCms * 10 * Math.max(0, profile));
+    // Continuidad: la velocidad local escala con (R/r(s))² en la estenosis.
+    const continuity = (v.radiusMm / Math.max(1e-6, radius)) ** 2;
+    const uCms = vesselVelocityCms(v, phase, modulation, hemo) * continuity;
+    const dir = normalize(closest.tangent);
+    const vel = scale(dir, v.flowSign * uCms * 10 * Math.max(0, profile));
+    const turb = stenosisTurbulenceMms(v, closest.sMm, p, uCms);
+    return [vel[0] + turb[0], vel[1] + turb[1], vel[2] + turb[2]];
   }
+}
+
+/**
+ * Turbulencia post-estenótica (mm/s, media cero, determinista por posición):
+ * para puntos dentro de 3·lengthMm corriente abajo de la garganta, una
+ * componente aleatoria uniforme con σ = 0,35·(vJet − v₀). Devuelve [0,0,0]
+ * fuera de la zona o si el vaso no tiene estenosis.
+ */
+export function stenosisTurbulenceMms(v: Vessel, sMm: number, p: Vec3, uCms: number): Vec3 {
+  const st = v.stenosis;
+  if (!st) return [0, 0, 0];
+  const downstream = v.flowSign * (sMm - st.sMm);
+  if (downstream <= 0 || downstream >= 3 * st.lengthMm) return [0, 0, 0];
+  const jetExcess = uCms * (1 / (st.radiusScale * st.radiusScale) - 1);
+  const std = 0.35 * Math.max(0, jetExcess) * 10; // cm/s → mm/s
+  const cell = 0.5; // mm — dispersores en la misma celda comparten perturbación
+  const hx = Math.round(p[0] / cell);
+  const hy = Math.round(p[1] / cell);
+  const hz = Math.round(p[2] / cell);
+  const seed = hashString(v.id);
+  const amp = Math.sqrt(3) * std; // uniforme(−a,a) → σ = a/√3 = std
+  return [
+    amp * (2 * hash3(hx, hy, hz, seed ^ 0x54555230) - 1),
+    amp * (2 * hash3(hx, hy, hz, seed ^ 0x54555231) - 1),
+    amp * (2 * hash3(hx, hy, hz, seed ^ 0x54555232) - 1),
+  ];
 }

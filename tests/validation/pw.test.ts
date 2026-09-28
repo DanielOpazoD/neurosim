@@ -112,4 +112,47 @@ describe('validación PW sintética', () => {
     }
     expect(maxRun).toBeLessThan(10);
   });
+
+  it('la medición sobrevive a un cambio de PRF a mitad de captura', () => {
+    // Regresión: la ventana de medición es por tiempo (~2,5 s), no por número
+    // de columnas — con un slice fijo, subir el PRF encoge la ventana por
+    // debajo de un latido y el sumario parpadea a null.
+    const sim = buildReferenceCase();
+    const m1 = sim.head.vessels.find((v) => v.id === 'm1-der')!;
+    const chain = new PwDopplerChain(sim.head, sim.patient.seed);
+    chain.setGate(m1Gate(sim, m1.points[Math.floor(m1.points.length / 2)]!));
+    let t = 0;
+    chain.begin(6000, 2e6, 20, 100, t);
+    const runFor = (seconds: number) => {
+      const steps = Math.round(seconds / 0.064);
+      for (let i = 0; i < steps; i += 1) {
+        chain.step(
+          (tt) => sim.physStateAt(tt),
+          t,
+          () => [0, 0, 0],
+          0.064,
+        );
+        chain.flush();
+        t += 0.064;
+      }
+    };
+    runFor(3);
+    chain.begin(9000, 2e6, 20, 100, t); // mismo t actual, como hace PwController
+    runFor(3);
+    const cols = chain.spectral.columns;
+    const tEnd = cols[cols.length - 1]!.t;
+    const trace = observedTrace(
+      cols.filter((c) => c.t >= tEnd - 2.5),
+      {
+        f0Hz: 2e6,
+        angleCorrectionRad: 0,
+        invert: false,
+        fftSize: chain.spectral.fftSize,
+        wallFilterHz: 100,
+      },
+    );
+    const beats = sim.cardiac.beatsIn(trace[0]!.t, trace.at(-1)!.t);
+    const measures = measureBeats(trace, beats);
+    expect(measures.length).toBeGreaterThanOrEqual(2);
+  });
 });

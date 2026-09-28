@@ -60,6 +60,8 @@ export interface ProbePose {
 }
 
 /** Caja del Doppler color en coordenadas de imagen (u lateral mm/rad, z mm). */
+export type GrayMap = 'lineal' | 'sigmoide' | 'gamma';
+
 export interface ColorBox {
   readonly uCenter: number;
   readonly uHalf: number;

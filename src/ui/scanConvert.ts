@@ -1,9 +1,14 @@
 import type { BModeFrame } from '../ultrasound/bmode';
 import type { ScanGeometry } from '../ultrasound/probe';
+import type { GrayMap } from '../domain/contracts';
 
 export interface ScanConvertOptions {
   readonly dynamicRangeDb: number;
+  /** Mapa de grises de presentación (por defecto 'lineal'). */
+  readonly grayMap?: GrayMap;
 }
+
+const GRAY_MAP_CODE: Record<GrayMap, number> = { lineal: 0, sigmoide: 1, gamma: 2 };
 
 /** Muestreo bilineal de la imagen dB en coordenadas fraccionarias (borde: clamp). */
 function bilinearDb(
@@ -75,7 +80,11 @@ export function scanConvert(
       const fzi = (y + 0.5) / sy - 0.5;
       for (let x = 0; x < width; x++) {
         const fli = (x + 0.5) / sx - 0.5;
-        const g = gray(bilinearDb(db, sourceWidth, sourceHeight, fli, fzi), opts.dynamicRangeDb);
+        const g = gray(
+          bilinearDb(db, sourceWidth, sourceHeight, fli, fzi),
+          opts.dynamicRangeDb,
+          GRAY_MAP_CODE[opts.grayMap ?? 'lineal'],
+        );
         const k = (y * width + x) * 4;
         px[k] = px[k + 1] = px[k + 2] = g;
       }
@@ -90,7 +99,11 @@ export function scanConvert(
       if (!p) continue;
       const fzi = (p.z / depthMm) * sourceHeight - 0.5;
       const fli = ((p.u + half) / (2 * half)) * sourceWidth - 0.5;
-      const g = gray(bilinearDb(db, sourceWidth, sourceHeight, fli, fzi), opts.dynamicRangeDb);
+      const g = gray(
+        bilinearDb(db, sourceWidth, sourceHeight, fli, fzi),
+        opts.dynamicRangeDb,
+        GRAY_MAP_CODE[opts.grayMap ?? 'lineal'],
+      );
       const k = (y * width + x) * 4;
       px[k] = px[k + 1] = px[k + 2] = g;
     }
@@ -98,7 +111,12 @@ export function scanConvert(
   return px;
 }
 
-function gray(db: number, dynamicRangeDb: number): number {
-  const x = db / dynamicRangeDb + 1;
-  return Math.round(255 * Math.min(1, Math.max(0, x)));
+function gray(db: number, dynamicRangeDb: number, map: number): number {
+  const x = Math.min(1, Math.max(0, db / dynamicRangeDb + 1));
+  // Mapas compartidos con scanConvert.frag.glsl (uGrayMap): mantener idénticos.
+  let v: number;
+  if (map === 1) v = 0.5 * x + 0.5 * x * x * (3 - 2 * x);
+  else if (map === 2) v = Math.pow(x, 0.8);
+  else v = x;
+  return Math.round(255 * v);
 }
