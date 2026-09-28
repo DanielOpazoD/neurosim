@@ -28,6 +28,14 @@ exacta; una señal ausente no acredita cese circulatorio.
   sobre IQ).
 - Navegador 3D (Three.js) con cráneo, polígono de Willis, órbitas, sonda y
   plano de imagen en tiempo real; órbita interactiva con OrbitControls.
+- Interfaz de tres columnas con revelación progresiva (TGC, Doppler extra,
+  Avanzado e Instructor en `<details>`) y una vista de cabeza interactiva
+  (`#headView`): la sonda se arrastra sobre el cuero cabelludo, la rueda
+  gira el marcador, Mayús+arrastrar inclina y Alt+rueda regula la presión;
+  los hotspots cambian de estación.
+- Navegador 3D (Three.js) con cráneo, polígono de Willis, órbitas, sonda y
+  plano de imagen en tiempo real; órbita interactiva con OrbitControls.
+
 - Calipers, freeze, cine, exportación PNG/JSON.
 - Protocolo DVNO 2×2 (transversal/sagital por ojo), DTE, ratio DVNO/ETD e
   informe educativo exportable.

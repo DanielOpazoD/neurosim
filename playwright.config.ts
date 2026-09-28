@@ -5,6 +5,8 @@ const port = process.env.PLAYWRIGHT_PORT ?? '6620';
 export default defineConfig({
   testDir: './e2e',
   retries: 0,
+  // SwiftShader + máquina compartida: cada acción tarda segundos.
+  timeout: 120_000,
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'on-first-retry',

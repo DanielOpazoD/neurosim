@@ -102,7 +102,7 @@
 | DEC-47 | Persistencia B-mode (0–4) como promedio temporal de                     | —                              |
 | DEC-48 | Estenosis focal de M1 con turbulencia post-estenótica:                  | —                              |
 | DEC-49 | Navegación de sonda sobre la superficie craneal: la sonda               | —                              |
-| DEC-50 | Casos del plano diencefálico (línea media e hidrocefalia):              | —                              |
+| DEC-51 | Rediseño UX y vista de cabeza interactiva: la interfaz                  | —                              |
 
 ## Parámetros registrados
 
