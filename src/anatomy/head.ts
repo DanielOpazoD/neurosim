@@ -372,8 +372,8 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
   const mb = butterflyLevel(h, p);
   if (mb <= 1.0) return 'mesencefalo';
 
-  // Cisternas basales: corona ecogénica alrededor del mesencéfalo.
-  if (mb < 1.45) return 'cisterna';
+  // Cisternas basales: borde ecogénico fino (~3 mm) alrededor del mesencéfalo.
+  if (mb < 1.22) return 'cisterna';
 
   // Fisura silviana/ínsula: banda ecogénica (LCR+pía) a lo largo del M1.
   const sylvian = sylvianDist(p);
@@ -596,7 +596,7 @@ function isPetrous(h: HeadGeometry, p: Vec3): boolean {
 
 function isSphenoid(h: HeadGeometry, p: Vec3): boolean {
   const md = sub(p, h.midbrainCenter);
-  return Math.abs(md[1] + 2) < 3 && md[2] > 6 && Math.abs(md[0]) > 20 && Math.abs(md[0]) < 32;
+  return Math.abs(md[1] + 2) < 1.5 && md[2] > 6 && Math.abs(md[0]) > 20 && Math.abs(md[0]) < 28;
 }
 
 export function landmarkAt(h: HeadGeometry, p: Vec3): LandmarkId | null {

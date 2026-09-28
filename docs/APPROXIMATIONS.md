@@ -100,6 +100,7 @@ calibración.
 - **fisica-ultrasonido.bmodePowerMw**, **fisica-ultrasonido.colorPowerMw**, **fisica-ultrasonido.pwPowerMw** — potencias temporales medias estimadas por modo; se usan para que TI emerja de la prescripción de adquisición.
 - **fisica-ultrasonido.defaultEyeOutputPowerDb**, **fisica-ultrasonido.defaultTemporalOutputPowerDb** — presets relativos de salida; la potencia ocular se ajusta para cumplir MI oftálmico con los p0 estimados, mientras la temporal parte de 0 dB.
 - **fisica-ultrasonido.eyeScleraRefIq**, **fisica-ultrasonido.bmodeNoiseSnrDb** — la referencia IQ de esclera posterior se registra empíricamente con el preset ocular a 0 dB sin ruido; el piso gaussiano electrónico determinista se fija 30 dB por debajo de esa media `|iQ|`, permanece constante con la profundidad y la potencia emitida para que reducir potencia reduzca SNR aunque aumente la ganancia. La ROI de validación usa esclera posterior (25–26 mm) y un control vítreo lateral (14–22 mm).
+- **fisica-ultrasonido.bmodeNoiseTemporalRelDb** — el preset transcraneal (sector 2 MHz) baja el piso electrónico 14 dB respecto al ocular: el receptor integra menos ancho de banda y los equipos TCCD priorizan penetración; estimado, calibrar con imagen de aire/ruido del equipo real.
 - **fisiologia.onsdCutoffMm**, **fisiologia.onsdEtdRatioCutoff** — umbrales
   docentes del informe DVNO (5,5 mm y 0,25); son reglas de cribado del
   simulador y no un diagnóstico ni una curva ROC.

@@ -130,16 +130,72 @@ export function nerveCenterline(g: EyeGeometry, sMm: number): Vec3 {
  * que minimiza la distancia al centro del nervio (marcha corta) y se evalúan
  * las secciones elípticas en el plano perpendicular al trayecto.
  */
+/**
+ * Caché por geometría: línea central del nervio tabulada cada 0,25 mm
+ * (s ∈ [0,40], 161 puntos) y caja envolvente de todas las secciones de la
+ * vaina. La tabla almacena los valores exactos de `nerveCenterline`, así que
+ * la marcha gruesa a paso 1 mm produce los mismos candidatos que antes.
+ */
+const nerveCurveCache = new WeakMap<
+  EyeGeometry,
+  { pts: Float32Array; minX: number; maxX: number; minY: number; maxY: number }
+>();
+function nerveCurve(g: EyeGeometry): {
+  pts: Float32Array;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+} {
+  let t = nerveCurveCache.get(g);
+  if (!t) {
+    const pts = new Float32Array(161 * 3);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let k = 0; k <= 160; k += 1) {
+      const s = k * 0.25;
+      const c = nerveCenterline(g, s);
+      pts[3 * k] = c[0];
+      pts[3 * k + 1] = c[1];
+      pts[3 * k + 2] = c[2];
+      const { major, minor } = sheathRadiiAt(g, s);
+      minX = Math.min(minX, c[0] - major);
+      maxX = Math.max(maxX, c[0] + major);
+      minY = Math.min(minY, c[1] - minor);
+      maxY = Math.max(maxY, c[1] + minor);
+    }
+    // Margen por el movimiento del centro entre muestras de la tabla.
+    const m = 0.5;
+    t = { pts, minX: minX - m, maxX: maxX + m, minY: minY - m, maxY: maxY + m };
+    nerveCurveCache.set(g, t);
+  }
+  return t;
+}
+
 export function nerveSection(
   g: EyeGeometry,
   pLocal: Vec3,
 ): { sMm: number; distToCenterMm: number; inPlane: Vec3 } {
+  const table = nerveCurve(g);
+  // Rechazo exacto: la elipse de la vaina sólo puede contener al punto si
+  // |dx| ≤ major(s) y |dy| ≤ minor(s) para algún s; fuera de la caja eso es
+  // imposible para todo s (en > 1 garantizado), así que se devuelve una
+  // sección sintética con inPlane fuera de la elipse.
+  if (pLocal[0] < table.minX || pLocal[0] > table.maxX || pLocal[1] < table.minY || pLocal[1] > table.maxY) {
+    return { sMm: 0, distToCenterMm: Infinity, inPlane: [1e6, 0, 0] };
+  }
   // Búsqueda de s que minimiza distancia a la línea central (s ∈ [0, 40]).
+  const pts = table.pts;
   let bestS = 0;
   let bestD = Infinity;
   for (let s = 0; s <= 40; s += 1) {
-    const c = nerveCenterline(g, s);
-    const d = dist(pLocal, c);
+    const k = 4 * s;
+    const dx = pLocal[0] - pts[3 * k]!;
+    const dy = pLocal[1] - pts[3 * k + 1]!;
+    const dzz = pLocal[2] - pts[3 * k + 2]!;
+    const d = Math.hypot(dx, dy, dzz);
     if (d < bestD) {
       bestD = d;
       bestS = s;

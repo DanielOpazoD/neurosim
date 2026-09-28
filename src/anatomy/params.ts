@@ -353,12 +353,12 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Centro z del elipsoide craneal N1.',
   },
   skullRadiusXmm: {
-    value: 72,
+    value: 67,
     unit: 'mm',
     range: [65, 90],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Semieje lateral craneal (~145 mm biparietal con cuero cabelludo).',
+    note: 'Semieje lateral craneal (~140 mm biparietal externo; línea media a ≈73 mm de la piel con cuero cabelludo).',
   },
   skullRadiusYmm: {
     value: 100,
@@ -657,12 +657,12 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Semieje lateral de las bandas de sustancia negra.',
   },
   snHalfDepthMm: {
-    value: 5,
+    value: 2.2,
     unit: 'mm',
-    range: [3, 7],
-    evidence: 'estimado',
+    range: [1.5, 7],
+    evidence: 'consenso',
     sources: ['berg-midbrain-2008'],
-    note: 'Semieje anteroposterior de las bandas de sustancia negra.',
+    note: 'Semieje anteroposterior de las bandas de sustancia negra; calibrado para que la sección en el plano mesencefálico sea ≈snAreaCm2 (≤0,20 cm²/lado en adulto normal).',
   },
   snCenterYmm: {
     value: 0,
@@ -681,12 +681,12 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Desplazamiento anterior de las bandas de sustancia negra.',
   },
   redNucleusRadiusMm: {
-    value: 2,
+    value: 1.5,
     unit: 'mm',
     range: [1, 3],
     evidence: 'estimado',
     sources: ['berg-midbrain-2008'],
-    note: 'Radio de los núcleos rojos.',
+    note: 'Radio de los núcleos rojos (~3 mm de diámetro).',
   },
   thirdVentricleWidthMm: {
     value: 5,

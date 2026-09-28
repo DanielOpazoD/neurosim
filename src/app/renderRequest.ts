@@ -250,7 +250,7 @@ export function headScene(
     scatterScale: (p: Vec3): number => {
       const id = classifyCached(p);
       if (id === 'cisterna') {
-        return 1.5 - 0.8 * smoothstep(1.0, 1.45, butterflyLevel(head, p));
+        return 1.25 - 0.55 * smoothstep(1.0, 1.25, butterflyLevel(head, p));
       }
       if (id === 'sustanciaBlanca' || id === 'tejidoCerebral') {
         return 0.85 + 0.3 * (0.5 + 0.5 * scatterNoise(`${seedLabel}:wm`, p, 2.5));

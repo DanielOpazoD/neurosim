@@ -288,7 +288,7 @@ function sendRenderRequest(timing: RenderTiming): void {
     })
     .then((response) => {
       renderInFlight = false;
-      if (s.frozen) return; // congelado conserva el último frame en vivo; descarta el render en vuelo
+      if (s.frozen && s.currentFrame) return; // congelado conserva el último frame en vivo; si aún no hay ninguno, el frame en vuelo es el primero
       s.currentFrame = response.frame;
       pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
       drawFrame(response);
