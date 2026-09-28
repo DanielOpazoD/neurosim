@@ -32,7 +32,8 @@ async function waitForPaint(
         }
         return sum > 0 && changed;
       },
-      { timeout: 5000, intervals: [100, 250, 500] },
+      // El render temporal (B-mode + color) tarda >1 s en CI con SwiftShader.
+      { timeout: 20_000, intervals: [100, 250, 500] },
     )
     .toBeGreaterThan(0);
 }
