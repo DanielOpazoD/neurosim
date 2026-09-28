@@ -211,6 +211,37 @@ export function buildDebrief(
       );
     }
   }
+  // Hallazgos por caso clínico: Lindegaard alto en espasmo/estenosis y DVNO
+  // dilatada en hipertensión intracraneal.
+  const caseId = sim.clinicalCase.id;
+  if (caseId === 'vasoespasmo' || caseId === 'estenosisM1') {
+    const lindegaard = events
+      .map((event) => numberData(event, 'lindegaard'))
+      .filter((value): value is number => Number.isFinite(value))
+      .reduce((max, value) => Math.max(max, value), -Infinity);
+    if (lindegaard >= DOPPLER.params.debriefLindegaardVasospasmMin.value) {
+      add('vasoespasmo-probable', 'aviso', `Lindegaard ${lindegaard.toFixed(1)} ≥ 3: vasoespasmo probable.`, {
+        lindegaard,
+        threshold: DOPPLER.params.debriefLindegaardVasospasmMin.value,
+      });
+    }
+  }
+  if (caseId === 'hic') {
+    const maxDvno = s.measurements
+      .filter((measurement) => measurement.kind === 'dvno')
+      .reduce((max, measurement) => Math.max(max, measurement.value), -Infinity);
+    if (maxDvno > DOPPLER.params.debriefOnsdAbnormalMm.value) {
+      add(
+        'dvno-pic-elevada',
+        'aviso',
+        `DVNO ${maxDvno.toFixed(1)} mm > 5,8 mm: compatible con PIC elevada.`,
+        {
+          dvnoMm: maxDvno,
+          threshold: DOPPLER.params.debriefOnsdAbnormalMm.value,
+        },
+      );
+    }
+  }
   const durationS = events.length ? events[events.length - 1]!.t - events[0]!.t : 0;
   return {
     startedAt: events[0]?.t ?? log.events()[0]?.t ?? 0,

@@ -57,7 +57,12 @@ function pwBandPowerDb(outputPowerDb: number): number {
   chain.begin(6000, 2e6, 20, 100, 0, 10 ** (outputPowerDb / 20));
   let t = 0;
   for (let step = 0; step < 16; step += 1) {
-    chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+    chain.step(
+      (tt) => sim.physStateAt(tt),
+      t,
+      () => [0, 0, 0],
+      0.064,
+    );
     chain.flush();
     t += 0.064;
   }

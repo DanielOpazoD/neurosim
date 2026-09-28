@@ -210,6 +210,16 @@
         color: var(--dim);
         font-size: 12px;
       }
+      .casoInfo {
+        color: var(--dim);
+        font-size: 11px;
+        line-height: 1.35;
+        margin: 4px 0 6px;
+      }
+      .casoInfo ul {
+        margin: 4px 0 0;
+        padding-left: 16px;
+      }
       #debriefReport {
         font-size: 11px;
         line-height: 1.45;
@@ -402,6 +412,11 @@
         <div class="note" id="hint"></div>
         <details id="scenarioPanel" class="scenario">
           <summary>Escenario (instructor)</summary>
+          <label class="ctl"
+            ><span>Caso clínico</span>
+            <select id="caso"></select
+          ></label>
+          <div id="casoInfo" class="casoInfo"></div>
           <label class="ctl"
             ><span>PAM <b id="mapV"></b></span> <input id="map" type="range" min="40" max="140" step="1"
           /></label>

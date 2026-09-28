@@ -28,6 +28,7 @@ import type {
 import type { ReferenceCase } from '../domain/referenceCase';
 import { renderColorDoppler, type ColorGrid } from '../doppler/color';
 import { buildReferenceCase } from '../domain/referenceCase';
+import { caseById } from '../domain/cases';
 import { renderBMode, type BModeFrame } from '../ultrasound/bmode';
 import { buildScan, linesFor, type ScanGeometry } from '../ultrasound/probe';
 import { currentPose, type PoseInput } from './poses';
@@ -36,6 +37,8 @@ export interface RenderRequest {
   readonly id: number;
   readonly seed: number;
   readonly willisVariant?: WillisVariant;
+  /** Caso clínico (`?caso=`); ausente o desconocido → 'normal'. */
+  readonly caseId?: string;
   readonly side: Side;
   readonly station: Station;
   readonly settings: AcquisitionSettings;
@@ -257,11 +260,16 @@ export function headScene(
   };
 }
 
-export function renderCase(seed: number, willisVariant: WillisVariant = 'normal'): ReferenceCase {
-  const key = `${seed}:${willisVariant}`;
+export function renderCase(
+  seed: number,
+  willisVariant: WillisVariant = 'normal',
+  caseId?: string,
+): ReferenceCase {
+  const clinicalCase = caseById(caseId);
+  const key = `${seed}:${willisVariant}:${clinicalCase.id}`;
   let sim = cases.get(key);
   if (!sim) {
-    sim = buildReferenceCase(seed, willisVariant);
+    sim = buildReferenceCase(seed, willisVariant, clinicalCase);
     cases.set(key, sim);
   }
   return sim;

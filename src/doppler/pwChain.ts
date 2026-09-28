@@ -66,8 +66,18 @@ export class PwDopplerChain {
     this.sampleVolume.setGate(g);
   }
 
-  /** Genera las muestras IQ correspondientes a un paso de `dt` s. */
-  step(s: PhysState, probeVelocity: Vec3, dt: number): void {
+  /**
+   * Genera las muestras IQ correspondientes a un paso de `dt` s. El estado
+   * fisiológico y la velocidad de la sonda se muestrean en subpasos de ≤5 ms
+   * (`physAt(t)`, `probeVelocityAt(t)`) para que la envolvente espectral siga
+   * la fase cardíaca en vez de quedar constante durante todo el frame.
+   */
+  step(
+    physAt: (t: number) => PhysState,
+    tStart: number,
+    probeVelocityAt: (t: number) => Vec3,
+    dt: number,
+  ): void {
     this.pending += this.prfHz * dt;
     const n = Math.floor(this.pending);
     this.pending -= n;
@@ -80,8 +90,16 @@ export class PwDopplerChain {
       im.set(this.iqIm);
       this.iqIm = im;
     }
-    this.sampleVolume.generate(s, probeVelocity, n, this.iqRe, this.iqIm, this.cursor);
-    this.cursor += n;
+    const subSteps = Math.max(1, Math.ceil(dt / 0.005));
+    const base = Math.floor(n / subSteps);
+    const extra = n - base * subSteps;
+    for (let i = 0; i < subSteps; i += 1) {
+      const sub = base + (i < extra ? 1 : 0);
+      if (sub === 0) continue;
+      const tSub = tStart + (dt * (i + 0.5)) / subSteps;
+      this.sampleVolume.generate(physAt(tSub), probeVelocityAt(tSub), sub, this.iqRe, this.iqIm, this.cursor);
+      this.cursor += sub;
+    }
   }
 
   /** Filtra, espectraliza y envía a audio el lote acumulado. */

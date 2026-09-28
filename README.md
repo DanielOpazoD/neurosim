@@ -10,13 +10,21 @@ modelo físico y fisiológico — nada se pinta a mano.
 **Uso docente. No es un dispositivo médico.** La DVNO y el PI no dan una PIC
 exacta; una señal ausente no acredita cese circulatorio.
 
-## Alcance actual — N1 (maqueta normal)
+## Alcance actual — N2
 
-- Caso adulto de referencia reproducible (semilla fija).
+- Biblioteca de casos clínicos (`?caso=` o panel del instructor): normal,
+  hipertensión intracraneal, vasoespasmo, estenosis M1, ventana pobre,
+  parada circulatoria, hipercapnia e hipocapnia.
 - Ojo bilateral: sonda lineal 10 MHz, anatomía orbital completa, DVNO
   medible a 3 mm retroglobo (convención interna por defecto).
 - Ventana transtemporal bilateral: cráneo, mesencéfalo, polígono de Willis;
-  B-mode + Doppler color + PW con audio y medidas PSV/EDV/TAMax/PI/IR.
+  B-mode + Doppler color + PW con audio y medidas PSV/EDV/TAMax/PI/IR y
+  índice de Lindegaard.
+- B-mode dinámico: pulso cerebral, respiración, temblor de mano y deformación
+  por presión de la sonda sobre el globo (speckle coherente complejo y PSF
+  sobre IQ).
+- Navegador 3D (Three.js) con cráneo, polígono de Willis, órbitas, sonda y
+  plano de imagen en tiempo real; órbita interactiva con OrbitControls.
 - Calipers, freeze, cine, exportación PNG/JSON.
 - Protocolo DVNO 2×2 (transversal/sagital por ojo), DTE, ratio DVNO/ETD e
   informe educativo exportable.

@@ -6,6 +6,8 @@ import { measureBeats, observedTrace, summarizeBeats } from '../../src/doppler/m
 import { SpectralProcessor } from '../../src/doppler/spectral';
 import { WallFilter } from '../../src/doppler/wallFilter';
 import { vesselVelocityCms } from '../../src/physiology/flow';
+import { PwDopplerChain } from '../../src/doppler/pwChain';
+import { m1Gate } from './helpers';
 
 function measureSynthetic(): {
   summary: ReturnType<typeof summarizeBeats>;
@@ -71,5 +73,43 @@ describe('validación PW sintética', () => {
     expect(summary).not.toBeNull();
     expect(Math.abs(summary!.edvCms)).toBeGreaterThan(35 * 0.95);
     expect(Math.abs(summary!.edvCms)).toBeLessThan(35 * 1.05);
+  });
+
+  it('un paso de 200 ms muestrea la fase cardíaca (sin escalones en la traza)', () => {
+    const sim = buildReferenceCase();
+    const m1 = sim.head.vessels.find((v) => v.id === 'm1-der')!;
+    const target = m1.points[Math.floor(m1.points.length / 2)]!;
+    const chain = new PwDopplerChain(sim.head, sim.patient.seed);
+    chain.setGate(m1Gate(sim, target));
+    chain.begin(6000, 2e6, 20, 100, 0);
+    const phases = new Set<number>();
+    chain.step(
+      (tt) => {
+        const phys = sim.physStateAt(tt);
+        phases.add(phys.cardiacPhase);
+        return phys;
+      },
+      0.3,
+      () => [0, 0, 0],
+      0.2,
+    );
+    // 200 ms a 70 lpm ≈ 0,23 de ciclo: la fase debe muestrearse en subpasos.
+    expect(phases.size).toBeGreaterThanOrEqual(20);
+    chain.flush();
+    const trace = observedTrace(chain.spectral.columns, {
+      f0Hz: 2e6,
+      angleCorrectionRad: 0,
+      invert: false,
+      fftSize: chain.spectral.fftSize,
+      wallFilterHz: 100,
+    });
+    // Columnas cada hop/prf = 4 ms: una meseta de ≥40 ms son ≥10 idénticas.
+    let maxRun = 1;
+    let run = 1;
+    for (let i = 1; i < trace.length; i += 1) {
+      run = Math.abs(trace[i]!.vCms - trace[i - 1]!.vCms) < 0.5 ? run + 1 : 1;
+      maxRun = Math.max(maxRun, run);
+    }
+    expect(maxRun).toBeLessThan(10);
   });
 });

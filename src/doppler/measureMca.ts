@@ -202,3 +202,12 @@ export function summarizeBeats(ms: readonly BeatMeasure[]): {
     beats: ms.length,
   };
 }
+
+/**
+ * Índice de Lindegaard: TAMax de la ACM / TAMax de la ACI extracraneal.
+ * Valores ≥3 sugieren vasoespasmo frente a hiperemia (lindegaard-indice-1989).
+ * La ACI no se insona en este simulador: el denominador viene del caso (LIM-02).
+ */
+export function lindegaardRatio(tamaxMcaCms: number, icaCms: number): number {
+  return Math.abs(tamaxMcaCms) / Math.max(1e-6, icaCms);
+}

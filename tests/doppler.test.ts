@@ -94,7 +94,12 @@ describe('PW integrado sobre la ACM del caso N1', () => {
     // 3 s de adquisición en bloques de 64 ms.
     let t = 0;
     for (let step = 0; step < 47; step++) {
-      chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+      chain.step(
+        (tt) => sim.physStateAt(tt),
+        t,
+        () => [0, 0, 0],
+        0.064,
+      );
       chain.flush();
       t += 0.064;
     }
@@ -152,7 +157,12 @@ describe('PW integrado sobre la ACM del caso N1', () => {
       chain.begin(6000, 2e6, 20, 100, 0);
       let t = 0;
       for (let step = 0; step < 47; step++) {
-        chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+        chain.step(
+          (tt) => sim.physStateAt(tt),
+          t,
+          () => [0, 0, 0],
+          0.064,
+        );
         chain.flush();
         t += 0.064;
       }

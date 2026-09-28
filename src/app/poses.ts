@@ -7,6 +7,7 @@ import { hash3 } from '../core/random';
 import type { ProbePose, Side } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { DOPPLER } from '../doppler/params';
+import { handTremorVelocityMmS } from '../doppler/clutter';
 import { rotateAround } from '../ultrasound/probe';
 import type { AppState } from './state';
 
@@ -93,4 +94,30 @@ export function currentPose(sim: ReferenceCase, s: PoseInput): ProbePose {
 
 export function poseForSide(sim: ReferenceCase, s: PoseInput, side: Side): ProbePose {
   return s.station === 'ojo' ? eyePose(sim, s, side) : temporalPose(sim, s, side);
+}
+
+/**
+ * Velocidad de la sonda por micro-movimiento de mano (mm/s): derivada
+ * analítica del desplazamiento de `currentPose` — temblor (igual que
+ * `handTremorVelocityMmS`) más la derivada de las derivas lenta/rápida.
+ */
+export function handMotionVelocityMmS(tSec: number, seed: number): Vec3 {
+  const out = handTremorVelocityMmS(tSec, seed);
+  const driftFast = DOPPLER.params.handDriftFastMm.value;
+  const driftSlow = DOPPLER.params.handDriftSlowMm.value;
+  for (let axis = 0; axis < 3; axis += 1) {
+    out[axis]! +=
+      driftFast *
+      2 *
+      Math.PI *
+      0.27 *
+      Math.cos(2 * Math.PI * 0.27 * tSec + 2 * Math.PI * hash3(seed, axis, 7, 0x44524631));
+    out[axis]! +=
+      driftSlow *
+      2 *
+      Math.PI *
+      0.06 *
+      Math.cos(2 * Math.PI * 0.06 * tSec + 2 * Math.PI * hash3(seed, axis, 8, 0x44524632));
+  }
+  return out;
 }

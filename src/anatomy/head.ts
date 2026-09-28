@@ -185,12 +185,17 @@ export function vesselFlowDir(v: Vessel, p: Vec3): Vec3 {
  * Ventana temporal: sobre el arco cigomático, anterior a la oreja; centros
  * calculados sobre el elipsoide. `windowQuality` estable por paciente.
  */
-export function buildReferenceHead(rng: SeededRandom, variant: WillisVariant = 'normal'): HeadGeometry {
+export function buildReferenceHead(
+  rng: SeededRandom,
+  variant: WillisVariant = 'normal',
+  vesselRadiusScale: Readonly<Record<string, number>> = {},
+  windowOverride: { thicknessMm?: number; quality?: number } = {},
+): HeadGeometry {
   const skullCenter: Vec3 = [HEAD.skullCenterXmm.value, HEAD.skullCenterYmm.value, HEAD.skullCenterZmm.value];
   const skullRadii: Vec3 = [HEAD.skullRadiusXmm.value, HEAD.skullRadiusYmm.value, HEAD.skullRadiusZmm.value];
   const r = rng.fork('head');
-  const windowThicknessMm = HEAD.windowThicknessMm.value + r.range(0, 0.4);
-  const windowQuality = HEAD.windowQuality.value; // adulto de referencia: ventana utilizable
+  const windowThicknessMm = windowOverride.thicknessMm ?? HEAD.windowThicknessMm.value + r.range(0, 0.4);
+  const windowQuality = windowOverride.quality ?? HEAD.windowQuality.value; // adulto de referencia: ventana utilizable
 
   // Ventana: punto del elipsoide a azimut lateral y algo anterior (pterion).
   const mkWindow = (side: Side): Vec3 => {
@@ -218,7 +223,7 @@ export function buildReferenceHead(rng: SeededRandom, variant: WillisVariant = '
     windowQuality,
     windowCenter: { der: mkWindow('der'), izq: mkWindow('izq') },
     windowRadiusMm: HEAD.windowRadiusMm.value,
-    vessels: buildWillisVessels(variant),
+    vessels: buildWillisVessels(variant, vesselRadiusScale),
     midbrainCenter: [
       HEAD.midbrainCenterXmm.value,
       HEAD.midbrainCenterYmm.value,

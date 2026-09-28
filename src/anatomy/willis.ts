@@ -130,7 +130,10 @@ function sideLabel(s: 1 | -1): Side {
  * segmento. `flowSign` invierte esa orientación solo cuando una variante
  * altera el sentido de una comunicante.
  */
-export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] {
+export function buildWillisVessels(
+  variant: WillisVariant = 'normal',
+  radiusScale: Readonly<Record<string, number>> = {},
+): Vessel[] {
   const qM1 = PHYS.qM1MlMin.value;
   const qA2 = PHYS.qA2MlMin.value;
   const qP2 = PHYS.qP2MlMin.value;
@@ -139,6 +142,16 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
   const a1Q = (s: 1 | -1): number => (aplasia === 0 ? qA2 : s === aplasia ? 0 : 2 * qA2);
   const p1Q = (s: 1 | -1): number => (fetal !== 0 && s === fetal ? 0.15 * qP2 : qP2);
   const pcoaQ = (s: 1 | -1): number => (fetal !== 0 && s === fetal ? 0.85 * qP2 : 0);
+  // `radiusScale` (casos clínicos) reduce el radio ANTES de `velocityForFlow`:
+  // el flujo no cambia, así que la velocidad sube por continuidad (espasmo).
+  const v = (
+    id: string,
+    side: Side | 'media',
+    controlPoints: readonly Vec3[],
+    radiusMm: number,
+    flowMlMin: number,
+    flowSign: 1 | -1,
+  ): Vessel => vessel(id, side, controlPoints, radiusMm * (radiusScale[id] ?? 1), flowMlMin, flowSign);
   const vessels: Vessel[] = [];
 
   for (const s of [1, -1] as const) {
@@ -148,7 +161,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
     const pcoaFlow = pcoaQ(s);
     const icaQ = m1Q + a1Flow + pcoaFlow;
     vessels.push(
-      vessel(
+      v(
         `m1-${side}`,
         side,
         [
@@ -162,7 +175,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
         m1Q,
         1,
       ),
-      vessel(
+      v(
         `m2-sup-${side}`,
         side,
         [
@@ -174,7 +187,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
         m1Q / 2,
         1,
       ),
-      vessel(
+      v(
         `m2-inf-${side}`,
         side,
         [
@@ -187,7 +200,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
         1,
       ),
       // Sifón carotídeo C4–C6: curva en S hacia la bifurcación ACI.
-      vessel(
+      v(
         `ica-${side}`,
         side,
         [
@@ -201,7 +214,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
         icaQ,
         1,
       ),
-      vessel(
+      v(
         `a2-${side}`,
         side,
         [
@@ -213,7 +226,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
         qA2,
         1,
       ),
-      vessel(
+      v(
         `pcoa-${side}`,
         side,
         [
@@ -227,7 +240,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
         pcoaFlow,
         1,
       ),
-      vessel(
+      v(
         `p1-${side}`,
         side,
         [
@@ -239,7 +252,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
         p1Q(s),
         1,
       ),
-      vessel(
+      v(
         `p2-${side}`,
         side,
         [
@@ -254,7 +267,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
     );
     if (!(aplasia !== 0 && s === aplasia)) {
       vessels.push(
-        vessel(
+        v(
           `a1-${side}`,
           side,
           [
@@ -274,7 +287,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
 
   const acoaDirection: 1 | -1 = aplasia === 1 ? -1 : 1;
   vessels.push(
-    vessel(
+    v(
       'acoa',
       'media',
       [
@@ -285,7 +298,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
       aplasia !== 0 ? qA2 : 0,
       acoaDirection,
     ),
-    vessel(
+    v(
       'basilar',
       'media',
       [
@@ -300,7 +313,7 @@ export function buildWillisVessels(variant: WillisVariant = 'normal'): Vessel[] 
   );
   for (const s of [1, -1] as const) {
     vessels.push(
-      vessel(
+      v(
         `vertebral-${sideLabel(s)}`,
         sideLabel(s),
         [

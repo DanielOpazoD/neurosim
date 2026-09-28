@@ -5,6 +5,7 @@
 import { SimulationClock } from '../core/clock';
 import { errors, logError, onError } from '../core/errorLog';
 import { buildReferenceCase } from '../domain/referenceCase';
+import { CASES, caseById } from '../domain/cases';
 import type {
   AcquisitionSettings,
   BasalPhysiology,
@@ -39,6 +40,7 @@ import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 import { buildDebrief } from '../app/debrief';
 import { currentPose } from '../app/poses';
+import { lindegaardRatio } from '../doppler/measureMca';
 import { Navigator3D } from './navigator3d';
 import { isWebGL2Available } from '../render/gl/context';
 import { GlBmodePipeline } from '../render/gl/glPipeline';
@@ -51,15 +53,16 @@ const WILLIS_VARIANTS: readonly WillisVariant[] = [
   'pcaFetalDer',
   'pcaFetalIzq',
 ];
-const requestedWillis = new URLSearchParams(window.location.search).get('willis');
+const urlParams = new URLSearchParams(window.location.search);
+const clinicalCase = caseById(urlParams.get('caso'));
+const requestedWillis = urlParams.get('willis');
 const willisVariant: WillisVariant = WILLIS_VARIANTS.includes(requestedWillis as WillisVariant)
   ? (requestedWillis as WillisVariant)
-  : 'normal';
-const sim = buildReferenceCase(undefined, willisVariant);
+  : clinicalCase.willisVariant;
+const sim = buildReferenceCase(undefined, willisVariant, clinicalCase);
 const clock = new SimulationClock();
 const s = createInitialState();
 const pw = new PwController(sim, s);
-const urlParams = new URLSearchParams(window.location.search);
 const scenarioValue = (key: 'map' | 'paco2' | 'icp', fallback: number, lo: number, hi: number): number => {
   const raw = urlParams.get(key);
   const value = raw === null ? Number.NaN : Number(raw);
@@ -88,6 +91,25 @@ const gpuAvailable = gpuPipeline !== null && isWebGL2Available();
 const rendererParam = new URLSearchParams(window.location.search).get('renderer');
 if (gpuAvailable && rendererParam === 'gpu') s.renderer = 'gpu';
 document.body.dataset.renderer = s.renderer;
+const subtitle = document.querySelector<HTMLElement>('.sub');
+if (subtitle) subtitle.textContent = `${clinicalCase.label} · N2`;
+const casoSelect = $<HTMLSelectElement>('caso');
+for (const c of CASES) {
+  const option = document.createElement('option');
+  option.value = c.id;
+  option.textContent = c.label;
+  casoSelect.appendChild(option);
+}
+casoSelect.value = clinicalCase.id;
+casoSelect.addEventListener('change', () => {
+  // Cambiar de caso recarga la página y descarta overrides de URL obsoletos.
+  const next = new URLSearchParams();
+  next.set('caso', casoSelect.value);
+  window.location.search = next.toString();
+});
+$('casoInfo').innerHTML = `${clinicalCase.summary}<ul>${clinicalCase.teaching
+  .map((t) => `<li>${t}</li>`)
+  .join('')}</ul>`;
 if (urlParams.get('clock') === 'fixed') {
   const tParam = Number(urlParams.get('t'));
   clock.freezeAt(Number.isFinite(tParam) ? tParam : 0.4);
@@ -248,6 +270,7 @@ function sendRenderRequest(timing: RenderTiming): void {
       id: requestId,
       seed: sim.patient.seed,
       willisVariant: sim.willisVariant,
+      caseId: sim.clinicalCase.id,
       side: s.side,
       station: s.station,
       settings: { ...s.settings },
@@ -291,6 +314,10 @@ function toggleFreeze(): void {
     frozen: s.frozen,
     bloodFraction: composition?.bloodFraction ?? 0,
     pi: summary?.pi ?? Number.NaN,
+    lindegaard:
+      summary && composition?.dominantVesselId?.startsWith('m1-')
+        ? lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms)
+        : Number.NaN,
   });
 }
 

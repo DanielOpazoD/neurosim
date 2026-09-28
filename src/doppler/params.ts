@@ -133,6 +133,22 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['plan-simulador-2026'],
     note: 'Tolerancia absoluta entre PI medido y esperado en el debriefing.',
   },
+  debriefLindegaardVasospasmMin: {
+    value: 3,
+    unit: 'adimensional',
+    range: [2, 6],
+    evidence: 'consenso',
+    sources: ['lindegaard-indice-1989'],
+    note: 'Índice de Lindegaard a partir del cual el debriefing sugiere vasoespasmo.',
+  },
+  debriefOnsdAbnormalMm: {
+    value: 5.8,
+    unit: 'mm',
+    range: [5, 6.5],
+    evidence: 'consenso',
+    sources: ['qcc-consenso-onsd-2024'],
+    note: 'DVNO interna compatible con PIC elevada en adulto.',
+  },
   beatCoverageMin: {
     value: 0.8,
     unit: 'fracción',

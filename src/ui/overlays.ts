@@ -17,7 +17,7 @@ import { buildReport } from '../domain/onsdProtocol';
 import type { PwController } from '../app/pwController';
 import { angleCorrectionErrorFactor } from '../doppler/insonation';
 import { acousticOutput } from '../ultrasound/acousticOutput';
-import { observedTrace } from '../doppler/measureMca';
+import { lindegaardRatio, observedTrace } from '../doppler/measureMca';
 import { DOPPLER } from '../doppler/params';
 
 export { canvasToImagePoint, imagePointToCanvas };
@@ -297,6 +297,14 @@ export function updateReadouts(
       row('Latidos', `${summary.beats}`),
       row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}%`),
       row('Vaso dominante', comp?.dominantVesselId ?? '—'),
+      ...(comp?.dominantVesselId?.startsWith('m1-')
+        ? [
+            row(
+              'Lindegaard',
+              `TAMax ${Math.abs(summary.taMaxCms).toFixed(0)} / ACI ${sim.clinicalCase.icaExtracranialTamaxCms.toFixed(0)} = ${lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms).toFixed(1)}`,
+            ),
+          ]
+        : []),
       ...angleRows,
       ...hemoRows,
       ...alaraRows,
