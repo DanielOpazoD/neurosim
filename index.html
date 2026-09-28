@@ -6,19 +6,101 @@
     <title>neurosono-sim — N1</title>
   </head>
   <body>
+    <!-- Sprite de iconos inline (sin dependencias ni red). -->
+    <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-eye" viewBox="0 0 24 24">
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+        <circle cx="12" cy="12" r="3" />
+      </symbol>
+      <symbol id="i-brain" viewBox="0 0 24 24">
+        <path d="M12 3v18" />
+        <path d="M12 3H9.5A3 3 0 0 0 6.6 6.7 3 3 0 0 0 5 11.5a3 3 0 0 0 .6 4.9A3 3 0 0 0 8.5 21H12" />
+        <path d="M12 3h2.5a3 3 0 0 1 2.9 3.7 3 3 0 0 1 1.6 4.8 3 3 0 0 1-.6 4.9 3 3 0 0 1-2.9 4.6H12" />
+        <path d="M6 11.5h2M16 11.5h2" />
+      </symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24">
+        <rect x="6" y="4" width="4" height="16" rx="1" />
+        <rect x="14" y="4" width="4" height="16" rx="1" />
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" /></symbol>
+      <symbol id="i-film" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" />
+      </symbol>
+      <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 13h3l2-5 3 10 3-14 3 12 2-3h4" /></symbol>
+      <symbol id="i-volume" viewBox="0 0 24 24">
+        <path d="M11 5 6 9H2v6h4l5 4V5z" />
+        <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      </symbol>
+      <symbol id="i-ruler" viewBox="0 0 24 24">
+        <path d="M3 17 17 3l4 4L7 21z" />
+        <path d="M14 6l1.5 1.5M11 9l1.5 1.5M8 12l1.5 1.5" />
+      </symbol>
+      <symbol id="i-diameter" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M6 12h12M9 9l-3 3 3 3M15 9l3 3-3 3" />
+      </symbol>
+      <symbol id="i-hspan" viewBox="0 0 24 24">
+        <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4M3 5v14M21 5v14" />
+      </symbol>
+      <symbol id="i-clipboard" viewBox="0 0 24 24">
+        <rect x="5" y="4" width="14" height="17" rx="2" />
+        <path d="M9 4V3h6v1M9 11h6M9 15h4" />
+      </symbol>
+      <symbol id="i-cap" viewBox="0 0 24 24">
+        <path d="M2 9l10-5 10 5-10 5z" />
+        <path d="M6 11.5V16c0 1.7 3 3 6 3s6-1.3 6-3v-4.5M22 9v5" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16" /></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24">
+        <path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+        <path d="M14 2v5h5M9 13h6M9 17h6" />
+      </symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24">
+        <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v5M12 8h.01" />
+      </symbol>
+    </svg>
+
     <header>
-      <h1>neurosono-sim</h1>
-      <span class="sub">Adulto de referencia N1 · solo exploración normal</span>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg class="ic"><use href="#i-wave" /></svg>
+        </div>
+        <div class="brandText">
+          <h1>neurosono-sim</h1>
+          <span class="sub">Adulto de referencia N1 · solo exploración normal</span>
+        </div>
+      </div>
       <label class="casePick"
         ><span>Caso</span>
         <select id="caso"></select
       ></label>
-      <div class="tabs">
-        <button class="tab" data-station="ojo" data-side="der">Ojo D</button>
-        <button class="tab" data-station="ojo" data-side="izq">Ojo I</button>
-        <button class="tab" data-station="temporal" data-side="der">Temporal D</button>
-        <button class="tab" data-station="temporal" data-side="izq">Temporal I</button>
-      </div>
+      <nav class="exams" aria-label="Exploración">
+        <div class="exam" data-exam="ojo">
+          <svg class="ic examIcon"><use href="#i-eye" /></svg>
+          <span class="examName">Vaina del nervio óptico</span>
+          <div class="sides tabs" role="group" aria-label="Lado (vaina del nervio óptico)">
+            <button class="tab" data-station="ojo" data-side="der" title="Ojo derecho">D</button>
+            <button class="tab" data-station="ojo" data-side="izq" title="Ojo izquierdo">I</button>
+          </div>
+        </div>
+        <div class="exam" data-exam="temporal">
+          <svg class="ic examIcon"><use href="#i-brain" /></svg>
+          <span class="examName">Doppler transcraneal</span>
+          <div class="sides tabs" role="group" aria-label="Lado (Doppler transcraneal)">
+            <button class="tab" data-station="temporal" data-side="der" title="Ventana temporal derecha">
+              D
+            </button>
+            <button class="tab" data-station="temporal" data-side="izq" title="Ventana temporal izquierda">
+              I
+            </button>
+          </div>
+        </div>
+      </nav>
       <div class="headerRight">
         <div id="acousticLabel" class="acousticLabel"></div>
         <button id="errores" class="errorBadge" hidden>Errores (0)</button>
@@ -26,103 +108,168 @@
     </header>
     <main>
       <section class="colLeft">
-        <div class="sec">Exploración</div>
-        <canvas id="headView"></canvas>
-        <div class="headHint">
-          Arrastra el transductor · rueda: girar marcador · Mayús+arrastrar: inclinar · teclas: flechas
+        <div class="card">
+          <div class="cardHead"><span class="sec">Exploración</span></div>
+          <canvas id="headView"></canvas>
+          <div class="caption">
+            <span id="navigatorTitle" class="captionTitle">Ojo der</span>
+            <span class="headHint"
+              >Arrastra el transductor · rueda: girar marcador · Mayús+arrastrar: inclinar · teclas:
+              flechas</span
+            >
+          </div>
         </div>
-        <div id="navigatorTitle" class="navigatorLegend">Ojo der</div>
-        <canvas id="navigator" class="navigator" width="320" height="320"></canvas>
-        <div id="navigatorLegend" class="navigatorLegend" hidden>
-          rojo → hacia la sonda · azul ← alejándose
+        <div class="card">
+          <div class="cardHead"><span class="sec">Anatomía</span></div>
+          <canvas id="navigator" class="navigator" width="320" height="320"></canvas>
+          <div id="navigatorLegend" class="navigatorLegend" hidden>
+            <span class="dot red"></span> hacia la sonda · <span class="dot blue"></span> alejándose
+          </div>
         </div>
-        <div class="probeGrid">
-          <label class="ctl"
-            ><span>Inclinación <b id="tiltV">0°</b></span>
-            <input id="tilt" type="range" min="-35" max="35" step="1" value="0"
-          /></label>
-          <label class="ctl"
-            ><span>Angulación <b id="angulV">0°</b></span>
-            <input id="angul" type="range" min="-25" max="25" step="1" value="0"
-          /></label>
-          <label class="ctl"
-            ><span>Barrido lateral <b id="shiftV">0 mm</b></span>
-            <input id="shift" type="range" min="-18" max="18" step="0.5" value="0"
-          /></label>
-          <label class="ctl"
-            ><span>Desplaz. vertical <b id="shiftYV">0 mm</b></span>
-            <input id="shiftY" type="range" min="-20" max="20" step="0.5" value="0"
-          /></label>
-          <label class="ctl"
-            ><span>Rotación <b id="rotV">0°</b></span>
-            <input id="rot" type="range" min="-90" max="90" step="5" value="0"
-          /></label>
-          <label class="ctl"
-            ><span>Presión <b id="pressV">30%</b></span>
-            <input id="press" type="range" min="0" max="100" step="5" value="30"
-          /></label>
-        </div>
-        <label class="switchRow"
-          ><input id="handMotion" type="checkbox" checked /> Micro-movimiento de mano</label
-        >
-        <div class="chips">
-          <button id="planoMesencefalico">Plano mesencefálico</button>
-          <button id="planoDiencefalico">Plano diencefálico</button>
+        <div class="card">
+          <div class="cardHead"><span class="sec">Sonda</span></div>
+          <div class="probeGrid">
+            <label class="ctl"
+              ><span>Inclinación <b id="tiltV">0°</b></span>
+              <input id="tilt" type="range" min="-35" max="35" step="1" value="0"
+            /></label>
+            <label class="ctl"
+              ><span>Angulación <b id="angulV">0°</b></span>
+              <input id="angul" type="range" min="-25" max="25" step="1" value="0"
+            /></label>
+            <label class="ctl"
+              ><span>Barrido lateral <b id="shiftV">0 mm</b></span>
+              <input id="shift" type="range" min="-18" max="18" step="0.5" value="0"
+            /></label>
+            <label class="ctl"
+              ><span>Desplaz. vertical <b id="shiftYV">0 mm</b></span>
+              <input id="shiftY" type="range" min="-20" max="20" step="0.5" value="0"
+            /></label>
+            <label class="ctl"
+              ><span>Rotación <b id="rotV">0°</b></span>
+              <input id="rot" type="range" min="-90" max="90" step="5" value="0"
+            /></label>
+            <label class="ctl"
+              ><span>Presión <b id="pressV">30%</b></span>
+              <input id="press" type="range" min="0" max="100" step="5" value="30"
+            /></label>
+          </div>
+          <label class="switchRow"
+            ><input id="handMotion" type="checkbox" checked /> Micro-movimiento de mano</label
+          >
+          <div class="chips">
+            <button id="planoMesencefalico" class="chip">Plano mesencefálico</button>
+            <button id="planoDiencefalico" class="chip">Plano diencefálico</button>
+          </div>
         </div>
       </section>
       <section class="colCenter">
-        <div class="bmodeWrap">
-          <canvas id="bmode" width="640" height="480"></canvas>
-          <div class="toolbar">
-            <button id="freeze">Congelar <kbd>Esp</kbd></button>
-            <button id="cine" disabled>Cine</button>
-            <button id="pw">PW <kbd>P</kbd></button>
-            <button id="audio">Audio</button>
-            <button id="caliper">Caliper <kbd>C</kbd></button>
-            <button id="dvno">DVNO 3 mm</button>
-            <button id="dte">DTE</button>
-            <button id="onsdProtocol">Protocolo DVNO</button>
-            <button id="teaching">Docente <kbd>D</kbd></button>
-            <button id="export">Exportar</button>
-            <button id="exportOnsd">Informe</button>
-            <button id="debrief" hidden>Debriefing</button>
-            <button id="exportDebrief" hidden>Exportar debriefing</button>
+        <div class="card imageCard">
+          <div id="bmodeWrap" class="bmodeWrap">
+            <div class="toolbar">
+              <button id="freeze" class="btn-primary">
+                <svg class="ic ic-pause"><use href="#i-pause" /></svg>
+                <svg class="ic ic-play"><use href="#i-play" /></svg>
+                <span id="freezeLabel">Congelar</span><kbd id="freezeKey">Esp</kbd>
+              </button>
+              <button id="cine" class="btn-neutral" disabled>
+                <svg class="ic"><use href="#i-film" /></svg><span>Cine</span>
+              </button>
+              <button id="pw" class="btn-mode">
+                <svg class="ic"><use href="#i-wave" /></svg><span>PW</span><kbd>P</kbd>
+              </button>
+              <button id="audio" class="btn-mode">
+                <svg class="ic"><use href="#i-volume" /></svg><span>Audio</span>
+              </button>
+              <button id="caliper" class="btn-tool" title="Caliper (C)">
+                <svg class="ic"><use href="#i-ruler" /></svg><span>Caliper</span><kbd>C</kbd>
+              </button>
+              <button id="dvno" class="btn-tool" title="DVNO a 3 mm de la papila">
+                <svg class="ic"><use href="#i-diameter" /></svg><span>DVNO</span>
+              </button>
+              <button id="dte" class="btn-tool" title="Diámetro transverso del globo ocular (DTE)">
+                <svg class="ic"><use href="#i-hspan" /></svg><span>DTE</span>
+              </button>
+              <button id="onsdProtocol" class="btn-tool" title="Protocolo DVNO">
+                <svg class="ic"><use href="#i-clipboard" /></svg><span>Protocolo</span>
+              </button>
+              <button id="teaching" class="btn-mode">
+                <svg class="ic"><use href="#i-cap" /></svg><span>Docente</span><kbd>D</kbd>
+              </button>
+            </div>
+            <div id="bmodeStage" class="bmodeStage">
+              <canvas id="bmode" width="640" height="480"></canvas>
+              <div id="keyHint" class="keyHint" hidden>
+                ← → ↑ ↓ deslizar · Mayús+flechas inclinar/angulación · Q/E girar · +/− presión · R reiniciar
+                sonda
+              </div>
+            </div>
           </div>
-          <div id="keyHint" class="keyHint" hidden>
-            ← → ↑ ↓ deslizar · Mayús+flechas inclinar/angulación · Q/E girar · +/− presión · R reiniciar sonda
+          <div class="statusbar">
+            <svg class="ic"><use href="#i-info" /></svg>
+            <div id="hint" class="note"></div>
+            <div class="exports">
+              <span class="tbDivider" aria-hidden="true"></span>
+              <button id="export" class="btn-export">
+                <svg class="ic"><use href="#i-download" /></svg><span>Exportar</span>
+              </button>
+              <button id="exportOnsd" class="btn-export">
+                <svg class="ic"><use href="#i-file" /></svg><span>Informe</span>
+              </button>
+              <button id="debrief" class="btn-export" hidden>
+                <svg class="ic"><use href="#i-chat" /></svg><span>Debriefing</span>
+              </button>
+              <button id="exportDebrief" class="btn-export" hidden>
+                <svg class="ic"><use href="#i-download" /></svg><span>Exportar debriefing</span>
+              </button>
+            </div>
           </div>
         </div>
-        <div class="statusbar"><div id="hint" class="note"></div></div>
-        <div class="pwOff">PW apagado — pulsa PW (P) para el espectro</div>
-        <canvas id="spectral" width="640" height="224"></canvas>
+        <div
+          id="splitter"
+          class="splitter"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Ajustar reparto B-mode / espectro"
+          title="Arrastra para repartir B-mode y espectro"
+        >
+          <span class="grip"></span>
+        </div>
+        <div class="card spectralCard">
+          <div class="pwOff">PW apagado — pulsa <kbd>P</kbd> para el espectro</div>
+          <canvas id="spectral" width="640" height="360"></canvas>
+        </div>
       </section>
       <section class="colRight">
-        <div class="sec">Equipo</div>
-        <label class="ctl"
-          ><span>Ganancia <b id="gainV"></b></span> <input id="gain" type="range" min="-20" max="30" step="1"
-        /></label>
-        <label class="ctl"
-          ><span>Profundidad <b id="depthV"></b></span>
-          <input id="depth" type="range" min="30" max="110" step="5"
-        /></label>
-        <label class="ctl"
-          ><span>Foco <b id="focusV"></b></span> <input id="focus" type="range" min="5" max="60" step="1"
-        /></label>
-        <details class="nested">
-          <summary>TGC <b id="tgcV" hidden></b></summary>
-          <span class="tgc">
-            <input type="range" data-tgc="0" min="-15" max="15" step="1" value="0" />
-            <input type="range" data-tgc="1" min="-15" max="15" step="1" value="0" />
-            <input type="range" data-tgc="2" min="-15" max="15" step="1" value="0" />
-            <input type="range" data-tgc="3" min="-15" max="15" step="1" value="0" />
-            <input type="range" data-tgc="4" min="-15" max="15" step="1" value="0" />
-            <input type="range" data-tgc="5" min="-15" max="15" step="1" value="0" />
-            <input type="range" data-tgc="6" min="-15" max="15" step="1" value="0" />
-            <input type="range" data-tgc="7" min="-15" max="15" step="1" value="0" />
-          </span>
-        </details>
-        <details class="grp grpDoppler">
-          <summary>Doppler</summary>
+        <div class="card">
+          <div class="cardHead"><span class="sec">Imagen</span></div>
+          <label class="ctl"
+            ><span>Ganancia <b id="gainV"></b></span>
+            <input id="gain" type="range" min="-20" max="30" step="1"
+          /></label>
+          <label class="ctl"
+            ><span>Profundidad <b id="depthV"></b></span>
+            <input id="depth" type="range" min="30" max="160" step="5"
+          /></label>
+          <label class="ctl"
+            ><span>Foco <b id="focusV"></b></span> <input id="focus" type="range" min="5" max="60" step="1"
+          /></label>
+          <details class="nested">
+            <summary>TGC <b id="tgcV" hidden></b></summary>
+            <span class="tgc">
+              <input type="range" data-tgc="0" min="-15" max="15" step="1" value="0" />
+              <input type="range" data-tgc="1" min="-15" max="15" step="1" value="0" />
+              <input type="range" data-tgc="2" min="-15" max="15" step="1" value="0" />
+              <input type="range" data-tgc="3" min="-15" max="15" step="1" value="0" />
+              <input type="range" data-tgc="4" min="-15" max="15" step="1" value="0" />
+              <input type="range" data-tgc="5" min="-15" max="15" step="1" value="0" />
+              <input type="range" data-tgc="6" min="-15" max="15" step="1" value="0" />
+              <input type="range" data-tgc="7" min="-15" max="15" step="1" value="0" />
+            </span>
+          </details>
+        </div>
+        <details class="card grp grpDoppler">
+          <summary class="cardHead"><span class="sec">Doppler</span></summary>
           <div class="pwonly">
             <label class="ctl"
               ><span>PRF <b id="prfV"></b></span>
@@ -173,8 +320,8 @@
             </details>
           </div>
         </details>
-        <details class="grp">
-          <summary>Avanzado</summary>
+        <details class="card grp">
+          <summary class="cardHead"><span class="sec">Avanzado</span></summary>
           <label class="ctl"
             ><span>Rango dinámico <b id="drV"></b></span>
             <input id="dr" type="range" min="30" max="90" step="5"
@@ -217,12 +364,14 @@
             </select>
           </label>
         </details>
-        <div class="sec">Medidas</div>
-        <div id="readouts" class="readouts">
-          <div><span>—</span><span>—</span></div>
+        <div class="card">
+          <div class="cardHead"><span class="sec">Medidas</span></div>
+          <div id="readouts" class="readouts">
+            <div class="stat"><span class="k">Sin medidas</span><span class="v">—</span></div>
+          </div>
         </div>
-        <details id="scenarioPanel" class="scenario">
-          <summary>Instructor</summary>
+        <details id="scenarioPanel" class="card scenario">
+          <summary class="cardHead"><span class="sec">Instructor</span></summary>
           <div id="casoInfo" class="casoInfo"></div>
           <label class="ctl"
             ><span>PAM <b id="mapV"></b></span> <input id="map" type="range" min="40" max="140" step="1"

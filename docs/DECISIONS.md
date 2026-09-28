@@ -308,3 +308,59 @@
     fuga vertical a <25 % del cambio lateral en arrastres horizontales.
     En la estación ocular el navegador anatómico encuadra el globo
     examinado (`navigatorFrame` → `eye.center`).
+51. **DEC-52** — Profundidad máxima transtemporal 160 mm: el deslizador
+    `#depth` es compartido entre estaciones, así que `setStation` fija
+    `min`/`max` por estación (ocular 30–60 mm, temporal 30–160 mm) y acota
+    el valor actual (`DEPTH_RANGE_MM` en `src/ui/main.ts`); el paso sigue
+    siendo 5 mm y el valor de fábrica temporal no cambia (90 mm). Motivo:
+    el Doppler cerebral necesita ver la tabla ósea contralateral (~13–15 cm
+    en el adulto) y el eje vertebrobasilar/ACP a 12–15 cm; con 110 mm el
+    campo se cortaba antes de la línea media contralateral. Coste medido en
+    Node (CPU, densidad media, color): 174 ms a 90 mm → 211 ms a 160 mm
+    (+20 %; la imagen dB pasa de 176×78 a 176×139). La escala de
+    profundidad (`drawScale`) marca cada 10 mm y a 160 mm dibuja 15 marcas
+    en 480 px sin solaparse; `scanConvert` deriva la escala del sector de
+    la profundidad y no tiene límites codificados.
+52. **DEC-53** — Arquitectura de información por examen, dúplex y roles de
+    botón. (a) La cabecera pasa de cuatro pestañas planas a **dos píldoras
+    de examen** («Vaina del nervio óptico» y «Doppler transcraneal», con
+    icono SVG inline) que contienen los botones de lado **D/I**; esos
+    botones siguen siendo los `.tab[data-station][data-side]` que usan las
+    pruebas e2e, y pulsar el cuerpo de la píldora cambia de examen
+    conservando el lado. `body[data-station]` se fija en `setStation` (no
+    solo en el bucle de frames) y decide qué herramientas se muestran:
+    ocular → `#dvno #dte #onsdProtocol #exportOnsd`; temporal → `#pw
+#audio` y chips de plano; `#caliper #freeze #cine #teaching #export`
+    siempre. (b) **Dúplex**: con PW activo (`body[data-pw='true']`) la
+    columna central se acota al alto de la ventana y se reparte entre
+    B-mode (`--duplex`, 60 % por defecto) y espectrograma (resto, ancho
+    completo); un separador `#splitter` arrastrable ajusta `--duplex` entre
+    35 y 70 % (teclado ↑/↓, ARIA `separator`) y persiste en
+    `localStorage['neurosono.duplex']`. El B-mode se encaja 4:3 dentro de su
+    hueco por `ResizeObserver` (`fitBmode`) para no deformar ni recortar la
+    imagen (los clics se mapean por `getBoundingClientRect`). El backing
+    store de `#spectral` sube de 640×224 a 640×360 (`drawSpectrum` y
+    `rasterizeSpectrogram` leen `ctx.canvas.height`, sin constantes). Con
+    PW apagado el espectro colapsa a una tira de 28 px. (c) **Roles de
+    botón**: `.btn-primary` (`#freeze`, acento; ámbar + «Reanudar» al
+    congelar, con icono pausa/reproducir), `.btn-mode` (`#pw #audio
+#teaching`, contorneado con punto de estado), `.btn-tool` (`#caliper
+#dvno #dte #onsdProtocol`, superficie neutra con tinte al activar),
+    `.btn-export` (`#export #exportOnsd #debrief #exportDebrief`, fantasma
+    con icono), `.chip` (`#planoMesencefalico/#planoDiencefalico`, con
+    `.on` sincronizado desde `s.tiltDeg` 0°/10°). Los botones de
+    exportación se colocan al extremo derecho de la barra de estado bajo la
+    imagen (no dentro de la barra flotante) para que la barra de
+    herramientas quepa en una sola fila a 1440 px en el examen ocular. La
+    etiqueta de `#freeze` vive en `#freezeLabel` y el atajo en `#freezeKey`
+    (vaciado al congelar) para que `toHaveText('Reanudar')` siga siendo
+    exacto. (d) Sistema visual: tokens en `:root` (`--bg #0b0e13`, `--panel
+#12161d`, `--panel-2`, `--border`, `--text`, `--muted`, `--accent
+#4da3ff`, `--accent-2`, `--ok`, `--warn`, `--danger`, radio 12 px,
+    sombra), paneles como tarjetas con cabecera y chevron en `<details>`,
+    deslizadores con pista de 4 px y pulgar de 14 px, y `#readouts` como
+    mosaico de `.stat` (`.k` etiqueta / `.v` valor con `<small>` unidad;
+    `.wide` a dos columnas para texto largo). `updateReadouts` mantiene
+    etiqueta y valor en líneas distintas de `innerText`, que es lo que lee
+    la prueba e2e (`PSV\n80`). Iconos: sprite `<svg class="sprite">` con
+    `<symbol>` y `<use>`, sin fuentes ni CDN.

@@ -4,13 +4,13 @@
  */
 import { fromEyeLocal, nerveCenterline, trueOnsdMm } from '../anatomy/eye';
 import { diencephalonShapes } from '../anatomy/head';
-import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
+import { cross, dot, normalize, sub, type Vec3 } from '../core/vec3';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { ANATOMIA_OJO } from '../anatomy/params';
 import type { AcquiredFrame } from '../domain/contracts';
 import { drawSpectrum } from './canvasDraw';
 import type { ScanGeometry } from '../ultrasound/probe';
-import { beamDirAt, LINEAR_APERTURE_MM, patientToImage } from '../ultrasound/probe';
+import { imageToPatient, LINEAR_APERTURE_MM, patientToImage } from '../ultrasound/probe';
 import { currentPose } from '../app/poses';
 import type { AppState } from '../app/state';
 import { imagePointToCanvas, canvasToImagePoint, dteGuide } from '../app/measurements';
@@ -80,7 +80,7 @@ export function drawGateMarker(
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
   const pose = currentPose(sim, s);
-  const center = add(pose.origin, scale(beamDirAt(pose, scan.kind, s.gateUMm), s.gateDepthMm));
+  const center = imageToPatient(pose, scan.kind, s.gateUMm, s.gateDepthMm);
   const { u, z } = patientToImage(pose, scan.kind, center);
   if (scan.kind === 'linear') {
     const x = (u / scan.widthMmOrRad + 0.5) * W;
@@ -265,7 +265,15 @@ export function drawSpectral(
   });
 }
 
-const row = (k: string, v: string) => `<div><span>${k}</span><span class="meas">${v}</span></div>`;
+/** Mosaico de medidas (DEC-53): `k` etiqueta, `v` valor grande, `unit` en
+ * pequeño; `wide` ocupa las dos columnas para texto largo. La etiqueta y el
+ * valor quedan en líneas distintas de `innerText` (lo leen las pruebas e2e). */
+const row = (k: string, v: string, opts: { unit?: string; wide?: boolean; warn?: boolean } = {}) => {
+  const cls = ['stat', opts.wide ? 'wide' : '', opts.warn ? 'warn' : ''].filter(Boolean).join(' ');
+  const unit = opts.unit ? ` <small>${opts.unit}</small>` : '';
+  return `<div class="${cls}"><span class="k">${k}</span><span class="v">${v}${unit}</span></div>`;
+};
+const wide = (k: string, v: string) => row(k, v, { wide: true });
 
 export function updateReadouts(
   el: HTMLElement,
@@ -278,7 +286,7 @@ export function updateReadouts(
   const angleRows =
     angle && angle.vesselId && Number.isFinite(angle.realDeg)
       ? [
-          row(
+          wide(
             'Insonación',
             `θ real ${angle.realDeg.toFixed(0)}° · proyectado ${angle.projectedDeg.toFixed(0)}° · corrección ${s.settings.angleCorrectionDeg.toFixed(0)}° → factor ×${angleCorrectionErrorFactor(angle.realDeg, s.settings.angleCorrectionDeg).toFixed(2)}`,
           ),
@@ -287,7 +295,7 @@ export function updateReadouts(
   const hemo = s.teachingMode ? controller.hemodynamics() : null;
   const hemoRows = hemo
     ? [
-        row(
+        wide(
           'Hemodinámica',
           `PPC ${hemo.cppMmHg.toFixed(0)} · CrCP ${hemo.crcpMmHg.toFixed(0)} · flujo ×${hemo.flowFactor.toFixed(2)} · PI esp. ${hemo.expectedPi.toFixed(2)}`,
         ),
@@ -305,13 +313,13 @@ export function updateReadouts(
   });
   const alaraRows =
     s.teachingMode && alara.ocularLimitExceeded
-      ? [row('ALARA', 'supera límite oftálmico (MI ≤ 0,23 · TI ≤ 1,0)')]
+      ? [row('ALARA', 'supera límite oftálmico (MI ≤ 0,23 · TI ≤ 1,0)', { wide: true, warn: true })]
       : [];
   const report = buildReport(s.onsd);
   const reportRows =
     s.station === 'ojo' && (s.onsdActive || report.complete)
       ? [
-          row(
+          wide(
             'Protocolo DVNO',
             s.onsdActive
               ? s.caliperMode === 'dte'
@@ -319,7 +327,7 @@ export function updateReadouts(
                 : `${s.side} · ${planeForLabel(s.rotDeg)}`
               : 'completo',
           ),
-          row(
+          wide(
             'Informe',
             report.complete
               ? `ratio ${((report.perSide.der.ratio! + report.perSide.izq.ratio!) / 2).toFixed(2)}`
@@ -327,29 +335,31 @@ export function updateReadouts(
           ),
           ...(s.teachingMode
             ? [
-                row(
+                wide(
                   'DVNO real (modelo)',
-                  `der ${trueOnsdMm(sim.eyes.der, 3, 'interno').toFixed(2)} · izq ${trueOnsdMm(sim.eyes.izq, 3, 'interno').toFixed(2)}`,
+                  `der ${trueOnsdMm(sim.eyes.der, 3, 'interno').toFixed(2)} · izq ${trueOnsdMm(sim.eyes.izq, 3, 'interno').toFixed(2)} mm`,
                 ),
               ]
             : []),
-          ...(s.onsdWarning ? [row('Aviso', 'Plano/lado no coincide con el paso del protocolo')] : []),
+          ...(s.onsdWarning
+            ? [row('Aviso', 'Plano/lado no coincide con el paso del protocolo', { wide: true, warn: true })]
+            : []),
         ]
       : [];
   if (summary) {
     const comp = controller.composition();
     el.innerHTML = [
-      row('PSV', `${Math.abs(summary.psvCms).toFixed(0)} cm/s`),
-      row('EDV', `${Math.abs(summary.edvCms).toFixed(0)} cm/s`),
-      row('TAMax', `${Math.abs(summary.taMaxCms).toFixed(0)} cm/s`),
+      row('PSV', `${Math.abs(summary.psvCms).toFixed(0)}`, { unit: 'cm/s' }),
+      row('EDV', `${Math.abs(summary.edvCms).toFixed(0)}`, { unit: 'cm/s' }),
+      row('TAMax', `${Math.abs(summary.taMaxCms).toFixed(0)}`, { unit: 'cm/s' }),
       row('PI (Gosling)', summary.pi.toFixed(2)),
       row('IR', summary.ri.toFixed(2)),
       row('Latidos', `${summary.beats}`),
-      row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}%`),
-      row('Vaso dominante', comp?.dominantVesselId ?? '—'),
+      row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}`, { unit: '%' }),
+      wide('Vaso dominante', comp?.dominantVesselId ?? '—'),
       ...(comp?.dominantVesselId?.startsWith('m1-')
         ? [
-            row(
+            wide(
               'Lindegaard',
               `TAMax ${Math.abs(summary.taMaxCms).toFixed(0)} / ACI ${sim.clinicalCase.icaExtracranialTamaxCms.toFixed(0)} = ${lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms).toFixed(1)}`,
             ),
@@ -367,10 +377,11 @@ export function updateReadouts(
     el.innerHTML = [
       row(
         last.kind === 'dvno' ? `DVNO ${last.convention ?? ''}` : last.kind === 'dte' ? 'DTE' : 'Distancia',
-        `${last.value.toFixed(2)} mm`,
+        last.value.toFixed(2),
+        { unit: 'mm' },
       ),
-      row('Cuadro', `t=${last.frameTSeconds.toFixed(2)} s`),
-      row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'} mm`),
+      row('Cuadro', `t=${last.frameTSeconds.toFixed(2)}`, { unit: 's' }),
+      row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'}`, { unit: 'mm' }),
       row('Medidas', `${s.measurements.length}`),
     ].join('');
   } else {

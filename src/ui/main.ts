@@ -252,12 +252,34 @@ function setTiltPreset(value: number): void {
   $('tiltV').textContent = `${value}°`;
 }
 
+/** Rango del deslizador de profundidad por estación (DEC-52): ocular 30–60 mm,
+ * temporal 30–160 mm (alcance del cráneo contralateral y vertebrobasilar). */
+const DEPTH_RANGE_MM: Record<Station, { min: number; max: number }> = {
+  ojo: { min: 30, max: 60 },
+  temporal: { min: 30, max: 160 },
+};
+
+/** Etiqueta del botón primario sin destruir icono/atajo (`toHaveText` e2e). */
+function setFreezeLabel(frozen: boolean): void {
+  $('freezeLabel').textContent = frozen ? 'Reanudar' : 'Congelar';
+  $('freezeKey').textContent = frozen ? '' : 'Esp';
+}
+
 function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
+  document.body.dataset.station = station;
   navigator3d.resetCamera(station, side);
   headView?.resetCamera(station, side);
   s.settings = station === 'ojo' ? defaultEyeSettings() : defaultTemporalSettings();
+  const depthInput = $<HTMLInputElement>('depth');
+  const depthRange = DEPTH_RANGE_MM[station];
+  depthInput.min = String(depthRange.min);
+  depthInput.max = String(depthRange.max);
+  s.settings = {
+    ...s.settings,
+    depthMm: Math.min(depthRange.max, Math.max(depthRange.min, s.settings.depthMm)),
+  };
   const values = {
     depth: s.settings.depthMm,
     gain: s.settings.gainDb,
@@ -287,17 +309,16 @@ function setStation(station: Station, side: Side): void {
   document.querySelectorAll('.pwonly').forEach((e) => ((e as HTMLElement).style.opacity = '1'));
   $('navigatorLegend').hidden = station !== 'temporal';
   $('navigatorTitle').textContent = station === 'ojo' ? `Ojo ${side}` : `Temporal ${side}`;
-  s.pwOn = false;
-  $('pw').classList.remove('on');
-  syncSpectralGainControl();
+  setPwOn(false);
   ($('cine') as HTMLButtonElement).disabled = true;
   s.cine.length = 0;
   s.cineIdx = 0;
   s.frozen = false;
+  $('freeze').classList.remove('on');
   currentScan = null;
   colorPersist = null;
   bmodePersist = null;
-  $('freeze').textContent = 'Congelar Esp';
+  setFreezeLabel(false);
   $('hint').textContent =
     station === 'ojo'
       ? 'DVNO: activa «DVNO 3 mm» y marca los dos bordes de la vaina a 3 mm retroglobo.'
@@ -362,7 +383,7 @@ function toggleFreeze(): void {
     colorPersist = null;
     bmodePersist = null;
   }
-  $('freeze').textContent = s.frozen ? 'Reanudar' : 'Congelar';
+  setFreezeLabel(s.frozen);
   $('freeze').classList.toggle('on', s.frozen);
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
   const composition = pw.composition();
@@ -437,6 +458,98 @@ function syncSpectralGainControl(): void {
   input.disabled = !active;
 }
 
+/** Enciende/apaga PW y refleja el estado en botón, `body[data-pw]` y dúplex. */
+function setPwOn(on: boolean): void {
+  s.pwOn = on;
+  $('pw').classList.toggle('on', on);
+  document.body.dataset.pw = String(on);
+  syncSpectralGainControl();
+  fitBmode();
+}
+
+/* ── Dúplex B-mode/espectro (DEC-53) ── */
+const DUPLEX_KEY = 'neurosono.duplex';
+const DUPLEX_MIN = 35;
+const DUPLEX_MAX = 70;
+const colCenter = document.querySelector<HTMLElement>('.colCenter')!;
+/* Área del canvas dentro de #bmodeWrap (debajo de la barra de herramientas):
+ * es la caja que se mide para el encaje 4:3, no la tarjeta completa. */
+const bmodeStage = $('bmodeStage');
+const splitter = $('splitter');
+
+function applyDuplex(percent: number): void {
+  const clamped = Math.min(DUPLEX_MAX, Math.max(DUPLEX_MIN, percent));
+  colCenter.style.setProperty('--duplex', `${clamped.toFixed(1)}%`);
+  splitter.setAttribute('aria-valuenow', clamped.toFixed(0));
+}
+
+function loadDuplex(): void {
+  try {
+    const stored = Number(localStorage.getItem(DUPLEX_KEY));
+    if (Number.isFinite(stored) && stored > 0) applyDuplex(stored);
+  } catch {
+    /* almacenamiento no disponible: se usa el valor por defecto del CSS */
+  }
+}
+
+/** Encaja el B-mode 4:3 en el área del canvas del dúplex (la que queda bajo la
+ * barra de herramientas) sin deformarlo ni recortarlo; con PW apagado el canvas
+ * vuelve al ancho completo por CSS. */
+function fitBmode(): void {
+  if (!s.pwOn) {
+    bmodeCv.style.width = '';
+    bmodeCv.style.height = '';
+    return;
+  }
+  const w = bmodeStage.clientWidth;
+  const h = bmodeStage.clientHeight;
+  if (w <= 0 || h <= 0) return;
+  const cssW = Math.floor(Math.min(w, (h * 4) / 3));
+  bmodeCv.style.width = `${cssW}px`;
+  bmodeCv.style.height = `${Math.floor((cssW * 3) / 4)}px`;
+}
+
+let splitDrag: { pointerId: number } | null = null;
+splitter.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  splitDrag = { pointerId: e.pointerId };
+  splitter.classList.add('dragging');
+  splitter.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+splitter.addEventListener('pointermove', (e) => {
+  if (!splitDrag) return;
+  const rect = colCenter.getBoundingClientRect();
+  if (rect.height <= 0) return;
+  applyDuplex(((e.clientY - rect.top) / rect.height) * 100);
+});
+const endSplitDrag = (e: PointerEvent) => {
+  if (!splitDrag) return;
+  splitDrag = null;
+  splitter.classList.remove('dragging');
+  if (splitter.hasPointerCapture(e.pointerId)) splitter.releasePointerCapture(e.pointerId);
+  try {
+    localStorage.setItem(DUPLEX_KEY, colCenter.style.getPropertyValue('--duplex').replace('%', ''));
+  } catch {
+    /* sin persistencia */
+  }
+};
+splitter.addEventListener('pointerup', endSplitDrag);
+splitter.addEventListener('pointercancel', endSplitDrag);
+splitter.addEventListener('keydown', (e) => {
+  const current = parseFloat(colCenter.style.getPropertyValue('--duplex')) || 60;
+  if (e.key === 'ArrowUp') applyDuplex(current - 2);
+  else if (e.key === 'ArrowDown') applyDuplex(current + 2);
+  else return;
+  e.preventDefault();
+});
+splitter.tabIndex = 0;
+splitter.setAttribute('aria-valuemin', String(DUPLEX_MIN));
+splitter.setAttribute('aria-valuemax', String(DUPLEX_MAX));
+loadDuplex();
+if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => fitBmode()).observe(bmodeStage);
+else window.addEventListener('resize', fitBmode);
+
 function recordMeasurement(): void {
   const measurement = s.measurements[s.measurements.length - 1];
   if (!measurement) return;
@@ -492,6 +605,9 @@ function syncProtocolControls(): void {
   syncProbeSlider('shiftY', 'shiftYV', s.offsetVMm, (v) => `${v} mm`);
   syncProbeSlider('angul', 'angulV', s.tiltVDeg, (v) => `${v}°`);
   syncProbeSlider('press', 'pressV', Math.round(s.press * 100), (v) => `${v}%`);
+  // Chips de plano ← inclinación actual (presets 0° / 10°).
+  $('planoMesencefalico').classList.toggle('on', s.station === 'temporal' && s.tiltDeg === 0);
+  $('planoDiencefalico').classList.toggle('on', s.station === 'temporal' && s.tiltDeg === 10);
   $('dte').classList.toggle('on', s.caliperMode === 'dte');
   $('dvno').classList.toggle('on', s.caliperMode === 'dvno');
   document.querySelectorAll('.tab').forEach((el) => {
@@ -591,7 +707,7 @@ function frameLoop(now: number): void {
       drawCineFrame();
     }
     const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
-    const gateCenter = s.pwOn && s.station === 'temporal' ? pw.gateGeometry(navPose).center : null;
+    const gateCenter = s.pwOn ? pw.gateGeometry(navPose).center : null;
     navigator3d.update(
       s,
       currentScan,
@@ -750,6 +866,16 @@ document.querySelectorAll('.tab').forEach((el) =>
     setStation(t.dataset.station as Station, t.dataset.side as Side);
   }),
 );
+// Pulsar el cuerpo de la píldora de examen (icono/nombre) cambia de examen
+// conservando el lado actual; los botones D/I siguen siendo las `.tab`.
+document.querySelectorAll<HTMLElement>('.exam').forEach((pill) =>
+  pill.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.tab')) return;
+    const station = pill.dataset.exam as Station;
+    if (station === s.station) return;
+    setStation(station, s.side);
+  }),
+);
 $('freeze').addEventListener('click', toggleFreeze);
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 let lastProbeKeyT = -Infinity;
@@ -850,9 +976,7 @@ $('cine').addEventListener('click', () => {
   $('cine').classList.toggle('on', s.cinePlaying);
 });
 $('pw').addEventListener('click', () => {
-  s.pwOn = !s.pwOn;
-  $('pw').classList.toggle('on', s.pwOn);
-  syncSpectralGainControl();
+  setPwOn(!s.pwOn);
   if (s.pwOn) pw.reset();
   s.debrief.setTime(clock.t);
   s.debrief.record(s.pwOn ? 'pw-on' : 'pw-off', s.pwOn ? 'PW activar' : 'PW desactivar', { pwOn: s.pwOn });
