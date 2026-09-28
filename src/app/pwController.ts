@@ -2,11 +2,10 @@
  * Controlador de PW: cadena, puerta, audio y medidas de la traza adquirida.
  * La UI solo consume columnas, composición y el resumen más reciente.
  */
-import { add, scale } from '../core/vec3';
 import type { SimulationClock } from '../core/clock';
 import type { ProbePose } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
-import { beamDirAt, elevAxis } from '../ultrasound/probe';
+import { beamDirAt, elevAxis, imageToPatient } from '../ultrasound/probe';
 import { skullAttenuationDb } from '../ultrasound/attenuation';
 import type { VesselScene } from '../anatomy/head';
 import { eyeDopplerScene } from './renderRequest';
@@ -81,7 +80,8 @@ export class PwController {
     const s = this.state;
     const scene = this.dopplerScene();
     const beamDir = beamDirAt(pose, s.settings.transducer, s.gateUMm);
-    const center = add(pose.origin, scale(beamDir, s.gateDepthMm));
+    // Lineal (ojo): la puerta se desplaza lateralmente en u; sector: sobre la línea rotada.
+    const center = imageToPatient(pose, s.settings.transducer, s.gateUMm, s.gateDepthMm);
     const f0 = s.settings.frequencyMhz * 1e6;
     const c = FISICA_US.params.soundSpeedMs.value * 1000;
     const lambda = c / f0;

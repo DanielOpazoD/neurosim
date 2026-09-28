@@ -46,15 +46,33 @@ function vesselCenter(sim: ReferenceCase): Vec3 {
   return scale(sum, 1 / points.length);
 }
 
+/** Desplazamiento posterior del objetivo ocular (mm) para encuadrar globo + ~30 mm de nervio. */
+const EYE_TARGET_POSTERIOR_MM = 10;
+
 export function navigatorFrame(
   sim: ReferenceCase,
   station: 'ojo' | 'temporal',
   side: 'der' | 'izq',
   canvasSide: number,
 ): NavigatorFrame {
-  const target = station === 'ojo' ? sim.eyes[side].center : vesselCenter(sim);
+  const target =
+    station === 'ojo'
+      ? add(sim.eyes[side].center, scale(normalize(sim.eyes[side].anterior), -EYE_TARGET_POSTERIOR_MM))
+      : vesselCenter(sim);
   const radiusMm = station === 'ojo' ? 28 : 55;
   return { target, radiusMm, scale: (0.46 * canvasSide) / radiusMm };
+}
+
+/** Distancia de cámara para que una esfera de `radiusMm` ocupe `fill` del lado
+ * menor del canvas con FOV vertical `fovDeg`. */
+export function cameraDistanceForRadius(
+  radiusMm: number,
+  fovDeg: number,
+  aspect: number,
+  fill: number,
+): number {
+  const halfTan = Math.tan((fovDeg * Math.PI) / 360) * Math.min(1, aspect);
+  return radiusMm / (fill * halfTan);
 }
 
 /** Dirección cámara→objetivo derivada de los presets yaw/pitch (convención de projection.ts). */
@@ -236,7 +254,7 @@ function describeEye(sim: ReferenceCase, side: Side): SceneDescriptor {
       baseCenter: fromEyeLocal(eye, [0, 0, 2]),
       baseRadiusMm: 17,
       color: '#5a636d',
-      opacity: 0.25,
+      opacity: 0.12,
     },
   ];
   return {
@@ -478,7 +496,11 @@ export class Navigator3D {
     const preset = navigatorCameraPreset(station, side);
     const frame = navigatorFrame(this.sim, station, side, 320);
     const dir = cameraViewDir(preset.yawDeg, preset.pitchDeg);
-    const dist = frame.radiusMm * 2.2;
+    // Ojo: la esfera de 28 mm (globo + ~30 mm de nervio) ocupa ~80 % del canvas.
+    const dist =
+      station === 'ojo'
+        ? cameraDistanceForRadius(frame.radiusMm, this.camera.fov, this.camera.aspect, 0.8)
+        : frame.radiusMm * 2.2;
     this.camera.position.copy(v3(add(frame.target, scale(dir, dist))));
     this.controls.target.copy(v3(frame.target));
     this.controls.update();
@@ -552,6 +574,16 @@ export class Navigator3D {
 
   private updateProbe(pose: ProbePose): void {
     updateProbePose(this.probeGroup, pose, this.station === 'ojo');
+    // Ojo: la huella lineal de 50 mm dobla el diámetro del globo; se atenúa y
+    // se oculta el muñón para que no dominen el encuadre. Temporal conserva 0.6.
+    const eye = this.station === 'ojo';
+    for (const name of ['foot', 'body']) {
+      const mesh = this.probeGroup.children.find((o) => o.name === name) as THREE.Mesh | undefined;
+      if (!mesh) continue;
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (mat.transparent) mat.opacity = eye ? 0.3 : 0.6;
+      if (name === 'body') mesh.visible = !eye;
+    }
   }
 
   private updatePlane(
@@ -572,21 +604,26 @@ export class Navigator3D {
     const depth = s.settings.depthMm;
     const first = scan.lines[0]!;
     const last = scan.lines[scan.lines.length - 1]!;
-    const planeMat = new THREE.MeshStandardMaterial({
-      color: '#5aa0ff',
-      transparent: true,
-      opacity: 0.22,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
+    // Ojo: sólo contorno del plano (el relleno tapaba globo y nervio).
+    const fillPlane = this.station !== 'ojo';
+    const planeMat = (): THREE.MeshStandardMaterial =>
+      new THREE.MeshStandardMaterial({
+        color: '#5aa0ff',
+        transparent: true,
+        opacity: 0.22,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
     const outline: THREE.Vector3[] = [];
     if (scan.kind === 'linear') {
       const endA = add(first.origin, scale(first.dir, depth));
       const endB = add(last.origin, scale(last.dir, depth));
-      const geo = new THREE.BufferGeometry().setFromPoints([first.origin, last.origin, endB, endA].map(v3));
-      geo.setIndex([0, 1, 2, 0, 2, 3]);
-      geo.computeVertexNormals();
-      this.planeGroup.add(new THREE.Mesh(geo, planeMat));
+      if (fillPlane) {
+        const geo = new THREE.BufferGeometry().setFromPoints([first.origin, last.origin, endB, endA].map(v3));
+        geo.setIndex([0, 1, 2, 0, 2, 3]);
+        geo.computeVertexNormals();
+        this.planeGroup.add(new THREE.Mesh(geo, planeMat()));
+      }
       outline.push(v3(first.origin), v3(last.origin), v3(endB), v3(endA), v3(first.origin));
     } else {
       // Abanico: ápice + arco a depthMm muestreando las direcciones de línea.
@@ -596,11 +633,13 @@ export class Navigator3D {
         const line = scan.lines[Math.round((i / n) * (scan.lines.length - 1))]!;
         arc.push(v3(add(line.origin, scale(line.dir, depth))));
       }
-      const verts: THREE.Vector3[] = [];
-      for (let i = 0; i < n; i++) verts.push(v3(scan.apex), arc[i]!, arc[i + 1]!);
-      const geo = new THREE.BufferGeometry().setFromPoints(verts);
-      geo.computeVertexNormals();
-      this.planeGroup.add(new THREE.Mesh(geo, planeMat));
+      if (fillPlane) {
+        const verts: THREE.Vector3[] = [];
+        for (let i = 0; i < n; i++) verts.push(v3(scan.apex), arc[i]!, arc[i + 1]!);
+        const geo = new THREE.BufferGeometry().setFromPoints(verts);
+        geo.computeVertexNormals();
+        this.planeGroup.add(new THREE.Mesh(geo, planeMat()));
+      }
       outline.push(v3(scan.apex), arc[0]!);
       for (const a of arc) outline.push(a.clone());
       outline.push(v3(scan.apex), arc[arc.length - 1]!);

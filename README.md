@@ -61,6 +61,11 @@ exacta; una señal ausente no acredita cese circulatorio.
   ventrículo +6 mm hacia la izquierda) e hidrocefalia (III ventrículo 12 mm,
   cuernos ×1,6), con etiquetas docentes anatómicas sobre el B-mode temporal
   y reglas de debrief que validan las medidas.
+- Interfaz por examen (DEC-53): dos pestañas —vaina del nervio óptico y
+  Doppler transcraneal— con lado D/I, herramientas filtradas por examen,
+  disposición dúplex B-mode/espectro con separador arrastrable cuando PW está
+  activo, profundidad transtemporal hasta 160 mm (DEC-52) y sistema visual de
+  tarjetas con botones por rol.
 - Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:
   bloques posteriores (ver `docs/LIMITATIONS.md`).
 
