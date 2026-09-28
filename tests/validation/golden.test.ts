@@ -60,7 +60,7 @@ function colorHash(): string {
   const sim = buildReferenceCase();
   const settings = defaultTemporalSettings();
   const pose = temporalPose(sim, 'der');
-  const [vel, pow] = renderColorDoppler(
+  const { vel, pow } = renderColorDoppler(
     sim.head,
     sim.flow,
     buildScan(pose, 'sector', 64),
@@ -68,8 +68,7 @@ function colorHash(): string {
     settings,
     sim.patient.seed,
     0.2,
-    64,
-    64,
+    settings.colorBox,
   );
   return hashColor(vel, pow);
 }

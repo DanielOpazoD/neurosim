@@ -5,8 +5,10 @@
 import type { BModeFrame } from '../ultrasound/bmode';
 import type { SpectralColumn } from '../doppler/spectral';
 import type { ScanGeometry } from '../ultrasound/probe';
-import { scanConvert } from './scanConvert';
+import type { ColorBox } from '../domain/contracts';
+import { pixelToImage, scanConvert } from './scanConvert';
 import { nyquistVelocityCms } from '../core/units';
+import { smoothstep } from '../core/vec3';
 import {
   rasterizeSpectrogram,
   spectralVelocityTicks,
@@ -40,79 +42,89 @@ export function drawBMode(
       };
 }
 
-/** Superpone el mapa Doppler color (rojo hacia la sonda, azul alejándose). */
+export interface ColorOverlayGrid {
+  readonly vel: Float32Array;
+  readonly pow: Float32Array;
+  readonly rows: number;
+  readonly cols: number;
+  readonly box: ColorBox;
+}
+
+/**
+ * Superpone el mapa Doppler color solo dentro de la caja: recorre los píxeles
+ * de salida, muestrea la malla vel/pow por bilineal y respeta al B-mode
+ * brillante (tejido sobre color).
+ */
 export function drawColorOverlay(
   ctx: CanvasRenderingContext2D,
-  vel: Float32Array,
-  pow: Float32Array,
-  rows: number,
-  cols: number,
+  color: ColorOverlayGrid,
   scan: ScanGeometry,
   depthMm: number,
   prfHz: number,
   f0Mhz: number,
 ): void {
+  const { vel, pow, rows, cols, box } = color;
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
   const nyq = nyquistVelocityCms(prfHz, f0Mhz * 1e6, 0);
   const img = ctx.getImageData(0, 0, W, H);
   const px = img.data;
-  const mapPx = (x: number, y: number): number => (y * W + x) * 4;
-  const paint = (x: number, y: number, r: number, g: number, b: number, a: number) => {
-    const k = mapPx(x, y);
-    px[k] = Math.round(px[k]! * (1 - a) + r * a);
-    px[k + 1] = Math.round(px[k + 1]! * (1 - a) + g * a);
-    px[k + 2] = Math.round(px[k + 2]! * (1 - a) + b * a);
-  };
-  const half = scan.widthMmOrRad / 2;
-  if (scan.kind === 'linear') {
-    for (let zi = 0; zi < rows; zi++) {
-      for (let ci = 0; ci < cols; ci++) {
-        const v = vel[zi * cols + ci]!;
-        const pw = pow[zi * cols + ci]!;
-        if (!Number.isFinite(v) || pw < 0.008) continue;
-        const bw = Math.ceil(W / cols) + 1;
-        const bh = Math.ceil(H / rows) + 1;
-        const x0 = Math.floor((ci / cols) * W);
-        const y0 = Math.floor((zi / rows) * H);
-        const [r, g, b] = colorFor(v, nyq);
-        const a = Math.min(0.9, pw * 5);
-        for (let dy = 0; dy < bh; dy++) for (let dx = 0; dx < bw; dx++) paint(x0 + dx, y0 + dy, r, g, b, a);
+  const zSpan = Math.max(1e-9, box.zMaxMm - box.zMinMm);
+  const uSpan = Math.max(1e-9, box.uHalf * 2);
+  const nz = rows - 1;
+  const nu = cols - 1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const p = pixelToImage(scan, depthMm, W, H, x, y);
+      if (!p) continue;
+      const fzi = ((p.z - box.zMinMm) / zSpan) * rows - 0.5;
+      const fci = ((p.u - box.uCenter) / uSpan + 0.5) * cols - 0.5;
+      if (fzi < 0 || fzi > nz || fci < 0 || fci > nu) continue;
+      const zi0 = Math.min(nz - 1, Math.floor(fzi));
+      const ci0 = Math.min(nu - 1, Math.floor(fci));
+      const fz = fzi - zi0;
+      const fc = fci - ci0;
+      // Bilineal; la velocidad se pondera por potencia y un nodo NaN cuenta
+      // como potencia 0 para no contaminar a los vecinos.
+      let pInterp = 0;
+      let vNum = 0;
+      let vDen = 0;
+      for (let dz = 0; dz <= 1; dz++) {
+        for (let dc = 0; dc <= 1; dc++) {
+          const w = (dz ? fz : 1 - fz) * (dc ? fc : 1 - fc);
+          const idx = (zi0 + dz) * cols + ci0 + dc;
+          const pw = Number.isFinite(vel[idx]!) ? pow[idx]! : 0;
+          pInterp += w * pw;
+          vNum += w * pw * (pw > 0 ? vel[idx]! : 0);
+          vDen += w * pw;
+        }
       }
-    }
-  } else {
-    const cx = W / 2;
-    const scale = Math.min(H * 1.15, Math.hypot(W / 2, H)) / depthMm;
-    for (let zi = 0; zi < rows; zi++) {
-      const zMm = ((zi + 0.5) / rows) * depthMm;
-      for (let ci = 0; ci < cols; ci++) {
-        const v = vel[zi * cols + ci]!;
-        const pw = pow[zi * cols + ci]!;
-        if (!Number.isFinite(v) || pw < 0.008) continue;
-        const u = ((ci + 0.5) / cols - 0.5) * scan.widthMmOrRad;
-        if (Math.abs(u) > half) continue;
-        // la celda cubre el pequeño sector angular correspondiente
-        const rad = Math.max(2, Math.ceil(((scale * depthMm) / rows) * 0.5));
-        const x = Math.round(cx + Math.sin(u) * zMm * scale);
-        const y = Math.round(Math.cos(u) * zMm * scale);
-        const [r, g, b] = colorFor(v, nyq);
-        for (let dy = -rad; dy <= rad; dy++)
-          for (let dx = -rad; dx <= rad; dx++) {
-            const xx = x + dx;
-            const yy = y + dy;
-            if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-            paint(xx, yy, r, g, b, Math.min(0.9, pw * 5));
-          }
-      }
+      if (pInterp < 0.02 || vDen <= 0) continue;
+      const k = (y * W + x) * 4;
+      if (px[k]! > 170) continue;
+      const v = vNum / vDen;
+      const [r, g, b] = colorDopplerRgb(v, nyq);
+      const a = smoothstep(0.02, 0.15, pInterp) * 0.95;
+      px[k] = Math.round(px[k]! * (1 - a) + r * a);
+      px[k + 1] = Math.round(px[k + 1]! * (1 - a) + g * a);
+      px[k + 2] = Math.round(px[k + 2]! * (1 - a) + b * a);
     }
   }
   ctx.putImageData(img, 0, 0);
 }
 
-function colorFor(vCms: number, nyqCms: number): [number, number, number] {
-  const x = Math.min(1, Math.abs(vCms) / nyqCms);
-  const t = 60 + Math.round(195 * x);
-  return vCms >= 0 ? [t, Math.round(40 * x), 0] : [0, Math.round(60 * x), t];
+/**
+ * Paleta Doppler pura: +v (hacia la sonda) rojo→naranja→amarillo,
+ * −v azul→celeste→cian; por debajo de 0.15·Nyquist queda en versión tenue.
+ */
+export function colorDopplerRgb(vCms: number, nyqCms: number): [number, number, number] {
+  const x = Math.min(1, Math.abs(vCms) / Math.max(1e-9, nyqCms));
+  const dim = x < 0.15 ? 0.45 : 1;
+  const t = Math.min(1, Math.max(0, (x - 0.15) / 0.85));
+  if (vCms >= 0) {
+    return [Math.round(255 * dim), Math.round((40 + 160 * t) * dim), Math.round(60 * t * dim)];
+  }
+  return [Math.round(60 * t * dim), Math.round((60 + 160 * t) * dim), Math.round(255 * dim)];
 }
 
 /** Espectrograma con scroll: potencia dB → grises; línea base y escala. */

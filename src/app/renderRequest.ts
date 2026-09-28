@@ -13,7 +13,7 @@ import type {
   WillisVariant,
 } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
-import { renderColorDoppler } from '../doppler/color';
+import { renderColorDoppler, type ColorGrid } from '../doppler/color';
 import { buildReferenceCase } from '../domain/referenceCase';
 import { renderBMode, type BModeFrame } from '../ultrasound/bmode';
 import { buildScan, linesFor, type ScanGeometry } from '../ultrasound/probe';
@@ -43,13 +43,7 @@ export interface RenderResponse {
   readonly frame: AcquiredFrame;
   readonly bmode: BModeFrame;
   readonly scan: ScanGeometry;
-  readonly color?: {
-    readonly vel: Float32Array;
-    readonly pow: Float32Array;
-    readonly variance: Float32Array;
-    readonly w: 64;
-    readonly h: 64;
-  };
+  readonly color?: ColorGrid;
 }
 
 const cases = new Map<string, ReferenceCase>();
@@ -100,22 +94,18 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
   };
   const color =
     req.color && req.station === 'temporal'
-      ? (() => {
-          const [vel, pow, variance] = renderColorDoppler(
-            sim.head,
-            sim.flow,
-            scan,
-            pose,
-            req.settings,
-            sim.patient.seed,
-            req.cardiacPhase,
-            64,
-            64,
-            req.flowModulation,
-            sim.physStateAt(req.t).hemo,
-          );
-          return { vel, pow, variance, w: 64 as const, h: 64 as const };
-        })()
+      ? renderColorDoppler(
+          sim.head,
+          sim.flow,
+          scan,
+          pose,
+          req.settings,
+          sim.patient.seed,
+          req.cardiacPhase,
+          req.settings.colorBox,
+          req.flowModulation,
+          sim.physStateAt(req.t).hemo,
+        )
       : undefined;
   return { id: req.id, frame, bmode, scan, color };
 }

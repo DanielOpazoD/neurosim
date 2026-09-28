@@ -22,6 +22,54 @@ import { DOPPLER } from '../doppler/params';
 
 export { canvasToImagePoint, imagePointToCanvas };
 
+/** Contorno de la caja de Doppler color (sector: arcos+radiales; lineal: rectángulo). */
+export function drawColorBox(
+  ctx: CanvasRenderingContext2D,
+  s: AppState,
+  box: { uCenter: number; uHalf: number; zMinMm: number; zMaxMm: number },
+): void {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  const uMin = box.uCenter - box.uHalf;
+  const uMax = box.uCenter + box.uHalf;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (s.settings.transducer === 'linear') {
+    const x0 = (uMin / LINEAR_APERTURE_MM + 0.5) * W;
+    const x1 = (uMax / LINEAR_APERTURE_MM + 0.5) * W;
+    const y0 = (box.zMinMm / s.settings.depthMm) * H;
+    const y1 = (box.zMaxMm / s.settings.depthMm) * H;
+    ctx.rect(x0, y0, x1 - x0, y1 - y0);
+  } else {
+    const cx = W / 2;
+    const scalePx = Math.min(H * 1.15, Math.hypot(W / 2, H)) / s.settings.depthMm;
+    const px = (u: number, z: number): [number, number] => [
+      cx + Math.sin(u) * z * scalePx,
+      Math.cos(u) * z * scalePx,
+    ];
+    const steps = 48;
+    for (let i = 0; i <= steps; i++) {
+      const u = uMin + (i / steps) * (uMax - uMin);
+      const [x, y] = px(u, box.zMinMm);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    {
+      const [x1, y1] = px(uMax, box.zMaxMm);
+      ctx.lineTo(x1, y1);
+    }
+    for (let i = steps; i >= 0; i--) {
+      const u = uMin + (i / steps) * (uMax - uMin);
+      const [x, y] = px(u, box.zMaxMm);
+      ctx.lineTo(x, y);
+    }
+    const [x0, y0] = px(uMin, box.zMinMm);
+    ctx.lineTo(x0, y0);
+  }
+  ctx.stroke();
+}
+
 export function drawGateMarker(
   ctx: CanvasRenderingContext2D,
   sim: ReferenceCase,

@@ -1,4 +1,5 @@
 import type { BModeFrame } from '../ultrasound/bmode';
+import type { ScanGeometry } from '../ultrasound/probe';
 
 export interface ScanConvertOptions {
   readonly dynamicRangeDb: number;
@@ -25,6 +26,35 @@ function bilinearDb(
   const c = db[y1 * sourceWidth + x0]!;
   const d = db[y1 * sourceWidth + x1]!;
   return a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty;
+}
+
+/**
+ * Píxel de salida → coordenadas de imagen (z mm, u mm/rad).
+ * `null` fuera del sector o la profundidad; lineal siempre devuelve el punto.
+ */
+export function pixelToImage(
+  scan: ScanGeometry,
+  depthMm: number,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+): { z: number; u: number } | null {
+  if (scan.kind === 'linear') {
+    return {
+      u: ((x + 0.5) / width - 0.5) * scan.widthMmOrRad,
+      z: ((y + 0.5) / height) * depthMm,
+    };
+  }
+  const cx = width / 2;
+  const scalePx = Math.min(height * 1.15, Math.hypot(width / 2, height)) / depthMm;
+  const dx = x - cx;
+  const dy = y;
+  const r = Math.hypot(dx, dy) / scalePx;
+  const a = Math.atan2(dx, dy);
+  const half = scan.widthMmOrRad / 2;
+  if (a < -half || a > half || r < 0 || r >= depthMm) return null;
+  return { z: r, u: a };
 }
 
 export function scanConvert(
@@ -54,19 +84,12 @@ export function scanConvert(
   }
 
   const half = scan.widthMmOrRad / 2;
-  const cx = width / 2;
-  const cy = 0;
-  const rMax = Math.min(height * 1.15, Math.hypot(width / 2, height));
-  const scale = rMax / depthMm;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const dx = x - cx;
-      const dy = y - cy;
-      const r = Math.hypot(dx, dy) / scale;
-      const a = Math.atan2(dx, dy);
-      if (a < -half || a > half || r >= depthMm || r < 0) continue;
-      const fzi = (r / depthMm) * sourceHeight - 0.5;
-      const fli = ((a + half) / (2 * half)) * sourceWidth - 0.5;
+      const p = pixelToImage(scan, depthMm, width, height, x, y);
+      if (!p) continue;
+      const fzi = (p.z / depthMm) * sourceHeight - 0.5;
+      const fli = ((p.u + half) / (2 * half)) * sourceWidth - 0.5;
       const g = gray(bilinearDb(db, sourceWidth, sourceHeight, fli, fzi), opts.dynamicRangeDb);
       const k = (y * width + x) * 4;
       px[k] = px[k + 1] = px[k + 2] = g;

@@ -26,6 +26,8 @@ export function defaultEyeSettings(): AcquisitionSettings {
     spectralGainDb: 0,
     outputPowerDb: FISICA_US.params.defaultEyeOutputPowerDb.value,
     invertColor: false,
+    // El color solo corre en temporal; forma válida por si se activa.
+    colorBox: { uCenter: 0, uHalf: 15, zMinMm: 5, zMaxMm: 40 },
   };
 }
 
@@ -49,5 +51,7 @@ export function defaultTemporalSettings(): AcquisitionSettings {
     spectralGainDb: 0,
     outputPowerDb: FISICA_US.params.defaultTemporalOutputPowerDb.value,
     invertColor: false,
+    // Caja por defecto centrada sobre el espacio basal/M1.
+    colorBox: { uCenter: 0, uHalf: (25 * Math.PI) / 180, zMinMm: 30, zMaxMm: 80 },
   };
 }

@@ -59,6 +59,14 @@ export interface ProbePose {
   readonly contactPressure: number;
 }
 
+/** Caja del Doppler color en coordenadas de imagen (u lateral mm/rad, z mm). */
+export interface ColorBox {
+  readonly uCenter: number;
+  readonly uHalf: number;
+  readonly zMinMm: number;
+  readonly zMaxMm: number;
+}
+
 /** Ajustes del equipo con efecto observable definido. Unidades explícitas. */
 export interface AcquisitionSettings {
   readonly transducer: TransducerKind;
@@ -96,6 +104,8 @@ export interface AcquisitionSettings {
   readonly outputPowerDb: number;
   /** Inversión de la paleta de color. */
   readonly invertColor: boolean;
+  /** Caja del Doppler color (u en mm lineal / rad sectorial). */
+  readonly colorBox: ColorBox;
 }
 
 /** Geometría de imagen de un cuadro (basta para reconstruir la escala). */

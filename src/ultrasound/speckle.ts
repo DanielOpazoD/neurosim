@@ -23,9 +23,8 @@ function hashLattice(seed: string, ix: number, iy: number, iz: number): number {
 }
 
 /** Gaussiano unitario determinista por nodo (Box–Muller con dos hashes). */
-function gaussLattice(seed: string, salt: string, ix: number, iy: number, iz: number): number {
+function gaussLattice(nodeSeed: number, ix: number, iy: number, iz: number): number {
   const h = nodeIndex(ix, iy, iz);
-  const nodeSeed = hashString(seed + salt);
   const u1 = Math.max(1e-12, hash3(h, 0, 0, nodeSeed));
   const u2 = hash3(h, 1, 0, nodeSeed);
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
@@ -72,6 +71,7 @@ function latticeGaussField(seed: string, salt: string, p: Vec3): number {
   const tx = fx - x0;
   const ty = fy - y0;
   const tz = fz - z0;
+  const nodeSeed = hashString(seed + salt);
   let acc = 0;
   let w2 = 0;
   for (let dz = 0; dz <= 1; dz++) {
@@ -79,7 +79,7 @@ function latticeGaussField(seed: string, salt: string, p: Vec3): number {
       for (let dx = 0; dx <= 1; dx++) {
         const w = (dx ? tx : 1 - tx) * (dy ? ty : 1 - ty) * (dz ? tz : 1 - tz);
         w2 += w * w;
-        acc += w * gaussLattice(seed, salt, x0 + dx, y0 + dy, z0 + dz);
+        acc += w * gaussLattice(nodeSeed, x0 + dx, y0 + dy, z0 + dz);
       }
     }
   }

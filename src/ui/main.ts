@@ -27,7 +27,14 @@ import {
   type RenderClientLike,
 } from '../app/renderClient';
 import type { RenderResponse } from '../app/renderRequest';
-import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
+import {
+  drawCaliperMarks,
+  drawColorBox,
+  drawGateMarker,
+  drawScale,
+  drawSpectral,
+  updateReadouts,
+} from './overlays';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 import { buildDebrief } from '../app/debrief';
@@ -86,6 +93,7 @@ let lastT = performance.now();
 let renderInFlight = false;
 let renderId = 0;
 let currentScan: RenderResponse['scan'] | null = null;
+let colorPersist: { vel: Float32Array; pow: Float32Array; key: string } | null = null;
 let alaraLogged = false;
 
 function drawGpuBMode(
@@ -207,6 +215,7 @@ function setStation(station: Station, side: Side): void {
   s.cineIdx = 0;
   s.frozen = false;
   currentScan = null;
+  colorPersist = null;
   $('freeze').textContent = 'Congelar Esp';
   $('hint').textContent =
     station === 'ojo'
@@ -218,6 +227,7 @@ function setStation(station: Station, side: Side): void {
 
 function toggleFreeze(): void {
   s.frozen = !s.frozen;
+  if (!s.frozen) colorPersist = null;
   $('freeze').textContent = s.frozen ? 'Reanudar' : 'Congelar';
   $('freeze').classList.toggle('on', s.frozen);
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
@@ -240,17 +250,38 @@ function drawFrame(response: RenderResponse): void {
     drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
   }
   if (frame.station === 'temporal' && color) {
+    const key = JSON.stringify([
+      color.rows,
+      color.cols,
+      color.box,
+      frame.side,
+      frame.settings.depthMm,
+      frame.settings.prfHz,
+    ]);
+    let persist = colorPersist;
+    if (!persist || persist.key !== key || persist.vel.length !== color.vel.length) {
+      persist = { vel: Float32Array.from(color.vel), pow: Float32Array.from(color.pow), key };
+    } else {
+      for (let i = 0; i < color.vel.length; i += 1) {
+        const pwNew = color.pow[i]!;
+        persist.pow[i] = Math.max(pwNew, persist.pow[i]! * 0.65);
+        const vNew = color.vel[i]!;
+        if (pwNew > 0.02 && Number.isFinite(vNew)) {
+          const prev = persist.vel[i]!;
+          persist.vel[i] = 0.55 * vNew + 0.45 * (Number.isFinite(prev) ? prev : vNew);
+        }
+      }
+    }
+    colorPersist = persist;
     drawColorOverlay(
       bCtx,
-      color.vel,
-      color.pow,
-      color.w,
-      color.h,
+      { vel: persist.vel, pow: persist.pow, rows: color.rows, cols: color.cols, box: color.box },
       scan,
       frame.settings.depthMm,
       frame.settings.prfHz,
       frame.settings.frequencyMhz,
     );
+    drawColorBox(bCtx, s, frame.settings.colorBox);
     if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
   }
   drawCaliperMarks(bCtx, s);
@@ -604,7 +635,72 @@ $('onsdProtocol').addEventListener('click', () => {
     started: s.onsdActive,
   });
 });
+let boxDrag: { du: number; dz: number; x0: number; y0: number; moved: boolean } | null = null;
+let suppressClick = false;
+bmodeCv.addEventListener('pointerdown', (e) => {
+  if (s.station !== 'temporal' || e.button !== 0) return;
+  const r = bmodeCv.getBoundingClientRect();
+  const point = canvasToImagePoint(
+    ((e.clientX - r.left) / r.width) * bmodeCv.width,
+    ((e.clientY - r.top) / r.height) * bmodeCv.height,
+    s,
+    bmodeCv.width,
+    bmodeCv.height,
+  );
+  const box = s.settings.colorBox;
+  if (Math.abs(point.u - box.uCenter) > box.uHalf || point.z < box.zMinMm || point.z > box.zMaxMm) {
+    return;
+  }
+  boxDrag = {
+    du: point.u - box.uCenter,
+    dz: point.z - (box.zMinMm + box.zMaxMm) / 2,
+    x0: e.clientX,
+    y0: e.clientY,
+    moved: false,
+  };
+  bmodeCv.setPointerCapture(e.pointerId);
+});
+bmodeCv.addEventListener('pointermove', (e) => {
+  if (!boxDrag) return;
+  if (Math.hypot(e.clientX - boxDrag.x0, e.clientY - boxDrag.y0) >= 4) boxDrag.moved = true;
+  if (!boxDrag.moved) return;
+  const r = bmodeCv.getBoundingClientRect();
+  const point = canvasToImagePoint(
+    ((e.clientX - r.left) / r.width) * bmodeCv.width,
+    ((e.clientY - r.top) / r.height) * bmodeCv.height,
+    s,
+    bmodeCv.width,
+    bmodeCv.height,
+  );
+  const box = s.settings.colorBox;
+  const halfU = (currentScan?.widthMmOrRad ?? box.uHalf * 2) / 2;
+  const uCenter = Math.max(-halfU + box.uHalf, Math.min(halfU - box.uHalf, point.u - boxDrag.du));
+  const halfZ = (box.zMaxMm - box.zMinMm) / 2;
+  const zCenter = Math.max(2 + halfZ, Math.min(s.settings.depthMm - halfZ, point.z - boxDrag.dz));
+  s.settings = {
+    ...s.settings,
+    colorBox: { uCenter, uHalf: box.uHalf, zMinMm: zCenter - halfZ, zMaxMm: zCenter + halfZ },
+  };
+});
+bmodeCv.addEventListener('pointerup', (e) => {
+  if (!boxDrag) return;
+  if (boxDrag.moved) {
+    suppressClick = true;
+    s.debrief.setTime(clock.t);
+    s.debrief.record(
+      'settings',
+      `cajaColor=${s.settings.colorBox.uCenter.toFixed(3)},${s.settings.colorBox.zMinMm.toFixed(1)}-${s.settings.colorBox.zMaxMm.toFixed(1)}`,
+      {},
+    );
+  }
+  boxDrag = null;
+  if (bmodeCv.hasPointerCapture(e.pointerId)) bmodeCv.releasePointerCapture(e.pointerId);
+});
 bmodeCv.addEventListener('click', (e) => {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
   const r = bmodeCv.getBoundingClientRect();
   const point = canvasToImagePoint(
     ((e.clientX - r.left) / r.width) * bmodeCv.width,
