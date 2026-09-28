@@ -5,19 +5,20 @@ precision highp sampler2D;
 uniform sampler2D uIq;
 uniform sampler2D uAxial;
 uniform sampler2D uLateral;
+uniform sampler2D uRowGain;
 uniform int uAxialRadius;
 uniform int uLateralRadius;
 uniform int uKernelWidth;
 uniform vec2 uSize;
 
-out float outValue;
+out vec2 outValue;
 
-float axialValue(ivec2 p) {
-  float value = 0.0;
+vec2 axialValue(ivec2 p) {
+  vec2 value = vec2(0.0);
   for (int t = -64; t <= 64; ++t) {
     if (t < -uAxialRadius || t > uAxialRadius) continue;
     int z = clamp(p.y + t, 0, int(uSize.y) - 1);
-    value += texelFetch(uIq, ivec2(p.x, z), 0).r *
+    value += texelFetch(uIq, ivec2(p.x, z), 0).rg *
       texelFetch(uAxial, ivec2(t + uAxialRadius, 0), 0).r;
   }
   return value;
@@ -25,12 +26,13 @@ float axialValue(ivec2 p) {
 
 void main() {
   ivec2 p = ivec2(floor(gl_FragCoord.xy - vec2(0.5)));
-  float lateral = 0.0;
+  vec2 lateral = vec2(0.0);
   for (int t = -64; t <= 64; ++t) {
     if (t < -uLateralRadius || t > uLateralRadius) continue;
     int x = clamp(p.x + t, 0, int(uSize.x) - 1);
     float weight = texelFetch(uLateral, ivec2(t + uLateralRadius, p.y), 0).r;
     lateral += axialValue(ivec2(x, p.y)) * weight;
   }
-  outValue = lateral;
+  // Normalización de energía: un campo blanco conserva su σ tras la PSF.
+  outValue = lateral * texelFetch(uRowGain, ivec2(0, p.y), 0).r;
 }

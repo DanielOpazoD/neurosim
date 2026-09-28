@@ -4,6 +4,29 @@ export interface ScanConvertOptions {
   readonly dynamicRangeDb: number;
 }
 
+/** Muestreo bilineal de la imagen dB en coordenadas fraccionarias (borde: clamp). */
+function bilinearDb(
+  db: Float32Array,
+  sourceWidth: number,
+  sourceHeight: number,
+  fli: number,
+  fzi: number,
+): number {
+  const x = Math.min(Math.max(fli, 0), sourceWidth - 1);
+  const y = Math.min(Math.max(fzi, 0), sourceHeight - 1);
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = Math.min(sourceWidth - 1, x0 + 1);
+  const y1 = Math.min(sourceHeight - 1, y0 + 1);
+  const tx = x - x0;
+  const ty = y - y0;
+  const a = db[y0 * sourceWidth + x0]!;
+  const b = db[y0 * sourceWidth + x1]!;
+  const c = db[y1 * sourceWidth + x0]!;
+  const d = db[y1 * sourceWidth + x1]!;
+  return a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty;
+}
+
 export function scanConvert(
   frame: BModeFrame,
   opts: ScanConvertOptions,
@@ -18,17 +41,13 @@ export function scanConvert(
   if (scan.kind === 'linear') {
     const sx = width / sourceWidth;
     const sy = height / sourceHeight;
-    for (let zi = 0; zi < sourceHeight; zi++) {
-      for (let li = 0; li < sourceWidth; li++) {
-        const g = gray(db[zi * sourceWidth + li]!, opts.dynamicRangeDb);
-        const x0 = Math.floor(li * sx);
-        const y0 = Math.floor(zi * sy);
-        for (let y = y0; y < Math.min(height, y0 + sy + 1); y++) {
-          for (let x = x0; x < Math.min(width, x0 + sx + 1); x++) {
-            const k = (y * width + x) * 4;
-            px[k] = px[k + 1] = px[k + 2] = g;
-          }
-        }
+    for (let y = 0; y < height; y++) {
+      const fzi = (y + 0.5) / sy - 0.5;
+      for (let x = 0; x < width; x++) {
+        const fli = (x + 0.5) / sx - 0.5;
+        const g = gray(bilinearDb(db, sourceWidth, sourceHeight, fli, fzi), opts.dynamicRangeDb);
+        const k = (y * width + x) * 4;
+        px[k] = px[k + 1] = px[k + 2] = g;
       }
     }
     return px;
@@ -46,9 +65,9 @@ export function scanConvert(
       const r = Math.hypot(dx, dy) / scale;
       const a = Math.atan2(dx, dy);
       if (a < -half || a > half || r >= depthMm || r < 0) continue;
-      const zi = Math.floor((r / depthMm) * sourceHeight);
-      const li = Math.floor(((a + half) / (2 * half)) * sourceWidth);
-      const g = gray(db[zi * sourceWidth + li]!, opts.dynamicRangeDb);
+      const fzi = (r / depthMm) * sourceHeight - 0.5;
+      const fli = ((a + half) / (2 * half)) * sourceWidth - 0.5;
+      const g = gray(bilinearDb(db, sourceWidth, sourceHeight, fli, fzi), opts.dynamicRangeDb);
       const k = (y * width + x) * 4;
       px[k] = px[k + 1] = px[k + 2] = g;
     }

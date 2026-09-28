@@ -33,8 +33,8 @@ export interface BModeFrame {
   readonly height: number;
   /** Envoltura en dB (0 = máximo de referencia). */
   readonly db: Float32Array;
-  /** Magnitud IQ antes de PSF, TGC y compresión logarítmica. */
-  readonly iqMagnitude: Float32Array;
+  /** IQ complejo intercalado (re, im) antes de PSF, TGC y compresión. */
+  readonly iq: Float32Array;
   readonly depthMm: number;
   readonly dzMm: number;
   readonly scan: ScanGeometry;
@@ -56,7 +56,7 @@ interface ThinStrongEntry {
 }
 
 const EPS = FISICA_US.params.interfaceEpsMm.value;
-const INTERFACE_ECHO_GAIN = 8;
+const INTERFACE_ECHO_GAIN = 4;
 
 /** LIM-05: aproxima la normal contando cambios de material por eje. */
 export function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Vec3 | null {
@@ -264,13 +264,10 @@ export function renderBMode(
     }
   }
 
-  const iqMagnitude = new Float32Array(width * height);
-  for (let idx = 0; idx < iqMagnitude.length; idx++) {
-    iqMagnitude[idx] = Math.hypot(iQ[2 * idx]!, iQ[2 * idx + 1]!);
-  }
-  const outBuf = applyPsfAndCompression(iqMagnitude, width, height, dz, scan, settings, beam);
+  // La PSF convoluciona el IQ complejo; la envoltura se detecta después.
+  const { db } = applyPsfAndCompression(iQ, width, height, dz, scan, settings, beam);
 
-  return { width, height, db: outBuf, iqMagnitude, depthMm: settings.depthMm, dzMm: dz, scan };
+  return { width, height, db, iq: iQ, depthMm: settings.depthMm, dzMm: dz, scan };
 }
 
 function isThinStrongMaterial(id: MaterialId): boolean {

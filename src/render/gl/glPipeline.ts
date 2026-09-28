@@ -36,6 +36,7 @@ export class GlBmodePipeline {
   private readonly axialTexture: WebGLTexture;
   private readonly lateralTexture: WebGLTexture;
   private readonly tgcTexture: WebGLTexture;
+  private readonly rowGainTexture: WebGLTexture;
   private readonly psfTexture: WebGLTexture;
   private readonly dbTexture: WebGLTexture;
   private sourceWidth = 0;
@@ -61,6 +62,7 @@ export class GlBmodePipeline {
     this.axialTexture = this.must(gl.createTexture());
     this.lateralTexture = this.must(gl.createTexture());
     this.tgcTexture = this.must(gl.createTexture());
+    this.rowGainTexture = this.must(gl.createTexture());
     this.psfTexture = this.must(gl.createTexture());
     this.dbTexture = this.must(gl.createTexture());
     gl.bindVertexArray(this.vao);
@@ -83,19 +85,27 @@ export class GlBmodePipeline {
     }
   }
 
-  render(iqMagnitude: Float32Array, width: number, height: number, params: GlBmodeParams): void {
+  render(iq: Float32Array, width: number, height: number, params: GlBmodeParams): void {
     const gl = this.gl;
     const kernels = psfKernelsTexture(width, height, params.dz, params.scan, params.beam);
     this.ensureSourceTextures(width, height, kernels.axial.w.length, kernels.lateralRadius);
-    this.uploadFloatTexture(this.iqTexture, width, height, iqMagnitude);
-    this.uploadFloatTexture(this.axialTexture, kernels.axial.w.length, 1, kernels.axial.w);
-    this.uploadFloatTexture(this.lateralTexture, kernels.lateralRadius * 2 + 1, height, kernels.lateral);
+    this.uploadFloatTexture(this.iqTexture, width, height, iq, gl.RG);
+    this.uploadFloatTexture(this.axialTexture, kernels.axial.w.length, 1, kernels.axial.w, gl.RED);
+    this.uploadFloatTexture(
+      this.lateralTexture,
+      kernels.lateralRadius * 2 + 1,
+      height,
+      kernels.lateral,
+      gl.RED,
+    );
     this.uploadFloatTexture(
       this.tgcTexture,
       params.settings.tgcDb.length,
       1,
       Float32Array.from(params.settings.tgcDb),
+      gl.RED,
     );
+    this.uploadFloatTexture(this.rowGainTexture, 1, height, kernels.rowGain, gl.RED);
 
     gl.bindVertexArray(this.vao);
     gl.useProgram(this.psfProgram);
@@ -104,6 +114,7 @@ export class GlBmodePipeline {
     bindTexture(gl, this.iqTexture, 0, this.psfProgram, 'uIq');
     bindTexture(gl, this.axialTexture, 1, this.psfProgram, 'uAxial');
     bindTexture(gl, this.lateralTexture, 2, this.psfProgram, 'uLateral');
+    bindTexture(gl, this.rowGainTexture, 3, this.psfProgram, 'uRowGain');
     uniform1i(gl, this.psfProgram, 'uAxialRadius', kernels.axial.r);
     uniform1i(gl, this.psfProgram, 'uLateralRadius', kernels.lateralRadius);
     uniform1i(gl, this.psfProgram, 'uKernelWidth', kernels.lateralRadius * 2 + 1);
@@ -154,12 +165,13 @@ export class GlBmodePipeline {
     this.sourceHeight = height;
     this.axialRadius = axialLength;
     this.lateralRadius = lateralRadius;
-    allocateFloatTexture(gl, this.iqTexture, width, height);
-    allocateFloatTexture(gl, this.axialTexture, axialLength, 1);
-    allocateFloatTexture(gl, this.lateralTexture, lateralRadius * 2 + 1, height);
-    allocateFloatTexture(gl, this.tgcTexture, 8, 1);
-    allocateFloatTexture(gl, this.psfTexture, width, height);
-    allocateFloatTexture(gl, this.dbTexture, width, height);
+    allocateFloatTexture(gl, this.iqTexture, width, height, 2);
+    allocateFloatTexture(gl, this.axialTexture, axialLength, 1, 1);
+    allocateFloatTexture(gl, this.lateralTexture, lateralRadius * 2 + 1, height, 1);
+    allocateFloatTexture(gl, this.tgcTexture, 8, 1, 1);
+    allocateFloatTexture(gl, this.rowGainTexture, 1, height, 1);
+    allocateFloatTexture(gl, this.psfTexture, width, height, 2);
+    allocateFloatTexture(gl, this.dbTexture, width, height, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.psfFramebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.psfTexture, 0);
     assertFramebuffer(gl);
@@ -169,10 +181,16 @@ export class GlBmodePipeline {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
-  private uploadFloatTexture(texture: WebGLTexture, width: number, height: number, data: Float32Array): void {
+  private uploadFloatTexture(
+    texture: WebGLTexture,
+    width: number,
+    height: number,
+    data: Float32Array,
+    format: number,
+  ): void {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RED, gl.FLOAT, data);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, format, gl.FLOAT, data);
   }
 
   private must<T>(value: T | null): T {
@@ -186,13 +204,16 @@ function allocateFloatTexture(
   texture: WebGLTexture,
   width: number,
   height: number,
+  channels: 1 | 2,
 ): void {
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, null);
+  const internal = channels === 2 ? gl.RG32F : gl.R32F;
+  const format = channels === 2 ? gl.RG : gl.RED;
+  gl.texImage2D(gl.TEXTURE_2D, 0, internal, width, height, 0, format, gl.FLOAT, null);
 }
 
 function bindTexture(

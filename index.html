@@ -108,6 +108,14 @@
         width: 100%;
         accent-color: var(--acc);
       }
+      .tgc {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .tgc input[type='range'] {
+        margin: 1px 0;
+      }
       canvas {
         display: block;
         width: 100%;
@@ -273,6 +281,19 @@
         <label class="ctl"
           ><span>Ganancia <b id="gainV"></b></span> <input id="gain" type="range" min="-20" max="30" step="1"
         /></label>
+        <label class="ctl"
+          ><span>TGC <b id="tgcV"></b></span>
+          <span class="tgc">
+            <input type="range" data-tgc="0" min="-15" max="15" step="1" value="0" />
+            <input type="range" data-tgc="1" min="-15" max="15" step="1" value="0" />
+            <input type="range" data-tgc="2" min="-15" max="15" step="1" value="0" />
+            <input type="range" data-tgc="3" min="-15" max="15" step="1" value="0" />
+            <input type="range" data-tgc="4" min="-15" max="15" step="1" value="0" />
+            <input type="range" data-tgc="5" min="-15" max="15" step="1" value="0" />
+            <input type="range" data-tgc="6" min="-15" max="15" step="1" value="0" />
+            <input type="range" data-tgc="7" min="-15" max="15" step="1" value="0" />
+          </span>
+        </label>
         <label class="ctl"
           ><span>Profundidad <b id="depthV"></b></span>
           <input id="depth" type="range" min="30" max="110" step="5"

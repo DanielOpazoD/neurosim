@@ -94,7 +94,7 @@ function drawGpuBMode(
   settings: AcquisitionSettings,
 ): void {
   if (!gpuPipeline) return;
-  gpuPipeline.render(bmode.iqMagnitude, bmode.width, bmode.height, {
+  gpuPipeline.render(bmode.iq, bmode.width, bmode.height, {
     dz: bmode.dzMm,
     scan,
     settings,
@@ -186,6 +186,10 @@ function setStation(station: Station, side: Side): void {
   for (const id of Object.keys(values)) {
     $<HTMLInputElement>(id).dispatchEvent(new Event('input'));
   }
+  tgcInputs.forEach((input) => {
+    input.value = String(s.settings.tgcDb[Number(input.dataset.tgc)] ?? 0);
+    input.dispatchEvent(new Event('input'));
+  });
   ($('densidad') as HTMLSelectElement).value = s.settings.lineDensity;
   document.querySelectorAll('.tab').forEach((el) => {
     const t = el as HTMLElement;
@@ -472,6 +476,21 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
 ($('paco2') as HTMLInputElement).value = String(initialPhysiology.paco2MmHg);
 ($('icp') as HTMLInputElement).value = String(initialPhysiology.icpMmHg);
 ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
+
+const tgcInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-tgc]'));
+tgcInputs.forEach((input) => {
+  const band = Number(input.dataset.tgc);
+  const update = () => {
+    const v = parseFloat(input.value);
+    const next = s.settings.tgcDb.slice();
+    next[band] = v;
+    s.settings = { ...s.settings, tgcDb: next };
+    $('tgcV').textContent = `${v} dB`;
+    s.debrief.setTime(clock.t);
+    s.debrief.record('settings', `tgc${band}=${v}`, { id: `tgc${band}`, value: v });
+  };
+  input.addEventListener('input', update);
+});
 
 ($('densidad') as HTMLSelectElement).addEventListener('change', (event) => {
   setLineDensity((event.target as HTMLSelectElement).value as LineDensity);

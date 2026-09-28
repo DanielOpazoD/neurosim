@@ -19,6 +19,6 @@ void main() {
   int i1 = min(7, i0 + 1);
   float f = fract(tgcIndex);
   float tgc = mix(texelFetch(uTgc, ivec2(i0, 0), 0).r, texelFetch(uTgc, ivec2(i1, 0), 0).r, f);
-  float value = texelFetch(uPsf, p, 0).r / uMaxRef;
+  float value = length(texelFetch(uPsf, p, 0).rg) / uMaxRef;
   outValue = 20.0 * log(value + 1e-6) / log(10.0) + uGainDb + tgc;
 }

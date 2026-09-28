@@ -10,32 +10,54 @@ export interface Kernel {
 
 const MAX_GPU_KERNEL_RADIUS = 64;
 
+/** Energía de un kernel (Σw²): cuánto reduce la σ de un campo blanco. */
+export function kernelEnergy(k: Kernel): number {
+  let e = 0;
+  for (let i = 0; i < k.w.length; i++) e += k.w[i]! * k.w[i]!;
+  return e;
+}
+
+/**
+ * Convoluciona la señal IQ compleja (re, im intercalado) con la PSF
+ * separable y después detecta la envoltura |re+i·im| — orden físico: el
+ * speckle es interferencia de dispersores subresolución, coherente antes de
+ * la detección. La ganancia por fila 1/√(ΣwA²·ΣwL²) normaliza la energía
+ * para que un campo gaussiano blanco conserve su σ (scatterAmp, maxRef y el
+ * SNR de ruido mantienen su calibración). Devuelve la envoltura antes de
+ * TGC/compresión y la imagen en dB.
+ */
 export function applyPsfAndCompression(
-  iqMagnitude: Float32Array,
+  iq: Float32Array,
   width: number,
   height: number,
   dz: number,
   scan: ScanGeometry,
   settings: AcquisitionSettings,
   beam: BeamSpec,
-): Float32Array {
+): { db: Float32Array; envelope: Float32Array } {
   const f0 = settings.frequencyMhz;
   const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / f0 / dz);
-  const out = new Float32Array(width * height);
-  const tmp = new Float32Array(width * height);
+  const out = new Float32Array(width * height * 2);
+  const tmp = new Float32Array(width * height * 2);
   const kernA = gaussKernel(sigmaAxial);
   for (let li = 0; li < width; li++) {
     for (let zi = 0; zi < height; zi++) {
-      let acc = 0;
+      let accRe = 0;
+      let accIm = 0;
       for (let t = -kernA.r; t <= kernA.r; t++) {
         const zz = Math.min(height - 1, Math.max(0, zi + t));
-        acc += iqMagnitude[zz * width + li]! * kernA.w[t + kernA.r]!;
+        const k = (zz * width + li) * 2;
+        const w = kernA.w[t + kernA.r]!;
+        accRe += iq[k]! * w;
+        accIm += iq[k + 1]! * w;
       }
-      tmp[zi * width + li] = acc;
+      tmp[(zi * width + li) * 2] = accRe;
+      tmp[(zi * width + li) * 2 + 1] = accIm;
     }
   }
 
   const sidelobeEpsilon = Math.pow(10, sidelobeLevelDb(beam) / 20);
+  const axialEnergy = kernelEnergy(kernA);
   for (let zi = 0; zi < height; zi++) {
     const zMm = zi * dz;
     const pitchMm =
@@ -46,16 +68,28 @@ export function applyPsfAndCompression(
       Math.max(0.6, sigmaFromFwhm(lateralFwhmMm(beam, zMm)) / pitchMm),
       sidelobeEpsilon,
     );
+    const rowGain = 1 / Math.sqrt(axialEnergy * kernelEnergy(kern));
     for (let li = 0; li < width; li++) {
-      let acc = 0;
+      let accRe = 0;
+      let accIm = 0;
       for (let t = -kern.r; t <= kern.r; t++) {
         const ll = Math.min(width - 1, Math.max(0, li + t));
-        acc += tmp[zi * width + ll]! * kern.w[t + kern.r]!;
+        const k = (zi * width + ll) * 2;
+        const w = kern.w[t + kern.r]!;
+        accRe += tmp[k]! * w;
+        accIm += tmp[k + 1]! * w;
       }
-      out[zi * width + li] = acc;
+      out[(zi * width + li) * 2] = accRe * rowGain;
+      out[(zi * width + li) * 2 + 1] = accIm * rowGain;
     }
   }
 
+  const envelope = new Float32Array(width * height);
+  for (let idx = 0; idx < envelope.length; idx++) {
+    envelope[idx] = Math.hypot(out[2 * idx]!, out[2 * idx + 1]!);
+  }
+
+  const db = new Float32Array(width * height);
   const maxRef = 4.0;
   const tgcAt = (zMm: number): number => {
     const n = settings.tgcDb.length;
@@ -67,11 +101,11 @@ export function applyPsfAndCompression(
   for (let zi = 0; zi < height; zi++) {
     const tgcDb = tgcAt(zi * dz);
     for (let li = 0; li < width; li++) {
-      const v = out[zi * width + li]! / maxRef;
-      out[zi * width + li] = 20 * Math.log10(v + 1e-6) + settings.gainDb + tgcDb;
+      const v = envelope[zi * width + li]! / maxRef;
+      db[zi * width + li] = 20 * Math.log10(v + 1e-6) + settings.gainDb + tgcDb;
     }
   }
-  return out;
+  return { db, envelope };
 }
 
 export function gaussKernel(sigma: number): Kernel {
@@ -114,9 +148,10 @@ export function psfKernelsTexture(
   dz: number,
   scan: ScanGeometry,
   beam: BeamSpec,
-): { axial: Kernel; lateral: Float32Array; lateralRadius: number } {
+): { axial: Kernel; lateral: Float32Array; lateralRadius: number; rowGain: Float32Array } {
   const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / beam.frequencyMhz / dz);
   const axial = gaussKernel(sigmaAxial);
+  const axialEnergy = kernelEnergy(axial);
   const sidelobeEpsilon = Math.pow(10, sidelobeLevelDb(beam) / 20);
   const kernels = Array.from({ length: height }, (_, zi) => {
     const zMm = zi * dz;
@@ -132,11 +167,13 @@ export function psfKernelsTexture(
   });
   const radius = Math.max(...kernels.map((kernel) => kernel.r));
   const lateral = new Float32Array(height * (2 * radius + 1));
+  const rowGain = new Float32Array(height);
   for (let zi = 0; zi < height; zi++) {
     const kernel = kernels[zi]!;
+    rowGain[zi] = 1 / Math.sqrt(axialEnergy * kernelEnergy(kernel));
     for (let i = -radius; i <= radius; i++) {
       lateral[zi * (2 * radius + 1) + i + radius] = Math.abs(i) <= kernel.r ? kernel.w[i + kernel.r]! : 0;
     }
   }
-  return { axial, lateral, lateralRadius: radius };
+  return { axial, lateral, lateralRadius: radius, rowGain };
 }

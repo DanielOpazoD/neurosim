@@ -163,11 +163,11 @@ describe('salida acústica ALARA', () => {
           const material = classifyEye(sim.eyes.der, samplePoint(scan, li, zMm));
           const index = zi * frame.width + li;
           if (material === 'paredGlobo' && zMm >= 25 && zMm < 26) {
-            sclera.push(frame.iqMagnitude[index]!);
+            sclera.push(Math.hypot(frame.iq[2 * index]!, frame.iq[2 * index + 1]!));
             scleraDb.push(frame.db[index]!);
           }
           if (material === 'vitrio' && zMm >= 14 && zMm < 22 && (li < 18 || li >= frame.width - 18)) {
-            vitreous.push(frame.iqMagnitude[index]!);
+            vitreous.push(Math.hypot(frame.iq[2 * index]!, frame.iq[2 * index + 1]!));
             vitreousDb.push(frame.db[index]!);
           }
         }
