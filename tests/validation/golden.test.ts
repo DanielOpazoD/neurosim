@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { classifyEye } from '../../src/anatomy/eye';
+import { eyeScene } from '../../src/app/renderRequest';
 import { classifyHead } from '../../src/anatomy/head';
 import { buildReferenceCase, REFERENCE_SEED } from '../../src/domain/referenceCase';
 import { defaultEyeSettings, defaultTemporalSettings } from '../../src/domain/settings';
@@ -20,7 +20,7 @@ function eyeHash(seed: number): string {
   const settings = defaultEyeSettings();
   const pose = eyePose(sim, 'der');
   const frame = renderBMode(
-    { classify: (p) => classifyEye(sim.eyes.der, p) },
+    eyeScene(sim.eyes.der, `seed-${sim.patient.seed}-der`),
     buildScan(pose, 'linear', 64),
     settings,
     `seed-${sim.patient.seed}-der`,

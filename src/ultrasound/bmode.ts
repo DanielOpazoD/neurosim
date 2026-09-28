@@ -42,6 +42,8 @@ export interface BModeFrame {
 
 interface SceneQuery {
   classify(p: Vec3): MaterialId;
+  /** Factor local sobre `scatterAmp` (p. ej. heterogeneidad septal de la grasa). */
+  scatterScale?(p: Vec3): number;
 }
 
 interface InterfaceEvent {
@@ -199,7 +201,8 @@ export function renderBMode(
 
       // Speckle intratejido (el hueso/aire apenas dispersan → eco dominante).
       if (opts.speckle !== false) {
-        const [sr, si] = scatterComplex(seed, p, m.scatterAmp);
+        const amp = m.scatterAmp * (scene.scatterScale ? scene.scatterScale(p) : 1);
+        const [sr, si] = scatterComplex(seed, p, amp);
         re += sr;
         im += si;
       }

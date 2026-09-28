@@ -31,10 +31,10 @@ function gaussLattice(nodeSeed: number, ix: number, iy: number, iz: number): num
 }
 
 /** Ruido trilineal suave en [-1, 1], determinista por `seed` y posición. */
-export function scatterNoise(seed: string, p: Vec3): number {
-  const fx = p[0] / PITCH_MM;
-  const fy = p[1] / PITCH_MM;
-  const fz = p[2] / PITCH_MM;
+export function scatterNoise(seed: string, p: Vec3, pitchMm = PITCH_MM): number {
+  const fx = p[0] / pitchMm;
+  const fy = p[1] / pitchMm;
+  const fz = p[2] / pitchMm;
   const x0 = Math.floor(fx);
   const y0 = Math.floor(fy);
   const z0 = Math.floor(fz);

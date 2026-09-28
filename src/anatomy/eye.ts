@@ -6,10 +6,13 @@
  * origen en el centro del globo, ez anterior (hacia el párpado),
  * ex temporal (alejándose de la línea media), ey superior.
  *
- * Escena N1: párpado/gel, córnea, cámara anterior, iris, cristalino, vítreo,
- * complejo retina-coroides-esclera, papila, nervio óptico con línea central
- * curva y secciones elípticas (nervio / espacio de LCR / dura separados),
- * grasa retrobulbar, músculos rectos y paredes orbitarias óseas.
+ * Escena N2: párpado/gel, córnea como esfera propia que sobresale del globo,
+ * cámara anterior anecoica, plano del iris con pupila, cuerpo ciliar en la
+ * raíz, cristalino biconvexo anecoico con cápsula ecogénica, vítreo anecoico,
+ * pared posterior trilaminar (retina/coroides/esclera con esclera brillante),
+ * papila con lámina cribosa, nervio óptico hipoecoico con vaina (nervio /
+ * LCR / dura) y vasos retinianos centrales, grasa retrobulbar hiperecoica
+ * con septos, cuatro rectos convergiendo al ápex y cono orbitario óseo.
  *
  * Dimensiones: adulto de referencia; el nervio NO es un cilindro perfecto —
  * excentricidad de la vaina ~0,5 según estudio 3D [silverman-3d-onsd-2026].
@@ -142,17 +145,25 @@ export function nerveSection(
       bestS = s;
     }
   }
-  // Refinado parabólico ±1 mm.
-  for (const s of [bestS - 1, bestS + 1]) {
-    if (s < 0) continue;
-    const c = nerveCenterline(g, s);
-    const d = dist(pLocal, c);
-    if (d < bestD) {
-      bestD = d;
-      bestS = s;
-    }
+  // Refinado ternario en [bestS−1, bestS+1]: quita la escalera de 1 mm.
+  let lo = Math.max(0, bestS - 1);
+  let hi = Math.min(40, bestS + 1);
+  for (let i = 0; i < 4; i += 1) {
+    const m1 = lo + (hi - lo) / 3;
+    const m2 = hi - (hi - lo) / 3;
+    if (dist(pLocal, nerveCenterline(g, m1)) < dist(pLocal, nerveCenterline(g, m2))) hi = m2;
+    else lo = m1;
   }
+  // Pulido parabólico sobre el bracket final (vértice limitado a [lo, hi]).
+  const fLo = dist(pLocal, nerveCenterline(g, lo));
+  const fHi = dist(pLocal, nerveCenterline(g, hi));
+  const mid = (lo + hi) / 2;
+  const fMid = dist(pLocal, nerveCenterline(g, mid));
+  const num = (mid - lo) ** 2 * (fMid - fHi) - (hi - mid) ** 2 * (fMid - fLo);
+  const den = (mid - lo) * (fMid - fHi) - (hi - mid) * (fMid - fLo);
+  bestS = Math.abs(den) < 1e-12 ? mid : Math.min(hi, Math.max(lo, mid - (0.5 * num) / den));
   const c = nerveCenterline(g, bestS);
+  bestD = dist(pLocal, c);
   const off = sub(pLocal, c);
   // El plano local del nervio: la sección elíptica rota suavemente con s
   // (las vainas no son circulares; eje mayor aproximadamente horizontal).
@@ -177,96 +188,160 @@ export function sheathRadiiAt(g: EyeGeometry, sMm: number): { minor: number; maj
 }
 
 /**
+ * Banda muscular recta inserción → ápex: sección elíptica 9 × 3,5 mm
+ * (tangente × radial), adelgazando al 60 % hacia el ápex.
+ */
+function rectusAt(g: EyeGeometry, p: Vec3): boolean {
+  const r = g.globeRadiusMm;
+  const apex: Vec3 = [-1.5, -0.5, -(r + 42)];
+  const insertions: Vec3[] = [
+    [0, 11.5, r - 7], // superior
+    [0, -11.5, r - 7], // inferior
+    [-11.5, 0, r - 7], // medial (nasal, −x local)
+    [11.5, 0, r - 7], // lateral (temporal, +x local)
+  ];
+  for (const ins of insertions) {
+    const axis = sub(apex, ins);
+    const axisLen2 = dot(axis, axis);
+    const t = dot(sub(p, ins), axis) / axisLen2;
+    if (t < 0 || t > 1) continue;
+    const q = add(ins, scale(axis, t));
+    const d = sub(p, q);
+    const len = Math.hypot(d[0], d[1], d[2]);
+    // Eje radial de la elipse = dirección desde la línea del nervio.
+    const sN = Math.min(40, Math.max(0, -q[2] - r));
+    const nc = nerveCenterline(g, sN);
+    const axisN = normalize(axis);
+    const rel = sub(p, nc);
+    const er = sub(rel, scale(axisN, dot(rel, axisN)));
+    const erLen = Math.hypot(er[0], er[1], er[2]);
+    if (erLen < 1e-6) continue;
+    const compR = dot(d, [er[0] / erLen, er[1] / erLen, er[2] / erLen]);
+    const compT = Math.sqrt(Math.max(0, len * len - compR * compR));
+    const thin = 1 - 0.4 * t;
+    if (Math.hypot(compT / (4.5 * thin), compR / (1.75 * thin)) <= 1) return true;
+  }
+  return false;
+}
+
+/**
  * Clasifica un punto del marco local del ojo en un material.
  * El orden importa: estructuras internas primero, tejido de fondo después.
  */
 export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
   const [x, y, z] = p;
   const r = g.globeRadiusMm;
+  const dg = Math.hypot(x, y, z);
+  const rxy = Math.hypot(x, y);
 
   // Fuera de toda región orbitaria → aire muy anterior o tejido facial.
-  // Anterior al globo: párpado+gel hasta z = r+4; más allá, aire.
   const anteriorSurface = r + EYE.eyelidAnteriorMm.value; // frente del párpado sobre el globo
   if (z > anteriorSurface + EYE.eyelidAirGapMm.value) return 'aire';
-  if (z > anteriorSurface) return 'gel';
 
-  // Párpado: capa de 1.2 mm sobre la córnea/polo anterior.
+  // Córnea: esfera propia de radio 7,8 mm que sobresale 2,6 mm del globo;
+  // la capa de 0,55 mm solo existe en el casquete fuera del globo (limbo).
+  const corneaR = 7.8;
+  const corneaCz = r - corneaR + 2.6;
+  const zLimb = (r * r + corneaCz * corneaCz - corneaR * corneaR) / (2 * corneaCz);
+  const dCornea = Math.hypot(x, y, z - corneaCz);
+  if (dCornea >= corneaR - EYE.corneaLayerMm.value && dCornea <= corneaR && z > zLimb - 0.05) {
+    return 'cornea';
+  }
+
+  // Párpado: capa sobre la cara anterior del globo.
   const dGlobe = Math.hypot(x, y, Math.min(z, r));
-  if (z > r - EYE.irisPlaneHalfMm.value && z <= anteriorSurface && dGlobe < r + EYE.eyelidLayerMm.value) {
+  if (z > r - 0.4 && z <= anteriorSurface && dGlobe < r + EYE.eyelidLayerMm.value) {
     // párpado solo cubre la abertura palpebral (|y| < 9)
     if (Math.abs(y) < EYE.eyelidHalfHeightMm.value) return 'piel';
     return 'aire';
   }
-  // Gel entre párpado y córnea.
-  if (z > r - EYE.irisPlaneHalfMm.value && dGlobe >= r + EYE.eyelidLayerMm.value) return 'aire';
+  if (z > r - 0.4 && dGlobe >= r + EYE.eyelidLayerMm.value) return 'aire';
 
-  // Cristalino: elipsoide biconvexo centrado en z = r − 3.4 (≈8.6 tras polo anterior).
-  const lensC = r - EYE.lensCenterOffsetMm.value;
-  const lensR = Math.hypot(x, y);
-  const lensSdf =
-    (lensR * lensR) / (g.lensRadialMm * g.lensRadialMm) +
-    ((z - lensC) * (z - lensC)) / (g.lensAxialMm * g.lensAxialMm);
-  if (lensSdf <= 1) return 'cristalino';
-
-  // Cámara anterior + iris: capa entre córnea y cristalino.
-  if (z > r - EYE.anteriorChamberDepthMm.value && z <= r - EYE.irisPlaneHalfMm.value && dGlobe <= r) {
-    // córnea: capa anterior 0.55 mm
-    if (z > r - EYE.corneaLayerMm.value) return 'cornea';
-    // iris: anillo en el plano del cristalino anterior
-    if (
-      Math.abs(z - (r - EYE.irisPlaneOffsetMm.value)) < EYE.irisPlaneHalfMm.value &&
-      lensR > g.irisApertureMm
-    )
-      return 'iris';
-    return 'humorAcuoso';
+  // Iris: plano a r − 3,6 mm (cámara anterior ≈ 3 mm tras el endotelio),
+  // desde la pupila (apertura) hasta la raíz a 6 mm.
+  const irisZ = r - EYE.irisPlaneOffsetMm.value;
+  if (Math.abs(z - irisZ) <= EYE.irisPlaneHalfMm.value && rxy >= g.irisApertureMm && rxy <= 6) {
+    return 'iris';
   }
+  // Cuerpo ciliar: toroide en la raíz del iris (6,3 mm, 1,2 × 1,8 mm).
+  const ccR = (rxy - 6.3) / 1.2;
+  const ccZ = (z - (r - 4.6)) / 1.8;
+  if (ccR * ccR + ccZ * ccZ <= 1) return 'cuerpoCiliar';
+
+  // Cristalino biconvexo: intersección de dos esferas (anterior R 10,
+  // posterior R 6; grosor 4 mm, ecuador Ø 9 mm). Antes que la cámara para
+  // que la cápsula anterior no quede tapada por el humor acuoso.
+  const zAp = r - EYE.irisPlaneOffsetMm.value - 2 * EYE.irisPlaneHalfMm.value; // r − 4,0
+  const zPp = zAp - 2 * g.lensAxialMm;
+  const dA = Math.hypot(x, y, z - (zAp - EYE.lensAnteriorRadiusMm.value));
+  const dP = Math.hypot(x, y, z - (zPp + EYE.lensPosteriorRadiusMm.value));
+  if (
+    dA <= EYE.lensAnteriorRadiusMm.value &&
+    dP <= EYE.lensPosteriorRadiusMm.value &&
+    rxy <= EYE.lensEquatorMm.value
+  ) {
+    const capsula =
+      dA > EYE.lensAnteriorRadiusMm.value - 0.2 ||
+      dP > EYE.lensPosteriorRadiusMm.value - 0.2 ||
+      rxy > EYE.lensEquatorMm.value - 0.2;
+    return capsula ? 'capsulaCristalino' : 'cristalino';
+  }
+
+  // Cámara anterior + posterior: dentro de la esfera corneal hasta el
+  // polo anterior del cristalino.
+  if (dCornea < corneaR - EYE.corneaLayerMm.value && z > r - 4.2) return 'humorAcuoso';
+
+  // Gel entre párpado y córnea.
+  if (z > anteriorSurface) return 'gel';
 
   const papillaCenter = nerveCenterline(g, 0);
   const papillaDistance = dist(p, papillaCenter);
   const inPapilla = papillaDistance <= EYE.papillaRadiusMm.value;
-  const dg = Math.hypot(x, y, z);
-  if (inPapilla && dg > r - EYE.laminaThicknessMm.value) return 'laminaCribosa';
+  // La lámina cribosa sustituye retina+coroides dentro de la papila.
+  if (inPapilla && dg > r - Math.max(EYE.laminaThicknessMm.value, 0.55)) return 'laminaCribosa';
 
-  // Dentro del globo.
+  // Dentro del globo: pared trilaminar (retina/coroides/esclera) + vítreo.
   if (dg <= r) {
-    // La excavación papilar deja llegar el vítreo ligeramente más atrás.
-    if (dg > r - EYE.globeWallMm.value + (inPapilla ? EYE.papillaCupMm.value : 0)) return 'paredGlobo';
+    if (dg > r - 0.25) return 'paredGlobo';
+    if (dg > r - 0.55) return 'coroides';
+    if (dg > r - EYE.globeWallMm.value) return 'esclera';
     return 'vitrio';
   }
+
+  // Cono óseo orbitario: radio 17 mm a z = +2 → 3,5 mm al ápex; hueso detrás.
+  const coneR = z <= 2 ? 17 + (3.5 - 17) * ((2 - z) / (2 + r + 42)) : 17;
 
   // Detrás del globo: nervio + vaina, grasa retrobulbar, músculos, hueso.
   if (z < 0) {
     const sec = nerveSection(g, p);
     const radii = sheathRadiiAt(g, sec.sMm);
     // Sección elíptica: coordenadas en el plano local del nervio.
-    // Aproximación: ejes delipse alineados a (x local inclinado, y).
     const a = radii.major;
     const b = radii.minor;
-    // Distancia elíptica normalizada.
     const en = Math.hypot(sec.inPlane[0] / a, sec.inPlane[1] / b);
     if (en <= 1) {
       const eNerve = sec.distToCenterMm / radii.nerve;
-      if (eNerve <= 1) return 'nervioOptico';
+      if (eNerve <= 1) {
+        // Vasos retinianos centrales: tubo de 0,18 mm desplazado dentro del nervio.
+        if (sec.sMm <= 12 && Math.hypot(sec.inPlane[0] - 0.35, sec.inPlane[1] + 0.2) <= 0.18) {
+          return 'vaso';
+        }
+        return 'nervioOptico';
+      }
       if (en <= (a - g.duraMm) / a) return 'lcrVaina';
       return 'duraVaina';
     }
-    // Músculos rectos: bandas superior/inferior/medial/lateral a 9-13 mm del nervio.
-    const dNerve = sec.distToCenterMm;
-    const muscleMask =
-      sec.sMm > 4 &&
-      dNerve > a + 1 &&
-      dNerve < a + 4.5 &&
-      (Math.abs(Math.abs(sec.inPlane[1]) - 8) < 1.6 || Math.abs(Math.abs(sec.inPlane[0]) - 8) < 1.6);
-    if (muscleMask) return 'musculoRecto';
-    // Paredes orbitarias: cono óseo — a >30 mm tras el globo o fuera del cono.
-    const coneR = 14 - 8 * smoothstep(0, 45, -z);
-    if (Math.hypot(x, y) > coneR + 2 || z < -48) return 'hueso';
+    // Esclera/Tenon: el borde exterior de la pared sale 0,15 mm del globo.
+    if (dg <= r + 0.15) return 'esclera';
+    if (rectusAt(g, p)) return 'musculoRecto';
+    if (rxy > coneR || z < -(r + 44)) return 'hueso';
     return 'grasaOrbitaria';
   }
 
-  // Lateral del globo fuera: grasa/tejido orbitario anterior o hueso.
-  const coneRAnt = 16;
-  if (Math.hypot(x - 0, y) > coneRAnt || Math.abs(x) > 18) return 'hueso';
+  // Lateral/anterior del globo fuera de él: esclera, músculos, grasa, hueso.
+  if (dg <= r + 0.15) return 'esclera';
+  if (rectusAt(g, p)) return 'musculoRecto';
+  if (rxy > coneR) return 'hueso';
   return 'grasaOrbitaria';
 }
 

@@ -93,7 +93,7 @@
 
 | Conjunto             | Parámetros |
 | -------------------- | ---------: |
-| `anatomia-ojo`       |         37 |
+| `anatomia-ojo`       |         40 |
 | `anatomia-cabeza`    |         72 |
 | `doppler`            |         44 |
 | `fisiologia`         |         36 |

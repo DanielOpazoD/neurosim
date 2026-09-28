@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { buildReferenceCase, REFERENCE_SEED } from '../src/domain/referenceCase';
 import { defaultEyeSettings, defaultTemporalSettings } from '../src/domain/settings';
 import { RenderClient, type RenderWorkerLike } from '../src/app/renderClient';
-import { renderRequest } from '../src/app/renderRequest';
+import { eyeScene, renderRequest } from '../src/app/renderRequest';
 import { eyePose, temporalPose } from './validation/helpers';
 import { hashBMode } from './validation/hash';
 import { buildScan } from '../src/ultrasound/probe';
-import { classifyEye } from '../src/anatomy/eye';
 import { classifyHead } from '../src/anatomy/head';
 import { renderBMode } from '../src/ultrasound/bmode';
 
@@ -44,7 +43,7 @@ describe('renderRequest', () => {
     const scan = buildScan(pose, settings.transducer, 176);
     const scene =
       station === 'ojo'
-        ? { classify: (p: Parameters<typeof classifyEye>[1]) => classifyEye(sim.eyes.der, p) }
+        ? eyeScene(sim.eyes.der, `seed-${sim.patient.seed}-der`)
         : { classify: (p: Parameters<typeof classifyHead>[1]) => classifyHead(sim.head, p) };
     const expected = renderBMode(scene, scan, settings, `seed-${sim.patient.seed}-der`);
     expect(hashBMode(response.bmode)).toBe(hashBMode(expected));
