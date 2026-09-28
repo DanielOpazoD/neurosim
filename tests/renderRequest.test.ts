@@ -42,8 +42,14 @@ describe('renderRequest', () => {
     const scan = buildScan(pose, settings.transducer, 176);
     const scene =
       station === 'ojo'
-        ? eyeScene(sim.eyes.der, `seed-${sim.patient.seed}-der`)
-        : headScene(sim.head, `seed-${sim.patient.seed}-der`);
+        ? eyeScene(sim.eyes.der, `seed-${sim.patient.seed}-der`, {
+            press: request.press,
+            cardiacPhase: request.cardiacPhase,
+          })
+        : headScene(sim.head, `seed-${sim.patient.seed}-der`, {
+            cardiacPhase: request.cardiacPhase,
+            respiratoryPhase: request.respiratoryPhase,
+          });
     const expected = renderBMode(scene, scan, settings, `seed-${sim.patient.seed}-der`);
     expect(hashBMode(response.bmode)).toBe(hashBMode(expected));
   });

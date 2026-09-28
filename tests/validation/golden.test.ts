@@ -19,7 +19,7 @@ function eyeHash(seed: number): string {
   const settings = defaultEyeSettings();
   const pose = eyePose(sim, 'der');
   const frame = renderBMode(
-    eyeScene(sim.eyes.der, `seed-${sim.patient.seed}-der`),
+    eyeScene(sim.eyes.der, `seed-${sim.patient.seed}-der`, { press: 0.3, cardiacPhase: 0.2 }),
     buildScan(pose, 'linear', 64),
     settings,
     `seed-${sim.patient.seed}-der`,
@@ -32,7 +32,7 @@ function temporalHash(): string {
   const settings = defaultTemporalSettings();
   const pose = temporalPose(sim, 'der');
   const frame = renderBMode(
-    headScene(sim.head, `seed-${sim.patient.seed}-der`),
+    headScene(sim.head, `seed-${sim.patient.seed}-der`, { cardiacPhase: 0.2, respiratoryPhase: 0.3 }),
     buildScan(pose, 'sector', 64),
     settings,
     `seed-${sim.patient.seed}-der`,

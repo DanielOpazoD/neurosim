@@ -411,6 +411,7 @@ function frameLoop(now: number): void {
   lastT = now;
   try {
     for (let i = 0; i < clock.requestSteps(elapsed); i++) clock.advance();
+    s.tSec = clock.t;
     pw.step(clock, elapsed);
     if (now - lastRender > 90 && !s.frozen) {
       lastRender = now;
@@ -433,6 +434,7 @@ function frameLoop(now: number): void {
             t: phys.t,
             cardiacPhase: phys.cardiacPhase,
             respiratoryPhase: phys.respiratoryPhase,
+            handMotion: s.handMotion,
             flowModulation: phys.flowModulation,
             physiology: sim.patient.physiology,
             color: s.station === 'temporal',
@@ -556,6 +558,17 @@ volumeInput.addEventListener('input', () => {
   volumeValue.textContent = `${s.volume}%`;
   pw.setVolume(s.volume);
 });
+const handMotionInput = $('handMotion') as HTMLInputElement;
+handMotionInput.checked = s.handMotion;
+handMotionInput.addEventListener('change', () => {
+  s.handMotion = handMotionInput.checked;
+  s.debrief.setTime(clock.t);
+  s.debrief.record('settings', `microMovimientoMano=${s.handMotion ? 'on' : 'off'}`, {
+    id: 'handMotion',
+    value: s.handMotion,
+  });
+});
+
 $('planoMesencefalico').addEventListener('click', () => setTiltPreset(0));
 $('planoDiencefalico').addEventListener('click', () => setTiltPreset(10));
 

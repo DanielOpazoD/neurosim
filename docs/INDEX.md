@@ -95,6 +95,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         40 |
 | `anatomia-cabeza`    |         73 |
-| `doppler`            |         44 |
+| `doppler`            |         46 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         38 |

@@ -26,6 +26,9 @@ export interface AppState {
   press: number;
   frozen: boolean;
   pwOn: boolean;
+  handMotion: boolean;
+  /** Reloj de simulación del frame actual (para micro-movimiento de mano). */
+  tSec?: number;
   caliperMode: 'none' | 'dist' | 'dvno' | 'dte';
   onsdActive: boolean;
   onsdWarning: boolean;
@@ -59,6 +62,7 @@ export function createInitialState(): AppState {
     press: 0.3,
     frozen: false,
     pwOn: false,
+    handMotion: true,
     caliperMode: 'none',
     onsdActive: false,
     onsdWarning: false,

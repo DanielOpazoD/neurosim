@@ -302,6 +302,17 @@ export function skullThicknessJittered(h: HeadGeometry, p: Vec3): number {
 }
 
 /**
+ * ¿El punto cae dentro de la tabla interna del cráneo? Versión barata sin
+ * jitter: basta para decidir si la pulsación cerebral aplica.
+ */
+export function insideInnerTable(h: HeadGeometry, p: Vec3): boolean {
+  const t = skullThicknessAt(h, p);
+  return (
+    ellipsoidLevel(h.skullCenter, [h.skullRadii[0] - t, h.skullRadii[1] - t, h.skullRadii[2] - t], p) <= 1.0
+  );
+}
+
+/**
  * Clasifica un punto del paciente para la escena transcraneal.
  * Orden: fuera de la cabeza → piel/cuero cabelludo → hueso → vasos →
  * mesencéfalo → cisternas → tejido cerebral.

@@ -75,6 +75,10 @@ calibración.
   aproximación educativa sin una fuente específica verificada en este bloque.
 - **doppler.handTremorMmS** — `0,8 mm/s` por componente, dos senos deterministas
   entre 8 y 12 Hz; no representa una trayectoria clínica individual.
+- **doppler.handDriftFastMm** — `0,35 mm` por eje, deriva del pulso a ~0,27 Hz;
+  heurística educativa para el micro-movimiento de la sonda.
+- **doppler.handDriftSlowMm** — `0,6 mm` por eje, deriva lenta del pulso a
+  ~0,06 Hz; misma heurística.
 - **fisiologia.heartRateBpm**, **fisiologia.mapMmHg**, **fisiologia.a1PsvCms**, **fisiologia.a1EdvCms**, **fisiologia.p1PsvCms**, **fisiologia.p1EdvCms**, **fisiologia.basilarPsvCms**, **fisiologia.basilarEdvCms** — fisiología vascular del fixture N1; calibrar contra trazas clínicas anonimizadas.
 - **fisiologia.ejectionFraction**, **fisiologia.windkesselTauS**, **fisiologia.backflowFraction**, **fisiologia.backflowDurationFraction** — parámetros del Windkessel de dos elementos; `windkesselTauS = 0,18 s` es una constante efectiva estimada de decaimiento de la onda de velocidad ACM normalizada, ajustada para media de onda entre 0,34 y 0,39; no representa la RC sistémica fisiológica de 1–2 s. El término de rebote positivo `+3 × backflowFraction` es un truco explícito para hacer visible la segunda joroba/incisura dicrota, no una afirmación de flujo medido.
 - **fisiologia.respiratoryRatePerMin**, **fisiologia.respFlowModulation**, **fisiologia.respBrainShiftMm**, **fisiologia.hrvSd**, **fisiologia.rsaAmplitude** — respiración, modulación hemodinámica y variabilidad RR deterministas; son aproximaciones educativas sin autorregulación ni acoplamiento PIC.

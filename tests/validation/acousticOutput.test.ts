@@ -166,7 +166,9 @@ describe('salida acústica ALARA', () => {
             sclera.push(Math.hypot(frame.iq[2 * index]!, frame.iq[2 * index + 1]!));
             scleraDb.push(frame.db[index]!);
           }
-          if (material === 'vitrio' && zMm >= 14 && zMm < 22 && (li < 18 || li >= frame.width - 18)) {
+          // Vítreo central: el campo lateral es ahora ecogénico (reborde
+          // óseo y piel hasta rxy ≤ 18 mm), así que se mide en el eje.
+          if (material === 'vitrio' && zMm >= 14 && zMm < 22 && li >= 20 && li < frame.width - 20) {
             vitreous.push(Math.hypot(frame.iq[2 * index]!, frame.iq[2 * index + 1]!));
             vitreousDb.push(frame.db[index]!);
           }

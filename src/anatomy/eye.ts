@@ -248,14 +248,15 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
     return 'cornea';
   }
 
-  // Párpado: capa sobre la cara anterior del globo.
-  const dGlobe = Math.hypot(x, y, Math.min(z, r));
-  if (z > r - 0.4 && z <= anteriorSurface && dGlobe < r + EYE.eyelidLayerMm.value) {
-    // párpado solo cubre la abertura palpebral (|y| < 9)
-    if (Math.abs(y) < EYE.eyelidHalfHeightMm.value) return 'piel';
-    return 'aire';
+  // Tejido blando anterior: la piel cubre toda la región palpebral
+  // lateralmente hasta el reborde orbitario (rxy ≤ 18 mm); más allá, el
+  // reborde óseo (sombra acústica). El aire solo queda anterior al
+  // margen `anteriorSurface + eyelidAirGapMm` (línea del principio).
+  if (z > r - 0.4) {
+    if (rxy > 18) return 'hueso';
+    if (z <= anteriorSurface) return 'piel';
+    // sobre la superficie palpebral cae al gel de más abajo
   }
-  if (z > r - 0.4 && dGlobe >= r + EYE.eyelidLayerMm.value) return 'aire';
 
   // Iris: plano a r − 3,6 mm (cámara anterior ≈ 3 mm tras el endotelio),
   // desde la pupila (apertura) hasta la raíz a 6 mm.

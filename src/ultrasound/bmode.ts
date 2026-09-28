@@ -44,6 +44,12 @@ interface SceneQuery {
   classify(p: Vec3): MaterialId;
   /** Factor local sobre `scatterAmp` (p. ej. heterogeneidad septal de la grasa). */
   scatterScale?(p: Vec3): number;
+  /**
+   * Deformación tisular: lleva el punto del espacio de imagen al espacio
+   * material (de reposo). El rayo sigue recto; la anatomía y el speckle se
+   * muestrean en `warp(p)` para que se muevan con el tejido.
+   */
+  warp?(p: Vec3): Vec3;
 }
 
 interface InterfaceEvent {
@@ -144,7 +150,7 @@ export function renderBMode(
   for (let li = 0; li < width; li++) {
     const line = scan.lines[li]!;
     let attDb = 0; // ida y vuelta acumulada
-    let prevMat = scene.classify(line.origin);
+    let prevMat = scene.classify(scene.warp ? scene.warp(line.origin) : line.origin);
     let prevM = MATERIALS[prevMat];
     let lensShadowDb = 0;
     let p = line.origin;
@@ -155,7 +161,8 @@ export function renderBMode(
     let thinStrong: ThinStrongEntry | null = null;
 
     for (let zi = 0; zi < height; zi++) {
-      const matId = scene.classify(p);
+      const q = scene.warp ? scene.warp(p) : p;
+      const matId = scene.classify(q);
       const m = MATERIALS[matId];
 
       // Atenuación del tramo recorrido (ida y vuelta).
@@ -167,7 +174,7 @@ export function renderBMode(
       if (matId !== prevMat) {
         // Eco de interfaz: |ΔZ| con peso especular según normal local.
         const rc = Math.abs(reflectionCoeff(prevM, m));
-        const n = interfaceNormal(scene, p, prevMat);
+        const n = interfaceNormal(scene, q, prevMat);
         const cosA = n ? Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) : 0.5;
         const gain = Math.pow(Math.max(0, 1 - cosA), specularPow(m)); // ⊥ a la interfaz = 0 deg → máx
         const amp = rc * (0.4 + 0.6 * gain) * INTERFACE_ECHO_GAIN;
@@ -201,8 +208,8 @@ export function renderBMode(
 
       // Speckle intratejido (el hueso/aire apenas dispersan → eco dominante).
       if (opts.speckle !== false) {
-        const amp = m.scatterAmp * (scene.scatterScale ? scene.scatterScale(p) : 1);
-        const [sr, si] = scatterComplex(seed, p, amp);
+        const amp = m.scatterAmp * (scene.scatterScale ? scene.scatterScale(q) : 1);
+        const [sr, si] = scatterComplex(seed, q, amp);
         re += sr;
         im += si;
       }

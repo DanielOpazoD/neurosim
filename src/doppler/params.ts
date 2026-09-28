@@ -285,6 +285,22 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['plan-simulador-2026'],
     note: 'Amplitud por componente del temblor fisiológico de la mano.',
   },
+  handDriftFastMm: {
+    value: 0.35,
+    unit: 'mm',
+    range: [0, 2],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Deriva lenta rápida del pulso (~0,27 Hz) por eje.',
+  },
+  handDriftSlowMm: {
+    value: 0.6,
+    unit: 'mm',
+    range: [0, 3],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Deriva lenta del pulso (~0,06 Hz) por eje.',
+  },
   colorEnsemble: {
     value: 8,
     unit: 'pulsos',
