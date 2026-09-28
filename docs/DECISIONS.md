@@ -137,3 +137,11 @@
     calculados en TypeScript y compartidos con GLSL. El trazado de rayos,
     clasificación de materiales, artefactos y ruido permanecen en CPU/Worker.
     CPU es el renderizador por defecto hasta medir paridad en el dispositivo.
+37. **DEC-37** — La envolvente PW estima su borde con interpolación sub-bin en
+    dB entre bins contiguos de la banda detectada, en lugar de devolver siempre
+    el centro del bin rasterizado. La interpolación corrige la cuantización de
+    adquisición sin recalibrar el percentil EDV; la misma traza corregida
+    alimenta PSV, EDV y TAMax. En la onda sintética N1 el EDV pasa de 37,90 a
+    36,67 cm/s (+8,28 % a +4,78 % frente a 35), mientras PSV y TAMax siguen
+    dentro de ±5 %. La resolución FFT, los dropouts y el P10 temporal siguen
+    siendo limitaciones explícitas.

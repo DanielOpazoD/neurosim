@@ -66,17 +66,10 @@ describe('validación PW sintética', () => {
     expect(Math.abs(summary!.taMaxCms)).toBeLessThan(expectedTa * 1.05);
   });
 
-  it.fails('EDV dentro del 5 % (sesgo conocido del estimador de envolvente, LIM-09)', () => {
+  it('EDV dentro del 5 % tras interpolar el borde sub-bin', () => {
     const { summary } = measureSynthetic();
     expect(summary).not.toBeNull();
     expect(Math.abs(summary!.edvCms)).toBeGreaterThan(35 * 0.95);
     expect(Math.abs(summary!.edvCms)).toBeLessThan(35 * 1.05);
-  });
-
-  it('mantiene el EDV dentro del guard de 20 %', () => {
-    const { summary } = measureSynthetic();
-    expect(summary).not.toBeNull();
-    expect(Math.abs(summary!.edvCms)).toBeGreaterThan(35 * 0.8);
-    expect(Math.abs(summary!.edvCms)).toBeLessThan(35 * 1.2);
   });
 });

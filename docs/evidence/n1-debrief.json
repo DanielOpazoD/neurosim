@@ -1,0 +1,579 @@
+{
+  "startedAt": 0,
+  "events": [
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "tilt=0",
+      "data": {
+        "id": "tilt",
+        "value": 0
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "shift=0",
+      "data": {
+        "id": "shift",
+        "value": 0
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "rot=0",
+      "data": {
+        "id": "rot",
+        "value": 0
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "press=30",
+      "data": {
+        "id": "press",
+        "value": 30
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "gain=5",
+      "data": {
+        "id": "gain",
+        "value": 5
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "depth=70",
+      "data": {
+        "id": "depth",
+        "value": 70
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "focus=33",
+      "data": {
+        "id": "focus",
+        "value": 33
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "dr=60",
+      "data": {
+        "id": "dr",
+        "value": 60
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "prf=5500",
+      "data": {
+        "id": "prf",
+        "value": 5500
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "gate=8.5",
+      "data": {
+        "id": "gate",
+        "value": 8.5
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "wf=400",
+      "data": {
+        "id": "wf",
+        "value": 400
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "ang=38",
+      "data": {
+        "id": "ang",
+        "value": 38
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "base=0.5",
+      "data": {
+        "id": "base",
+        "value": 0.5
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "spectralGain=0",
+      "data": {
+        "id": "spectralGain",
+        "value": 0
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "outputPower=-10",
+      "data": {
+        "id": "outputPower",
+        "value": -10
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "map=85",
+      "data": {
+        "id": "map",
+        "value": 85
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "paco2=40",
+      "data": {
+        "id": "paco2",
+        "value": 40
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "icp=10",
+      "data": {
+        "id": "icp",
+        "value": 10
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "depth=45",
+      "data": {
+        "id": "depth",
+        "value": 45
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "gain=6",
+      "data": {
+        "id": "gain",
+        "value": 6
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "focus=22",
+      "data": {
+        "id": "focus",
+        "value": 22
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "dr=60",
+      "data": {
+        "id": "dr",
+        "value": 60
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "prf=2500",
+      "data": {
+        "id": "prf",
+        "value": 2500
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "gate=2",
+      "data": {
+        "id": "gate",
+        "value": 2
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "wf=50",
+      "data": {
+        "id": "wf",
+        "value": 50
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "ang=0",
+      "data": {
+        "id": "ang",
+        "value": 0
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "base=0.5",
+      "data": {
+        "id": "base",
+        "value": 0.5
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "spectralGain=0",
+      "data": {
+        "id": "spectralGain",
+        "value": 0
+      }
+    },
+    {
+      "t": 0,
+      "kind": "settings",
+      "detail": "outputPower=-3",
+      "data": {
+        "id": "outputPower",
+        "value": -3
+      }
+    },
+    {
+      "t": 0,
+      "kind": "station",
+      "detail": "ojo der",
+      "data": {
+        "station": "ojo",
+        "side": "der"
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "depth=45",
+      "data": {
+        "id": "depth",
+        "value": 45
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "gain=6",
+      "data": {
+        "id": "gain",
+        "value": 6
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "focus=22",
+      "data": {
+        "id": "focus",
+        "value": 22
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "dr=60",
+      "data": {
+        "id": "dr",
+        "value": 60
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "prf=2500",
+      "data": {
+        "id": "prf",
+        "value": 2500
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "gate=2",
+      "data": {
+        "id": "gate",
+        "value": 2
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "wf=50",
+      "data": {
+        "id": "wf",
+        "value": 50
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "ang=0",
+      "data": {
+        "id": "ang",
+        "value": 0
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "base=0.5",
+      "data": {
+        "id": "base",
+        "value": 0.5
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "spectralGain=0",
+      "data": {
+        "id": "spectralGain",
+        "value": 0
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "settings",
+      "detail": "outputPower=-3",
+      "data": {
+        "id": "outputPower",
+        "value": -3
+      }
+    },
+    {
+      "t": 0.224,
+      "kind": "station",
+      "detail": "ojo der",
+      "data": {
+        "station": "ojo",
+        "side": "der"
+      }
+    },
+    {
+      "t": 0.272,
+      "kind": "protocol",
+      "detail": "protocolo DVNO iniciar",
+      "data": {
+        "started": true
+      }
+    },
+    {
+      "t": 0.336,
+      "kind": "measurement",
+      "detail": "dvno",
+      "data": {
+        "kind": "dvno",
+        "side": "der",
+        "gainDb": 6,
+        "referenceOffsetMm": 3,
+        "realDeg": null
+      }
+    },
+    {
+      "t": 0.352,
+      "kind": "settings",
+      "detail": "rot=90",
+      "data": {
+        "id": "rot",
+        "value": 90
+      }
+    },
+    {
+      "t": 0.352,
+      "kind": "measurement",
+      "detail": "dvno",
+      "data": {
+        "kind": "dvno",
+        "side": "der",
+        "gainDb": 6,
+        "referenceOffsetMm": 3,
+        "realDeg": null
+      }
+    },
+    {
+      "t": 0.368,
+      "kind": "settings",
+      "detail": "rot=0",
+      "data": {
+        "id": "rot",
+        "value": 0
+      }
+    },
+    {
+      "t": 0.368,
+      "kind": "measurement",
+      "detail": "dvno",
+      "data": {
+        "kind": "dvno",
+        "side": "izq",
+        "gainDb": 6,
+        "referenceOffsetMm": 3,
+        "realDeg": null
+      }
+    },
+    {
+      "t": 0.384,
+      "kind": "settings",
+      "detail": "rot=90",
+      "data": {
+        "id": "rot",
+        "value": 90
+      }
+    },
+    {
+      "t": 0.384,
+      "kind": "measurement",
+      "detail": "dvno",
+      "data": {
+        "kind": "dvno",
+        "side": "izq",
+        "gainDb": 6,
+        "referenceOffsetMm": 3,
+        "realDeg": null
+      }
+    },
+    {
+      "t": 0.4,
+      "kind": "settings",
+      "detail": "rot=0",
+      "data": {
+        "id": "rot",
+        "value": 0
+      }
+    },
+    {
+      "t": 0.4,
+      "kind": "measurement",
+      "detail": "dte",
+      "data": {
+        "kind": "dte",
+        "side": "der",
+        "gainDb": 6,
+        "referenceOffsetMm": null,
+        "realDeg": null
+      }
+    },
+    {
+      "t": 0.41600000000000004,
+      "kind": "measurement",
+      "detail": "dte",
+      "data": {
+        "kind": "dte",
+        "side": "izq",
+        "gainDb": 6,
+        "referenceOffsetMm": null,
+        "realDeg": null
+      }
+    },
+    {
+      "t": 0.6880000000000001,
+      "kind": "export",
+      "detail": "informe DVNO"
+    },
+    {
+      "t": 0.736,
+      "kind": "export",
+      "detail": "debriefing"
+    }
+  ],
+  "findings": [
+    {
+      "code": "dvno-fuera-de-3mm",
+      "severity": "aviso",
+      "text": "La medición DVNO está a 0.0 mm retroglobo, no a 3 ± 1 mm.",
+      "evidence": {
+        "offsetMm": 0,
+        "targetMm": 3
+      }
+    },
+    {
+      "code": "dvno-fuera-de-3mm",
+      "severity": "aviso",
+      "text": "La medición DVNO está a 0.0 mm retroglobo, no a 3 ± 1 mm.",
+      "evidence": {
+        "offsetMm": 0,
+        "targetMm": 3
+      }
+    }
+  ],
+  "measurements": [
+    {
+      "kind": "dvno",
+      "side": "der",
+      "value": 4.649411764705885,
+      "truth": 4.6,
+      "errorMm": 0.049411764705885375,
+      "errorPct": 1.07416879795403
+    },
+    {
+      "kind": "dvno",
+      "side": "der",
+      "value": 4.649411764705885,
+      "truth": 4.6,
+      "errorMm": 0.049411764705885375,
+      "errorPct": 1.07416879795403
+    },
+    {
+      "kind": "dvno",
+      "side": "izq",
+      "value": 4.649411764705885,
+      "truth": 4.7,
+      "errorMm": 0.05058823529411516,
+      "errorPct": 1.0763454317896841
+    },
+    {
+      "kind": "dvno",
+      "side": "izq",
+      "value": 4.649411764705885,
+      "truth": 4.7,
+      "errorMm": 0.05058823529411516,
+      "errorPct": 1.0763454317896841
+    },
+    {
+      "kind": "dte",
+      "side": "der",
+      "value": 23.604705882352935
+    },
+    {
+      "kind": "dte",
+      "side": "izq",
+      "value": 23.604705882352935
+    }
+  ],
+  "summary": {
+    "nEvents": 55,
+    "nMeasurements": 6,
+    "nFindings": 2,
+    "durationS": 0.736
+  }
+}

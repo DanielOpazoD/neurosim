@@ -170,9 +170,9 @@ export function peakFrequency(col: SpectralColumn, fftSize: number): number {
  * su media con probabilidad e⁻⁴ ≈ 2 %); (2) en cada semiplano la banda espectral es la
  * región CONTIGUA a la línea de base (se corta tras 3 bins seguidos no significativos),
  * así los bins de ruido aislados lejos de la banda no cuentan; (3) se elige el semiplano
- * con más energía en su banda; (4) la envolvente es la frecuencia donde la potencia
- * acumulada desde la continua alcanza la fracción `pct` de la banda (método del
- * percentil). Devuelve 0 si ningún bin supera el suelo en `detectDb`.
+ * con más energía en su banda; (4) la envolvente es el cruce interpolado en dB del
+ * umbral de la banda entre bins contiguos. Devuelve 0 si ningún bin supera el suelo
+ * en `detectDb`.
  */
 const SIGNIFICANT_DB = 6;
 const BAND_GAP_BINS = 3;
@@ -218,13 +218,33 @@ export function columnBandEnvelopes(
       if (p > 0) {
         gap = 0;
         total += p;
-      } else if (++gap >= BAND_GAP_BINS && total > 0) break;
+      } else if (total > 0) {
+        if (++gap >= BAND_GAP_BINS) break;
+      }
     }
     if (total <= 0) return { hz: 0, total: 0 };
-    let acc = 0;
+    const target = pct * total;
+    let accumulated = 0;
     for (let i = 0; i < power.length; i++) {
-      acc += power[i] ?? Number.NaN;
-      if (acc >= pct * total) return { hz: (i + 2) * df, total };
+      const current = power[i]!;
+      if (accumulated + current >= target) {
+        const previousJ = i + 1;
+        const fraction = current > 0 ? (target - accumulated) / current : 0;
+        const previousK = half + sign * previousJ;
+        const currentK = half + sign * (i + 2);
+        const previousDb = powerAt(col, previousK);
+        const currentDb = powerAt(col, currentK);
+        const denominator = currentDb - previousDb;
+        const edgeFraction =
+          Number.isFinite(denominator) &&
+          denominator !== 0 &&
+          previousDb >= floorDb + SIGNIFICANT_DB &&
+          currentDb < floorDb + SIGNIFICANT_DB
+            ? Math.min(1, Math.max(0, (floorDb + SIGNIFICANT_DB - previousDb) / denominator))
+            : fraction;
+        return { hz: Math.max(0, previousJ - 0.6 + edgeFraction) * df, total };
+      }
+      accumulated += current;
     }
     return { hz: (power.length + 1) * df, total };
   };

@@ -36,6 +36,13 @@ exacta; una señal ausente no acredita cese circulatorio.
 - Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:
   bloques posteriores (ver `docs/LIMITATIONS.md`).
 
+## Evidencia N1
+
+La ejecución reproducible de referencia, con capturas, exportaciones y valores
+medidos, está en [docs/evidence/N1.md](docs/evidence/N1.md). Se puede regenerar
+con `npm run evidence`; el script fija una semilla y usa las exportaciones de
+la aplicación para evitar números escritos a mano.
+
 ## Desarrollo
 
 Los hooks se instalan con `npm install`.
