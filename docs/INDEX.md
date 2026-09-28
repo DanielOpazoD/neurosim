@@ -87,6 +87,7 @@
 | DEC-36 | La etapa post-IQ determinista puede ejecutarse en WebGL2:               | —                          |
 | DEC-37 | La envolvente PW estima su borde con interpolación sub-bin en           | —                          |
 | DEC-38 | Los resúmenes PW excluyen latidos con cobertura inferior al 80 %        | —                          |
+| DEC-39 | La geometría del movimiento tisular (vaso más cercano, normal           | —                          |
 
 ## Parámetros registrados
 

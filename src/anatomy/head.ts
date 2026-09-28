@@ -13,7 +13,7 @@
  * 55–65 bidireccional, P1/P2 a 60–70, OA 40–60 por ventana orbital.
  */
 import { MATERIALS, type MaterialId } from './materials';
-import { add, clamp, dist, dot, length, normalize, scale, sub, type Vec3 } from '../core/vec3';
+import { clamp, dist, normalize, scale, sub, type Vec3 } from '../core/vec3';
 import type { SeededRandom } from '../core/random';
 import type { Side, WillisVariant } from '../domain/contracts';
 import { ANATOMIA_CABEZA } from './params';
@@ -79,9 +79,19 @@ export type LandmarkId =
 
 /** Distancia al segmento ab. */
 function segDist(p: Vec3, a: Vec3, b: Vec3): number {
-  const ab = sub(b, a);
-  const t = clamp(dot(sub(p, a), ab) / Math.max(1e-9, dot(ab, ab)), 0, 1);
-  return dist(p, add(a, scale(ab, t)));
+  const abx = b[0] - a[0];
+  const aby = b[1] - a[1];
+  const abz = b[2] - a[2];
+  const t = clamp(
+    ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby + (p[2] - a[2]) * abz) /
+      Math.max(1e-9, abx * abx + aby * aby + abz * abz),
+    0,
+    1,
+  );
+  const qx = a[0] + abx * t;
+  const qy = a[1] + aby * t;
+  const qz = a[2] + abz * t;
+  return Math.hypot(p[0] - qx, p[1] - qy, p[2] - qz);
 }
 
 /** Distancia al tubo (polilínea) de un vaso. */
@@ -95,28 +105,61 @@ export function vesselDistance(v: Vessel, p: Vec3): number {
 
 /** Punto más cercano sobre la línea central y tangente local. */
 export function vesselClosest(v: Vessel, p: Vec3): { point: Vec3; tangent: Vec3; sMm: number } {
-  let best: { point: Vec3; tangent: Vec3; sMm: number } = {
-    point: v.points[0]!,
-    tangent: normalize(sub(v.points[1]!, v.points[0]!)),
-    sMm: 0,
-  };
+  let bestX = v.points[0]![0];
+  let bestY = v.points[0]![1];
+  let bestZ = v.points[0]![2];
+  let bestTx = 0;
+  let bestTy = 0;
+  let bestTz = 0;
+  let bestS = 0;
+  {
+    const abx = v.points[1]![0] - bestX;
+    const aby = v.points[1]![1] - bestY;
+    const abz = v.points[1]![2] - bestZ;
+    const l = Math.hypot(abx, aby, abz);
+    if (l > 0) {
+      bestTx = abx / l;
+      bestTy = aby / l;
+      bestTz = abz / l;
+    }
+  }
   let bestD = Infinity;
   let sAcc = 0;
   for (let i = 0; i + 1 < v.points.length; i++) {
     const a = v.points[i]!;
     const b = v.points[i + 1]!;
-    const ab = sub(b, a);
-    const len = length(ab);
-    const t = clamp(dot(sub(p, a), ab) / Math.max(1e-9, len * len), 0, 1);
-    const q = add(a, scale(ab, t));
-    const d = dist(p, q);
+    const abx = b[0] - a[0];
+    const aby = b[1] - a[1];
+    const abz = b[2] - a[2];
+    const len = Math.hypot(abx, aby, abz);
+    const t = clamp(
+      ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby + (p[2] - a[2]) * abz) / Math.max(1e-9, len * len),
+      0,
+      1,
+    );
+    const qx = a[0] + abx * t;
+    const qy = a[1] + aby * t;
+    const qz = a[2] + abz * t;
+    const d = Math.hypot(p[0] - qx, p[1] - qy, p[2] - qz);
     if (d < bestD) {
       bestD = d;
-      best = { point: q, tangent: normalize(ab), sMm: sAcc + t * len };
+      bestX = qx;
+      bestY = qy;
+      bestZ = qz;
+      if (len > 0) {
+        bestTx = abx / len;
+        bestTy = aby / len;
+        bestTz = abz / len;
+      } else {
+        bestTx = 0;
+        bestTy = 0;
+        bestTz = 0;
+      }
+      bestS = sAcc + t * len;
     }
     sAcc += len;
   }
-  return best;
+  return { point: [bestX, bestY, bestZ], tangent: [bestTx, bestTy, bestTz], sMm: bestS };
 }
 
 /** Dirección del flujo en el punto (vector de la línea central orientada). */
