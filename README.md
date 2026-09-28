@@ -49,6 +49,10 @@ exacta; una señal ausente no acredita cese circulatorio.
   para inclinar/angulación), Q/E rotación, +/− presión, R reiniciar.
 - Debriefing docente determinista con línea de tiempo, hallazgos cuantitativos
   y exportación separada de verdades del modelo.
+- Casos del plano diencefálico: desplazamiento de línea media (III
+  ventrículo +6 mm hacia la izquierda) e hidrocefalia (III ventrículo 12 mm,
+  cuernos ×1,6), con etiquetas docentes anatómicas sobre el B-mode temporal
+  y reglas de debrief que validan las medidas.
 - Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:
   bloques posteriores (ver `docs/LIMITATIONS.md`).
 

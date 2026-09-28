@@ -251,6 +251,63 @@ export function buildDebrief(
       );
     }
   }
+  // Mediciones en el plano diencefálico (temporal, tilt ≥ umbral): medida del
+  // III ventrículo en hidrocefalia y desplazamiento (der − izq)/2 de línea media.
+  const tiltMin = DOPPLER.params.debriefDiencephalicTiltDeg.value;
+  const diencephalic = events.filter(
+    (event) =>
+      event.kind === 'measurement' &&
+      eventData(event, 'kind') === 'distancia' &&
+      eventData(event, 'station') === 'temporal' &&
+      (numberData(event, 'tiltDeg') ?? 0) >= tiltMin,
+  );
+  if (caseId === 'hidrocefalia' && diencephalic.length) {
+    const truth = sim.truths.thirdVentricleWidthMm;
+    const last = diencephalic[diencephalic.length - 1]!;
+    const value = numberData(last, 'valueMm') ?? Number.NaN;
+    const tol = DOPPLER.params.debriefVentricleTolMm.value;
+    if (Math.abs(value - truth) <= tol) {
+      add(
+        'iii-ventriculo-correcto',
+        'info',
+        `Medida del III ventrículo ${value.toFixed(1)} mm ≈ ${truth.toFixed(1)} mm del modelo.`,
+        { measuredMm: value, truthMm: truth },
+      );
+    } else {
+      add(
+        'iii-ventriculo-sesgada',
+        'aviso',
+        `Medida ${value.toFixed(1)} mm frente a ${truth.toFixed(1)} mm reales: medir borde a borde del epéndimo.`,
+        { measuredMm: value, truthMm: truth, errorMm: Math.abs(value - truth) },
+      );
+    }
+  }
+  if (caseId === 'desplazamientoLineaMedia') {
+    const lastOf = (side: 'der' | 'izq') =>
+      [...diencephalic].reverse().find((event) => eventData(event, 'side') === side);
+    const der = numberData(lastOf('der') ?? ({} as DebriefEvent), 'valueMm');
+    const izq = numberData(lastOf('izq') ?? ({} as DebriefEvent), 'valueMm');
+    if (der !== undefined && izq !== undefined) {
+      const truth = sim.truths.midlineShiftMm;
+      const est = (der - izq) / 2;
+      const tol = DOPPLER.params.debriefMidlineShiftTolMm.value;
+      if (Math.abs(est - truth) <= tol) {
+        add(
+          'linea-media-correcta',
+          'info',
+          `Desplazamiento estimado ${est.toFixed(1)} mm ≈ ${truth.toFixed(1)} mm del modelo.`,
+          { derMm: der, izqMm: izq, estMm: est, truthMm: truth },
+        );
+      } else {
+        add(
+          'linea-media-sesgada',
+          'aviso',
+          `Desplazamiento estimado ${est.toFixed(1)} mm frente a ${truth.toFixed(1)} mm reales: medir sonda→III ventrículo desde ambas ventanas.`,
+          { derMm: der, izqMm: izq, estMm: est, truthMm: truth },
+        );
+      }
+    }
+  }
   const durationS = events.length ? events[events.length - 1]!.t - events[0]!.t : 0;
   return {
     startedAt: events[0]?.t ?? log.events()[0]?.t ?? 0,

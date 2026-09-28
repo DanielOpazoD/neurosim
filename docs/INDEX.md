@@ -18,35 +18,36 @@
 
 ## IDs de limitaciones
 
-| ID     | Título                              | Citas en `src/` y `tests/`                                                   |
-| ------ | ----------------------------------- | ---------------------------------------------------------------------------- |
-| LIM-16 | Color Kasai reducido                | `src/doppler/color.ts`                                                       |
-| LIM-17 | Movimiento tisular reducido         | —                                                                            |
-| LIM-18 | Windkessel reducido                 | —                                                                            |
-| LIM-19 | Hemodinámica estática               | —                                                                            |
-| LIM-20 | ALARA acústico reducido             | —                                                                            |
-| LIM-21 | Protocolo DVNO reducido             | —                                                                            |
-| LIM-01 | Patología                           | —                                                                            |
-| LIM-02 | Lindegaard                          | `src/domain/cases.ts`, `src/doppler/measureMca.ts`                           |
-| LIM-03 | DVNO y PIC                          | —                                                                            |
-| LIM-04 | Realismo acústico parcial           | —                                                                            |
-| LIM-05 | Normal de interfaz                  | `src/ultrasound/bmode.ts`                                                    |
-| LIM-06 | Tejido estático                     | —                                                                            |
-| LIM-07 | Audio                               | —                                                                            |
-| LIM-08 | Medición DVNO                       | —                                                                            |
-| LIM-09 | Sesgo diastólico (reducido)         | `src/doppler/measureMca.ts`                                                  |
-| LIM-10 | PSF analítica (resuelta/redirigida) | —                                                                            |
-| LIM-11 | Advección en cuerda                 | `src/doppler/sampleVolume.ts`, `tests/validation/persistenciaSangre.test.ts` |
-| LIM-12 | Densidad de sangre sembrada         | `src/doppler/sampleVolume.ts`                                                |
-| LIM-13 | PW en hilo principal                | —                                                                            |
-| LIM-14 | Artefactos 1D                       | —                                                                            |
-| LIM-15 | Flujo vascular simplificado         | —                                                                            |
-| LIM-22 | Debriefing por reglas               | —                                                                            |
-| LIM-23 | Audio de equipo                     | —                                                                            |
-| LIM-24 | Paridad WebGL2                      | —                                                                            |
-| LIM-25 | Estenosis focal idealizada          | `src/domain/cases.ts`                                                        |
-| LIM-26 | Vasos oculares estilizados          | `src/anatomy/ocularVessels.ts`, `src/app/renderRequest.ts`                   |
-| LIM-27 | Navegación de sonda 2-D             | —                                                                            |
+| ID     | Título                                       | Citas en `src/` y `tests/`                                                   |
+| ------ | -------------------------------------------- | ---------------------------------------------------------------------------- |
+| LIM-16 | Color Kasai reducido                         | `src/doppler/color.ts`                                                       |
+| LIM-17 | Movimiento tisular reducido                  | —                                                                            |
+| LIM-18 | Windkessel reducido                          | —                                                                            |
+| LIM-19 | Hemodinámica estática                        | —                                                                            |
+| LIM-20 | ALARA acústico reducido                      | —                                                                            |
+| LIM-21 | Protocolo DVNO reducido                      | —                                                                            |
+| LIM-01 | Patología                                    | —                                                                            |
+| LIM-02 | Lindegaard                                   | `src/domain/cases.ts`, `src/doppler/measureMca.ts`                           |
+| LIM-03 | DVNO y PIC                                   | —                                                                            |
+| LIM-04 | Realismo acústico parcial                    | —                                                                            |
+| LIM-05 | Normal de interfaz                           | `src/ultrasound/bmode.ts`                                                    |
+| LIM-06 | Tejido estático                              | —                                                                            |
+| LIM-07 | Audio                                        | —                                                                            |
+| LIM-08 | Medición DVNO                                | —                                                                            |
+| LIM-09 | Sesgo diastólico (reducido)                  | `src/doppler/measureMca.ts`                                                  |
+| LIM-10 | PSF analítica (resuelta/redirigida)          | —                                                                            |
+| LIM-11 | Advección en cuerda                          | `src/doppler/sampleVolume.ts`, `tests/validation/persistenciaSangre.test.ts` |
+| LIM-12 | Densidad de sangre sembrada                  | `src/doppler/sampleVolume.ts`                                                |
+| LIM-13 | PW en hilo principal                         | —                                                                            |
+| LIM-14 | Artefactos 1D                                | —                                                                            |
+| LIM-15 | Flujo vascular simplificado                  | —                                                                            |
+| LIM-22 | Debriefing por reglas                        | —                                                                            |
+| LIM-23 | Audio de equipo                              | —                                                                            |
+| LIM-24 | Paridad WebGL2                               | —                                                                            |
+| LIM-25 | Estenosis focal idealizada                   | `src/domain/cases.ts`                                                        |
+| LIM-26 | Vasos oculares estilizados                   | `src/anatomy/ocularVessels.ts`, `src/app/renderRequest.ts`                   |
+| LIM-27 | Navegación de sonda 2-D                      | —                                                                            |
+| LIM-28 | Desplazamiento de línea media supratentorial | —                                                                            |
 
 ## IDs de decisiones
 
@@ -101,6 +102,7 @@
 | DEC-47 | Persistencia B-mode (0–4) como promedio temporal de                     | —                              |
 | DEC-48 | Estenosis focal de M1 con turbulencia post-estenótica:                  | —                              |
 | DEC-49 | Navegación de sonda sobre la superficie craneal: la sonda               | —                              |
+| DEC-50 | Casos del plano diencefálico (línea media e hidrocefalia):              | —                              |
 
 ## Parámetros registrados
 
@@ -108,6 +110,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         40 |
 | `anatomia-cabeza`    |         73 |
-| `doppler`            |         48 |
+| `doppler`            |         51 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         39 |

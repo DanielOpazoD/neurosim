@@ -118,3 +118,9 @@ a WebGL2 en bloques posteriores.
   deslizamiento anterior-posterior sobre la cabeza ni compresión adelante/
   atrás distinta del parámetro `press`; la estación ocular no proyecta sobre
   la superficie del párpado (solo la temporal sigue el elipsoide craneal).
+
+- **LIM-28 · Desplazamiento de línea media supratentorial**: el caso
+  `desplazamientoLineaMedia` mueve solo estructuras supratentoriales (III
+  ventrículo, tálamos, pineal, cuernos, hoz) y es estático — no modela
+  compresión mesencefálica progresiva, herniación ni respuesta dinámica de la
+  PIC; la forma del III ventrículo sigue siendo un prisma idealizado.
