@@ -46,6 +46,7 @@
 | LIM-24 | Paridad WebGL2                      | —                                                                            |
 | LIM-25 | Estenosis focal idealizada          | `src/domain/cases.ts`                                                        |
 | LIM-26 | Vasos oculares estilizados          | `src/anatomy/ocularVessels.ts`, `src/app/renderRequest.ts`                   |
+| LIM-27 | Navegación de sonda 2-D             | —                                                                            |
 
 ## IDs de decisiones
 
@@ -99,6 +100,7 @@
 | DEC-46 | Doppler ocular sobre la misma `VesselScene` que Willis: el              | `src/anatomy/ocularVessels.ts` |
 | DEC-47 | Persistencia B-mode (0–4) como promedio temporal de                     | —                              |
 | DEC-48 | Estenosis focal de M1 con turbulencia post-estenótica:                  | —                              |
+| DEC-49 | Navegación de sonda sobre la superficie craneal: la sonda               | —                              |
 
 ## Parámetros registrados
 

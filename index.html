@@ -167,6 +167,22 @@
         cursor: crosshair;
         touch-action: none;
       }
+      .keyHint {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        padding: 3px 8px;
+        font-size: 11px;
+        color: #cfe3ff;
+        background: rgba(10, 20, 35, 0.72);
+        border: 1px solid #335;
+        border-radius: 4px;
+        pointer-events: none;
+        z-index: 5;
+      }
+      .panel {
+        position: relative;
+      }
       .navigatorLegend {
         color: var(--dim);
         font-size: 10px;
@@ -267,6 +283,14 @@
           <input id="shift" type="range" min="-18" max="18" step="0.5" value="0"
         /></label>
         <label class="ctl"
+          ><span>Desplazamiento vertical <b id="shiftYV">0 mm</b></span>
+          <input id="shiftY" type="range" min="-20" max="20" step="0.5" value="0"
+        /></label>
+        <label class="ctl"
+          ><span>Angulación <b id="angulV">0°</b></span>
+          <input id="angul" type="range" min="-25" max="25" step="1" value="0"
+        /></label>
+        <label class="ctl"
           ><span>Rotación marcador <b id="rotV">0°</b></span>
           <input id="rot" type="range" min="-90" max="90" step="5" value="0"
         /></label>
@@ -288,6 +312,9 @@
       </div>
       <div class="panel">
         <canvas id="bmode" width="640" height="480"></canvas>
+        <div id="keyHint" class="keyHint" hidden>
+          ← → ↑ ↓ deslizar · Mayús+flechas inclinar/angulación · Q/E girar · +/− presión · R reiniciar sonda
+        </div>
         <div id="acousticLabel" class="acousticLabel"></div>
         <canvas id="spectral" width="640" height="224"></canvas>
       </div>

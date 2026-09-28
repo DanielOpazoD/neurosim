@@ -7,7 +7,16 @@ import type { Measurement } from '../domain/contracts';
 import type { AppState } from './state';
 
 export type DebriefEventKind =
-  'station' | 'freeze' | 'measurement' | 'pw-on' | 'pw-off' | 'settings' | 'alara' | 'protocol' | 'export';
+  | 'station'
+  | 'freeze'
+  | 'measurement'
+  | 'pw-on'
+  | 'pw-off'
+  | 'settings'
+  | 'probe'
+  | 'alara'
+  | 'protocol'
+  | 'export';
 
 export interface DebriefEvent {
   t: number;

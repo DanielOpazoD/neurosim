@@ -401,12 +401,12 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Calidad de ventana del adulto de referencia.',
   },
   windowRadiusMm: {
-    value: 18,
+    value: 12,
     unit: 'mm',
     range: [12, 25],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Radio útil de la ventana temporal.',
+    note: 'Radio útil de la ventana temporal (~24 mm de ventana acústica efectiva).',
   },
   m1DepthMm: {
     value: 55,

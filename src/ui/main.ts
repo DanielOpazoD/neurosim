@@ -319,6 +319,8 @@ function sendRenderRequest(timing: RenderTiming): void {
       settings: { ...s.settings },
       tiltDeg: s.tiltDeg,
       offsetMm: s.offsetMm,
+      offsetVMm: s.offsetVMm,
+      tiltVDeg: s.tiltVDeg,
       rotDeg: s.rotDeg,
       press: s.press,
       t: timing.t,
@@ -455,6 +457,12 @@ function updateDebriefPanel(): void {
   ].join('');
 }
 
+function syncProbeSlider(id: string, labelId: string, value: number, fmt: (v: number) => string): void {
+  const el = $(id) as HTMLInputElement;
+  if (Number(el.value) !== value) el.value = String(value);
+  $(labelId).textContent = fmt(value);
+}
+
 function syncProtocolControls(): void {
   const rot = $('rot') as HTMLInputElement;
   if (rot.value !== String(s.rotDeg)) {
@@ -462,6 +470,12 @@ function syncProtocolControls(): void {
     rot.dispatchEvent(new Event('input'));
   }
   $('rotV').textContent = `${s.rotDeg}°`;
+  // Deslizadores de sonda ← estado (el teclado escribe el mismo estado).
+  syncProbeSlider('tilt', 'tiltV', s.tiltDeg, (v) => `${v}°`);
+  syncProbeSlider('shift', 'shiftV', s.offsetMm, (v) => `${v} mm`);
+  syncProbeSlider('shiftY', 'shiftYV', s.offsetVMm, (v) => `${v} mm`);
+  syncProbeSlider('angul', 'angulV', s.tiltVDeg, (v) => `${v}°`);
+  syncProbeSlider('press', 'pressV', Math.round(s.press * 100), (v) => `${v}%`);
   $('dte').classList.toggle('on', s.caliperMode === 'dte');
   $('dvno').classList.toggle('on', s.caliperMode === 'dvno');
   document.querySelectorAll('.tab').forEach((el) => {
@@ -585,6 +599,8 @@ function frameLoop(now: number): void {
 const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
   ['tilt', 'tiltV', (v: number) => (s.tiltDeg = v), (v: number) => `${v}°`],
   ['shift', 'shiftV', (v: number) => (s.offsetMm = v), (v: number) => `${v} mm`],
+  ['shiftY', 'shiftYV', (v: number) => (s.offsetVMm = v), (v: number) => `${v} mm`],
+  ['angul', 'angulV', (v: number) => (s.tiltVDeg = v), (v: number) => `${v}°`],
   ['rot', 'rotV', (v: number) => (s.rotDeg = v), (v: number) => `${v}°`],
   ['press', 'pressV', (v: number) => (s.press = v / 100), (v: number) => `${v}%`],
   ['gain', 'gainV', (v: number) => setSetting('gainDb', v), (v: number) => `${v} dB`],
@@ -709,7 +725,93 @@ document.querySelectorAll('.tab').forEach((el) =>
   }),
 );
 $('freeze').addEventListener('click', toggleFreeze);
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+let lastProbeKeyT = -Infinity;
+let probeKeyHintShown = false;
+/** Navegación de sonda por teclado: flechas deslizan, Mayús+flechas inclinan,
+ * Q/E rotación de marcador, +/− presión, R reinicia. Solo si el foco no está
+ * en un control editable. Debrief 'probe' limitado a 1 evento/300 ms. */
+function probeKey(e: KeyboardEvent): boolean {
+  const el = document.activeElement;
+  if (
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLSelectElement ||
+    el instanceof HTMLTextAreaElement ||
+    (el instanceof HTMLElement && el.isContentEditable)
+  )
+    return false;
+  const apply = (f: () => void): true => {
+    f();
+    if (!probeKeyHintShown) {
+      probeKeyHintShown = true;
+      const hint = $('keyHint');
+      hint.hidden = false;
+      setTimeout(() => (hint.hidden = true), 6000);
+    }
+    const now = performance.now();
+    if (now - lastProbeKeyT >= 300) {
+      lastProbeKeyT = now;
+      s.debrief.setTime(clock.t);
+      s.debrief.record('probe', `sonda por teclado (${e.code}${e.shiftKey ? ' ⇧' : ''})`, {
+        offsetMm: s.offsetMm,
+        offsetVMm: s.offsetVMm,
+        tiltDeg: s.tiltDeg,
+        tiltVDeg: s.tiltVDeg,
+        rotDeg: s.rotDeg,
+        press: s.press,
+      });
+    }
+    return true;
+  };
+  switch (e.code) {
+    case 'ArrowLeft':
+      return apply(() => {
+        if (e.shiftKey) s.tiltVDeg = clamp(s.tiltVDeg - 1, -25, 25);
+        else s.offsetMm = clamp(s.offsetMm - 1, -18, 18);
+      });
+    case 'ArrowRight':
+      return apply(() => {
+        if (e.shiftKey) s.tiltVDeg = clamp(s.tiltVDeg + 1, -25, 25);
+        else s.offsetMm = clamp(s.offsetMm + 1, -18, 18);
+      });
+    case 'ArrowUp':
+      return apply(() => {
+        if (e.shiftKey) s.tiltDeg = clamp(s.tiltDeg - 1, -35, 35);
+        else s.offsetVMm = clamp(s.offsetVMm + 1, -20, 20);
+      });
+    case 'ArrowDown':
+      return apply(() => {
+        if (e.shiftKey) s.tiltDeg = clamp(s.tiltDeg + 1, -35, 35);
+        else s.offsetVMm = clamp(s.offsetVMm - 1, -20, 20);
+      });
+    case 'KeyQ':
+      return apply(() => (s.rotDeg = clamp(s.rotDeg - 5, -90, 90)));
+    case 'KeyE':
+      return apply(() => (s.rotDeg = clamp(s.rotDeg + 5, -90, 90)));
+    case 'Equal':
+    case 'NumpadAdd':
+      return apply(() => (s.press = clamp(s.press + 0.1, 0, 1)));
+    case 'Minus':
+    case 'NumpadSubtract':
+      return apply(() => (s.press = clamp(s.press - 0.1, 0, 1)));
+    case 'KeyR':
+      return apply(() => {
+        s.offsetMm = 0;
+        s.offsetVMm = 0;
+        s.tiltDeg = 0;
+        s.tiltVDeg = 0;
+        s.rotDeg = 0;
+        s.press = 0.3;
+      });
+    default:
+      return false;
+  }
+}
 document.addEventListener('keydown', (e) => {
+  if (probeKey(e)) {
+    e.preventDefault();
+    return;
+  }
   if (e.code === 'Space') {
     e.preventDefault();
     toggleFreeze();
