@@ -353,12 +353,12 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Centro z del elipsoide craneal N1.',
   },
   skullRadiusXmm: {
-    value: 72,
+    value: 67,
     unit: 'mm',
     range: [65, 90],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Semieje lateral craneal (~145 mm biparietal con cuero cabelludo).',
+    note: 'Semieje lateral craneal (~140 mm biparietal externo; línea media a ≈73 mm de la piel con cuero cabelludo).',
   },
   skullRadiusYmm: {
     value: 100,

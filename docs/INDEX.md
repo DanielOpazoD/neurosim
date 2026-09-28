@@ -91,6 +91,8 @@
 | DEC-39 | La geometría del movimiento tisular (vaso más cercano, normal           | —                          |
 | DEC-40 | Los casos clínicos son conjuntos estáticos de parámetros                | —                          |
 | DEC-41 | El B-mode aplica la PSF sobre el IQ complejo y detecta la               | —                          |
+| DEC-42 | La convolución lateral de la PSF en CPU usa el mismo tope de            | —                          |
+| DEC-43 | `nerveSection` usa una tabla de la línea central por                    | —                          |
 
 ## Parámetros registrados
 

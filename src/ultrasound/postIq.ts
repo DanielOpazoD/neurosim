@@ -18,6 +18,75 @@ export function kernelEnergy(k: Kernel): number {
 }
 
 /**
+ * Kernel lateral por fila z. En un sector el paso lateral crece con la
+ * profundidad (pitchMm = z·fan/(lineas−1)) y tiende a 0 en el ápice, así que
+ * σ en píxeles diverge: `maxRadius` lo limita igual que en la ruta WebGL
+ * (MAX_GPU_KERNEL_RADIUS) para que CPU y GPU apliquen la misma convolución.
+ */
+/**
+ * Los kernels por fila sólo dependen de (height, dz, scan, beam): se cachean
+ * por fotograma porque reconstruirlos cada frame materializa arrays de
+ * ~10⁶ taps en las filas próximas al ápice del sector. La clave serializa
+ * todos los parámetros de entrada, así que el resultado es idéntico.
+ */
+const rowKernelCache = new Map<string, Kernel[]>();
+function cachedRowKernels(height: number, dz: number, scan: ScanGeometry, beam: BeamSpec): Kernel[] {
+  const key = `${height}|${dz}|${scan.kind}|${scan.widthMmOrRad}|${scan.lineCount}|${beam.frequencyMhz}|${beam.apertureMm}|${beam.focusMm}|${beam.elevationApertureMm}|${beam.elevationFocusMm}|${beam.soundSpeedMs}`;
+  let kernels = rowKernelCache.get(key);
+  if (!kernels) {
+    if (rowKernelCache.size > 8) rowKernelCache.clear();
+    kernels = lateralRowKernels(height, dz, scan, beam, MAX_GPU_KERNEL_RADIUS);
+    rowKernelCache.set(key, kernels);
+  }
+  return kernels;
+}
+
+function lateralRowKernels(
+  height: number,
+  dz: number,
+  scan: ScanGeometry,
+  beam: BeamSpec,
+  maxRadius: number,
+): Kernel[] {
+  const sidelobeEpsilon = Math.pow(10, sidelobeLevelDb(beam) / 20);
+  return Array.from({ length: height }, (_, zi) => {
+    const zMm = zi * dz;
+    const pitchMm =
+      scan.kind === 'linear'
+        ? scan.widthMmOrRad / Math.max(1, scan.lineCount - 1)
+        : Math.max(1e-6, (zMm * scan.widthMmOrRad) / Math.max(1, scan.lineCount - 1));
+    return beamKernel(
+      Math.max(0.6, sigmaFromFwhm(lateralFwhmMm(beam, zMm)) / pitchMm),
+      sidelobeEpsilon,
+      maxRadius,
+    );
+  });
+}
+
+/**
+ * Buffers intermedios reutilizados entre fotogramas (tmp/out/envelope no
+ * escapan: `db` e `iq` sí — se transfieren al hilo principal por
+ * postMessage). El pool crece al tamaño máximo visto.
+ */
+let pooledSize = 0;
+let pooledTmp: Float32Array | null = null;
+let pooledOut: Float32Array | null = null;
+let pooledEnvelope: Float32Array | null = null;
+function pooledBuffers(nComplex: number): {
+  tmp: Float32Array;
+  out: Float32Array;
+  envelope: Float32Array;
+} {
+  if (pooledSize < nComplex) {
+    pooledSize = nComplex;
+    pooledTmp = new Float32Array(nComplex * 2);
+    pooledOut = new Float32Array(nComplex * 2);
+    pooledEnvelope = new Float32Array(nComplex);
+  }
+  return { tmp: pooledTmp!, out: pooledOut!, envelope: pooledEnvelope! };
+}
+
+/**
  * Convoluciona la señal IQ compleja (re, im intercalado) con la PSF
  * separable y después detecta la envoltura |re+i·im| — orden físico: el
  * speckle es interferencia de dispersores subresolución, coherente antes de
@@ -37,8 +106,7 @@ export function applyPsfAndCompression(
 ): { db: Float32Array; envelope: Float32Array } {
   const f0 = settings.frequencyMhz;
   const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / f0 / dz);
-  const out = new Float32Array(width * height * 2);
-  const tmp = new Float32Array(width * height * 2);
+  const { tmp, out, envelope } = pooledBuffers(width * height);
   const kernA = gaussKernel(sigmaAxial);
   for (let li = 0; li < width; li++) {
     for (let zi = 0; zi < height; zi++) {
@@ -56,18 +124,14 @@ export function applyPsfAndCompression(
     }
   }
 
-  const sidelobeEpsilon = Math.pow(10, sidelobeLevelDb(beam) / 20);
   const axialEnergy = kernelEnergy(kernA);
+  // Kernels laterales por fila, calculados una vez (antes se reconstruían
+  // por fila) y con radio limitado a MAX_GPU_KERNEL_RADIUS: cerca del ápice
+  // del sector pitchMm→0 y σ en píxeles diverge (r > 800 000), lo que
+  // dominaba el coste del fotograma; el GPU ya aplicaba este tope.
+  const latKernels = cachedRowKernels(height, dz, scan, beam);
   for (let zi = 0; zi < height; zi++) {
-    const zMm = zi * dz;
-    const pitchMm =
-      scan.kind === 'linear'
-        ? scan.widthMmOrRad / Math.max(1, scan.lineCount - 1)
-        : Math.max(1e-6, (zMm * scan.widthMmOrRad) / Math.max(1, scan.lineCount - 1));
-    const kern = beamKernel(
-      Math.max(0.6, sigmaFromFwhm(lateralFwhmMm(beam, zMm)) / pitchMm),
-      sidelobeEpsilon,
-    );
+    const kern = latKernels[zi]!;
     const rowGain = 1 / Math.sqrt(axialEnergy * kernelEnergy(kern));
     for (let li = 0; li < width; li++) {
       let accRe = 0;
@@ -84,7 +148,6 @@ export function applyPsfAndCompression(
     }
   }
 
-  const envelope = new Float32Array(width * height);
   for (let idx = 0; idx < envelope.length; idx++) {
     envelope[idx] = Math.hypot(out[2 * idx]!, out[2 * idx + 1]!);
   }
@@ -152,19 +215,7 @@ export function psfKernelsTexture(
   const sigmaAxial = Math.max(1, FISICA_US.params.axialPulseMmMhz.value / beam.frequencyMhz / dz);
   const axial = gaussKernel(sigmaAxial);
   const axialEnergy = kernelEnergy(axial);
-  const sidelobeEpsilon = Math.pow(10, sidelobeLevelDb(beam) / 20);
-  const kernels = Array.from({ length: height }, (_, zi) => {
-    const zMm = zi * dz;
-    const pitchMm =
-      scan.kind === 'linear'
-        ? scan.widthMmOrRad / Math.max(1, scan.lineCount - 1)
-        : Math.max(1e-6, (zMm * scan.widthMmOrRad) / Math.max(1, scan.lineCount - 1));
-    return beamKernel(
-      Math.max(0.6, sigmaFromFwhm(lateralFwhmMm(beam, zMm)) / pitchMm),
-      sidelobeEpsilon,
-      MAX_GPU_KERNEL_RADIUS,
-    );
-  });
+  const kernels = cachedRowKernels(height, dz, scan, beam);
   const radius = Math.max(...kernels.map((kernel) => kernel.r));
   const lateral = new Float32Array(height * (2 * radius + 1));
   const rowGain = new Float32Array(height);

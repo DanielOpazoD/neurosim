@@ -170,3 +170,17 @@
     speckle emerge de la interferencia de dispersores sub-resolución. La PSF
     normaliza energía para no sesgar la amplitud y el test de Rayleigh (SNR
     de envolvente ≈ 1,91) valida las estadísticas de primer orden.
+42. **DEC-42** — La convolución lateral de la PSF en CPU usa el mismo tope de
+    radio que la ruta WebGL (`MAX_GPU_KERNEL_RADIUS` = 64): cerca del ápice
+    del sector el paso lateral tiende a 0 y σ en píxeles divergía (r >
+    800 000 taps por fila, ~83 % del fotograma). Los kernels por fila se
+    calculan una vez y se comparten con `psfKernelsTexture`. El dorado
+    `temporalDerBmode` cambia una vez y CPU/GPU quedan idénticos; el ojo
+    (paso constante) es bit-idéntico.
+43. **DEC-43** — `nerveSection` usa una tabla de la línea central por
+    `EyeGeometry` (valores exactos cada 0,25 mm) y un rechazo por caja
+    envolvente de la vaina: fuera de ella en > 1 para todo s, por lo que el
+    resultado es idéntico. `skullRadiusXmm` 72 → 67 mm (~140 mm biparietal)
+    encuadra el mesencéfalo (centro a ≈74 mm) dentro del campo de 90 mm;
+    mueve los dorados temporales (`temporalDerBmode`, `colorM1Der`,
+    `pwM1Point2`).
