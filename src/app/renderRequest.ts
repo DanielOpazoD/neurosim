@@ -46,6 +46,8 @@ export interface RenderRequest {
   readonly settings: AcquisitionSettings;
   readonly tiltDeg: number;
   readonly offsetMm: number;
+  readonly offsetVMm?: number;
+  readonly tiltVDeg?: number;
   readonly rotDeg?: number;
   readonly press?: number;
   readonly t: number;
@@ -301,6 +303,8 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
     station: req.station,
     tiltDeg: req.tiltDeg,
     offsetMm: req.offsetMm,
+    offsetVMm: req.offsetVMm,
+    tiltVDeg: req.tiltVDeg,
     rotDeg: req.rotDeg,
     press: req.press,
     tSec: req.t,

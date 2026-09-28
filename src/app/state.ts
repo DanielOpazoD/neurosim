@@ -28,7 +28,11 @@ export interface AppState {
   side: Side;
   settings: AcquisitionSettings;
   offsetMm: number;
+  /** Deslizamiento de sonda sobre el eje de elevación (mm). */
+  offsetVMm: number;
   tiltDeg: number;
+  /** Angulación en el plano de elevación (izda/dcha) en grados. */
+  tiltVDeg: number;
   rotDeg: number;
   press: number;
   frozen: boolean;
@@ -67,7 +71,9 @@ export function createInitialState(): AppState {
     side: 'der',
     settings: defaultEyeSettings(),
     offsetMm: 0,
+    offsetVMm: 0,
     tiltDeg: 0,
+    tiltVDeg: 0,
     rotDeg: 0,
     press: 0.3,
     frozen: false,

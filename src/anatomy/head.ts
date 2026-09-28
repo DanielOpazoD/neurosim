@@ -356,6 +356,25 @@ export function skullThicknessJittered(h: HeadGeometry, p: Vec3): number {
   return skullThicknessAt(h, p) + 0.3 * latticeNoise('craneo:tabla', p, 6) * (1 - w);
 }
 
+/** Punto sobre la superficie del cuero cabelludo en la dirección de `p`:
+ * proyecta `p` sobre el elipsoide escalado a nivel 1 + `scalpMm`/R_dir, donde
+ * R_dir es el radio local del elipsoide en esa dirección. */
+export function surfacePoint(h: HeadGeometry, p: Vec3, scalpMm = 0): Vec3 {
+  const c = h.skullCenter;
+  const r = h.skullRadii;
+  const qx = (p[0] - c[0]) / r[0];
+  const qy = (p[1] - c[1]) / r[1];
+  const qz = (p[2] - c[2]) / r[2];
+  const level = Math.hypot(qx, qy, qz);
+  if (level <= 0) return [c[0] + r[0], c[1], c[2]];
+  const uqx = qx / level;
+  const uqy = qy / level;
+  const uqz = qz / level;
+  const rDir = Math.hypot(uqx * r[0], uqy * r[1], uqz * r[2]); // mm al hueso
+  const k = (1 + scalpMm / rDir) / level;
+  return [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * k, c[2] + (p[2] - c[2]) * k];
+}
+
 /**
  * ¿El punto cae dentro de la tabla interna del cráneo? Versión barata sin
  * jitter: basta para decidir si la pulsación cerebral aplica.

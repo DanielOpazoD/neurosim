@@ -244,3 +244,22 @@
     produce el ensanchamiento espectral. El caso `estenosisM1` usa
     `vesselStenosis` (s=12 mm, L=6 mm, scale 0,5) en lugar del escalado
     difuso, que se reserva al vasoespasmo.
+49. **DEC-49** — Navegación de sonda sobre la superficie craneal: la sonda
+    añade `offsetVMm` (deslizamiento en el eje de elevación, −20…20 mm) y
+    `tiltVDeg` (angulación del haz en el plano de elevación, −25…25°); con
+    ambos a 0 la pose es bit-idéntica a la anterior. La elevación es
+    cross(forward, lateral) antes del giro de marcador. Al deslizar, el
+    origen temporal se proyecta sobre el cuero cabelludo
+    (`surfacePoint(head, p, 7,7)`, nivel elipsoide 1 + scalp/R_dir) y el haz
+    atraviesa hueso más grueso fuera de la ventana — la caída de imagen es
+    emergente (≈13 dB a +18 mm superior, ~21 dB
+    a −18 mm inferior), sin rama especial; `elev = cross(lateral, forward)`
+    apunta a +y (superior), así que +offsetVMm sube por la ventana. La ventana útil se
+    estrechó (`windowRadiusMm` 18 → 12 mm, ~24 mm efectivos) para que salirse
+    de ella degrade de verdad; el dorado `temporalDerBmode` se regeneró
+    (los rayos muy oblicuos ganan espesor óseo; ojo/color/PW sin cambios).
+    Teclado: flechas deslizan 1 mm (←→ lateral, ↑↓ vertical),
+    Mayús+flechas inclinan/angulan 1°, Q/E giran el marcador 5°, +/− la
+    presión 10 %, R reinicia (0/0/0/0/0, 30 %); inactivo con un control
+    editable enfocado; los deslizadores se sincronizan desde el estado cada
+    frame y los cambios se registran como eventos `probe` (máx. 1/300 ms).

@@ -42,6 +42,11 @@ exacta; una señal ausente no acredita cese circulatorio.
   está disponible y el selector Renderizador aparece en Equipo.
 - Navegador 3D ortográfico de la sonda, con cámara arrastrable derivada de la
   pose y de la anatomía adquirida.
+- Navegación de sonda realista: deslizamiento lateral y superior/inferior
+  (mm), inclinación y angulación en el plano de elevación (°), rotación de
+  marcador y presión; el origen sigue el cuero cabelludo, así que salirse de
+  la ventana temporal oscurece la imagen por hueso. Atajos: flechas (+Mayús
+  para inclinar/angulación), Q/E rotación, +/− presión, R reiniciar.
 - Debriefing docente determinista con línea de tiempo, hallazgos cuantitativos
   y exportación separada de verdades del modelo.
 - Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:

@@ -112,3 +112,9 @@ a WebGL2 en bloques posteriores.
   ACR/VCR por latido; el trayecto de la arteria oftálmica es esquemático
   (cruce sobre el nervio a ~15 mm retroglobo) y no reproduce sus ramas ni su
   variabilidad anatómica.
+
+- **LIM-27 · Navegación de sonda 2-D**: `offsetVMm`/`tiltVDeg` añaden
+  deslizamiento vertical y angulación en el plano de elevación, pero no hay
+  deslizamiento anterior-posterior sobre la cabeza ni compresión adelante/
+  atrás distinta del parámetro `press`; la estación ocular no proyecta sobre
+  la superficie del párpado (solo la temporal sigue el elipsoide craneal).

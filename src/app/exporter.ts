@@ -30,6 +30,14 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
     measurements: s.measurements,
     onsdReport: buildReport(s.onsd),
     settings: s.settings,
+    probe: {
+      offsetMm: s.offsetMm,
+      offsetVMm: s.offsetVMm,
+      tiltDeg: s.tiltDeg,
+      tiltVDeg: s.tiltVDeg,
+      rotDeg: s.rotDeg,
+      press: s.press,
+    },
     acousticOutput: acousticOutput({
       transducer: s.settings.transducer,
       station: s.station,

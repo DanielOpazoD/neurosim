@@ -2,17 +2,20 @@
  * Poses de sonda: transformaciones puras desde el caso y el estado.
  * No accede al reloj ni a elementos de la interfaz.
  */
-import { add, normalize, scale, type Vec3 } from '../core/vec3';
+import { add, cross, normalize, scale, type Vec3 } from '../core/vec3';
 import { hash3 } from '../core/random';
 import type { ProbePose, Side } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { DOPPLER } from '../doppler/params';
+import { surfacePoint } from '../anatomy/head';
 import { handTremorVelocityMmS } from '../doppler/clutter';
 import { rotateAround } from '../ultrasound/probe';
 import type { AppState } from './state';
 
 export type PoseInput = Pick<AppState, 'side' | 'station' | 'tiltDeg' | 'offsetMm'> &
-  Partial<Pick<AppState, 'rotDeg' | 'press' | 'handMotion'>> & { tSec?: number };
+  Partial<Pick<AppState, 'offsetVMm' | 'tiltVDeg' | 'rotDeg' | 'press' | 'handMotion'>> & {
+    tSec?: number;
+  };
 
 export function eyePose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbePose {
   const eye = sim.eyes[side];
@@ -20,8 +23,20 @@ export function eyePose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbeP
   const lateral: Vec3 = [1, 0, 0];
   const tilt = (s.tiltDeg * Math.PI) / 180;
   const rot = ((s.rotDeg ?? 0) * Math.PI) / 180;
-  const origin = add(eye.center, add(scale(anterior, eye.globeRadiusMm + 3.2), scale(lateral, s.offsetMm)));
-  const fwd = normalize(rotateAround(scale(anterior, -1), lateral, tilt));
+  let fwd = normalize(rotateAround(scale(anterior, -1), lateral, tilt));
+  // Eje de elevación del haz (antes del giro de marcador): deslizamiento
+  // vertical sobre el párpado y angulación izquierda/derecha del haz.
+  // cross(lateral, fwd) apunta a +y (superior) en ambas estaciones.
+  const elev = normalize(cross(lateral, fwd));
+  const origin = add(
+    eye.center,
+    add(
+      add(scale(anterior, eye.globeRadiusMm + 3.2), scale(lateral, s.offsetMm)),
+      scale(elev, s.offsetVMm ?? 0),
+    ),
+  );
+  const tiltV = ((s.tiltVDeg ?? 0) * Math.PI) / 180;
+  if (tiltV !== 0) fwd = normalize(rotateAround(fwd, elev, tiltV));
   const lat = rotateAround(lateral, fwd, rot);
   return {
     origin,
@@ -48,10 +63,21 @@ export function temporalPose(sim: ReferenceCase, s: PoseInput, side = s.side): P
   lateral = normalize(lateral);
   const tilt = (s.tiltDeg * Math.PI) / 180;
   const rot = ((s.rotDeg ?? 0) * Math.PI) / 180;
-  const fwd = normalize(rotateAround(inward, lateral, tilt));
+  let fwd = normalize(rotateAround(inward, lateral, tilt));
+  // Eje de elevación del haz (antes del giro de marcador): offV desliza la
+  // sonda superior/inferior por la ventana; tiltV angula el haz en ese plano.
+  const elev = normalize(cross(lateral, fwd));
+  const offV = s.offsetVMm ?? 0;
   // Cara de la sonda pegada a la piel (cuero cabelludo ~7,5 mm en la fosa:
   // 2,5 piel + 5 temporalis) — sin hueco de aire, que atenúa ~20 dB/cm.
-  const origin = add(add(wc, scale(fwd, -7.7)), scale(lateral, s.offsetMm));
+  // Al deslizar (offsetMm/offsetVMm) el origen sigue la superficie del
+  // cuero cabelludo sobre el elipsoide — salirse de la ventana mete hueso.
+  const origin =
+    s.offsetMm === 0 && offV === 0
+      ? add(wc, scale(fwd, -7.7))
+      : surfacePoint(sim.head, add(add(wc, scale(lateral, s.offsetMm)), scale(elev, offV)), 7.7);
+  const tiltV = ((s.tiltVDeg ?? 0) * Math.PI) / 180;
+  if (tiltV !== 0) fwd = normalize(rotateAround(fwd, elev, tiltV));
   const lat = rotateAround(lateral, fwd, rot);
   return {
     origin,
