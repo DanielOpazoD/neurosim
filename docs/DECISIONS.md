@@ -184,3 +184,19 @@
     encuadra el mesencéfalo (centro a ≈74 mm) dentro del campo de 90 mm;
     mueve los dorados temporales (`temporalDerBmode`, `colorM1Der`,
     `pwM1Point2`).
+44. **DEC-44** — La corona de cisterna basal se adelgaza (butterflyLevel < 1,45
+    → < 1,22, ~3 mm) y su amplitud baja a 0,55 con pico 1,25 en el borde
+    (`scatterScale` 1,25 − 0,55·ss(1,0;1,25)); el ala esfenoidal pasa de losa
+    (|y+2|<3, |x|<32) a cresta (|y+2|<1,5, 20<|x|<28). Objetivo: mariposa
+    hipoecoica legible; la medición muestra que el llenado residual del
+    núcleo procede del eco de interfaz smeada por la PSF, no del speckle
+    propio (amp 0,15→0,10 mueve sólo ~1 dB). Mueven `temporalDerBmode` y
+    `pwM1Point2` (clutter); `colorM1Der` y `eyeDerBmode` intactos.
+45. **DEC-45** — Sustancia negra recalibrada a la referencia de Berg 2008
+    (≤0,20 cm²/lado en el plano mesencefálico): `snHalfDepthMm` 5→2,2,
+    `redNucleusRadiusMm` 2→1,5, amp 0,50→0,30 (en adulto normal es apenas
+    ecogénica; la SN hiperecogénica es el signo de Parkinson para un caso
+    futuro). Área medida: 0,19/0,16 cm² por lado. El piso electrónico del
+    preset transcraneal baja 14 dB (`bmodeNoiseTemporalRelDb`, sólo sector):
+    la sustancia blanca a ~70 mm estaba pegada al piso ocular y comprimía el
+    contraste aparente de la mariposa.

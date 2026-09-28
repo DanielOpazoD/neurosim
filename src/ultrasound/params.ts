@@ -230,6 +230,14 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     sources: ['plan-simulador-2026'],
     note: 'Piso gaussiano electrónico constante del receptor, 30 dB por debajo de la media |iQ| de esclera posterior a 0 dB, preset ocular.',
   },
+  bmodeNoiseTemporalRelDb: {
+    value: -14,
+    unit: 'dB',
+    range: [-30, 0],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Piso electrónico del preset transcraneal relativo al ocular; el receptor de 2 MHz integra menos ancho de banda y los equipos TCCD priorizan penetración.',
+  },
   defaultEyeFrequencyMhz: {
     value: 10,
     unit: 'MHz',

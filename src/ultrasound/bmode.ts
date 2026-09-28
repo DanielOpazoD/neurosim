@@ -142,7 +142,9 @@ export function renderBMode(
   const noiseFloor =
     opts.electronicNoise === false || opts.speckle === false
       ? 0
-      : FISICA_US.params.eyeScleraRefIq.value * 10 ** (-FISICA_US.params.bmodeNoiseSnrDb.value / 20);
+      : FISICA_US.params.eyeScleraRefIq.value *
+        10 ** (-FISICA_US.params.bmodeNoiseSnrDb.value / 20) *
+        (settings.transducer === 'sector' ? 10 ** (FISICA_US.params.bmodeNoiseTemporalRelDb.value / 20) : 1);
   const noiseRng = new SeededRandom(`${seed}-electronic-noise`);
 
   const specularPow = (m: Material): number => (m.id === 'hueso' || m.id === 'duraVaina' ? 2.2 : 1.2);
