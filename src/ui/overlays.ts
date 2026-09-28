@@ -180,13 +180,13 @@ export function drawSpectral(
   controller: PwController,
 ): void {
   const chain = controller.currentChain;
-  if (!s.pwOn || s.station !== 'temporal' || !chain) {
+  if (!s.pwOn || !chain || controller.chainSceneKey !== `${s.station}-${s.side}`) {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (!s.pwOn) {
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.font = '12px sans-serif';
-      ctx.fillText('Activa PW (ventana temporal) para el espectro', 16, 24);
+      ctx.fillText('Activa PW para el espectro', 16, 24);
     }
     return;
   }
@@ -224,7 +224,7 @@ export function updateReadouts(
   controller: PwController,
 ): void {
   const summary = controller.latestMcaMeasure();
-  const angle = s.teachingMode && s.station === 'temporal' ? controller.insonation() : null;
+  const angle = s.teachingMode ? controller.insonation() : null;
   const angleRows =
     angle && angle.vesselId && Number.isFinite(angle.realDeg)
       ? [
@@ -246,7 +246,7 @@ export function updateReadouts(
   const alara = acousticOutput({
     transducer: s.settings.transducer,
     station: s.station,
-    mode: s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode',
+    mode: s.pwOn ? 'pw' : 'color',
     frequencyMhz: s.settings.frequencyMhz,
     focusMm: s.settings.focusMm,
     prfHz: s.settings.prfHz,

@@ -54,7 +54,13 @@ export function buildReferenceCase(
     buildReferenceEyes(new SeededRandom(seed).fork('eyes'), dvno);
   const eyes = eyesFor(MANIFEST.case.dvnoIntMm);
   rng.fork('eyes');
-  const head = buildReferenceHead(rng.fork('head'), willisVariant, cc.vesselRadiusScale, cc.window);
+  const head = buildReferenceHead(
+    rng.fork('head'),
+    willisVariant,
+    cc.vesselRadiusScale,
+    cc.window,
+    cc.snAreaCm2Scale ?? 1,
+  );
   const respiration = new Respiration(FISIOLOGIA.params.respiratoryRatePerMin.value);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
   const flow = new CerebralFlow(head, physiology);

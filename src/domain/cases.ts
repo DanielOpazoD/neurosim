@@ -16,7 +16,8 @@ export type CaseId =
   | 'ventanaPobre'
   | 'paradaCirculatoria'
   | 'hipercapnia'
-  | 'hipocapnia';
+  | 'hipocapnia'
+  | 'parkinson';
 
 export interface ClinicalCase {
   readonly id: CaseId;
@@ -34,6 +35,10 @@ export interface ClinicalCase {
    * la ACI no se insona (LIM-02).
    */
   readonly icaExtracranialTamaxCms: number;
+  /** Multiplicador de ecogenicidad de la sustancia nigra (TCS; 1 = normal). */
+  readonly snEchogenicity?: number;
+  /** Escala del área en planta de la sustancia nigra (1 = normal). */
+  readonly snAreaCm2Scale?: number;
   /** Puntos docentes (2–4 viñetas) mostrados bajo el selector de caso. */
   readonly teaching: readonly string[];
 }
@@ -147,6 +152,24 @@ export const CASES: readonly ClinicalCase[] = [
     physiology: { mapMmHg: 90, paco2MmHg: 25, icpMmHg: 10 },
     icaExtracranialTamaxCms: 40,
     teaching: ['Velocidades ↓ y PI ↑ por vasoconstricción.'],
+  },
+  {
+    ...BASE,
+    id: 'parkinson',
+    label: 'Enfermedad de Parkinson',
+    summary: 'Sustancia nigra hiperecogénica y agrandada en el plano mesencefálico.',
+    physiology: {
+      mapMmHg: PHYS.mapMmHg.value,
+      paco2MmHg: PHYS.paco2MmHg.value,
+      icpMmHg: PHYS.icpMmHg.value,
+    },
+    snEchogenicity: 2.4,
+    snAreaCm2Scale: 1.8,
+    icaExtracranialTamaxCms: 45,
+    teaching: [
+      'SN hiperecogénica ≥ 0,20–0,25 cm² (percentil 90) en TCS; hallazgo de apoyo, no diagnóstico.',
+      'Hemodinámica y DVNO sin cambios respecto al caso normal.',
+    ],
   },
 ];
 

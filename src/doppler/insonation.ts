@@ -1,6 +1,6 @@
 import type { Vec3 } from '../core/vec3';
 import { dot, normalize } from '../core/vec3';
-import type { HeadGeometry } from '../anatomy/head';
+import type { VesselScene } from '../anatomy/head';
 import { vesselDistance, vesselFlowDir } from '../anatomy/head';
 import { DOPPLER } from './params';
 
@@ -12,15 +12,15 @@ export interface InsonationAngles {
 }
 
 export function insonationAngles(
-  head: HeadGeometry,
+  scene: VesselScene,
   center: Vec3,
   beamDir: Vec3,
   lateral: Vec3,
   elevation: Vec3,
 ): InsonationAngles {
-  let dominant = head.vessels[0] ?? null;
+  let dominant = scene.vessels[0] ?? null;
   let bestDistance = dominant ? vesselDistance(dominant, center) : Infinity;
-  for (const vessel of head.vessels.slice(1)) {
+  for (const vessel of scene.vessels.slice(1)) {
     const d = vesselDistance(vessel, center);
     if (d < bestDistance) {
       dominant = vessel;

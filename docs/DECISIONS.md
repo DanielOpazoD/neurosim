@@ -200,3 +200,19 @@
     preset transcraneal baja 14 dB (`bmodeNoiseTemporalRelDb`, sólo sector):
     la sustancia blanca a ~70 mm estaba pegada al piso ocular y comprimía el
     contraste aparente de la mariposa.
+
+46. **DEC-46** — Doppler ocular sobre la misma `VesselScene` que Willis: el
+    grafo vascular retrobulbar (`src/anatomy/ocularVessels.ts`, 6 vasos/ojo
+    en espacio paciente vía `fromEyeLocal`) expone `EyeGeometry.vessels` y la
+    cadena Doppler (`renderColorDoppler`, `SampleVolumeIQ`,
+    `insonationAngles`, `tissueMotionBasis`, `PwDopplerChain`) trabaja sobre
+    `VesselScene { vessels, classify?, attenuationDb? }` en vez de
+    `HeadGeometry`. La cabeza queda bit-idéntica (`colorM1Der`, `pwM1Point2`
+    sin cambios); el ojo aporta `classifyEye` y atenuación por trayectoria
+    (`pathAttenuationDb`, sin penalización de ventana). Vasos venosos marcados
+    `venous` con velocidad plana `meanCms·modulation`. El tubo ACR cableado en
+    `classifyEyeLocal` se sustituye por consulta al grafo (los AABB oculares
+    se inflan 1,5 mm para que las celdas de color vean tubos submilimétricos).
+    `eyeDerBmode` cambia por los nuevos vóxeles `vaso` intraneurales y
+    retrobulbares; se añade el dorado `colorAcrDer`. Caso `parkinson`:
+    `snEchogenicity` 2,4 (scatterScale) y `snAreaCm2Scale` 1,8 (geometría).

@@ -12,14 +12,14 @@ describe('clutter tisular determinista', () => {
     const point = add(sim.head.skullCenter, [0, 0, 0]);
     const period = sim.respiration.periodS;
     const first = tissueVelocityMmS({
-      head: sim.head,
+      scene: sim.head,
       point,
       cardiacPhase: 0.2,
       heartRateBpm: sim.patient.physiology.heartRateBpm,
       tSec: 0,
     });
     const second = tissueVelocityMmS({
-      head: sim.head,
+      scene: sim.head,
       point,
       cardiacPhase: 1.2,
       heartRateBpm: sim.patient.physiology.heartRateBpm,
@@ -32,7 +32,7 @@ describe('clutter tisular determinista', () => {
     for (let i = 0; i < 200; i += 1) {
       const phase = i / 200;
       const v = tissueVelocityMmS({
-        head: sim.head,
+        scene: sim.head,
         point,
         cardiacPhase: phase,
         heartRateBpm: sim.patient.physiology.heartRateBpm,
@@ -55,7 +55,7 @@ describe('clutter tisular determinista', () => {
     const radial = normalize(cross(tangent, [0, 1, 0]));
     const near = add(target, scale(radial, 1.5));
     const far = add(target, scale(radial, 5));
-    const args = { head: sim.head, cardiacPhase: 0.2, heartRateBpm: 70, tSec: 0 };
+    const args = { scene: sim.head, cardiacPhase: 0.2, heartRateBpm: 70, tSec: 0 };
     const vNear = tissueVelocityMmS({ ...args, point: near });
     const vFar = tissueVelocityMmS({ ...args, point: far });
     expect(Math.hypot(vFar[0], vFar[1])).toBeLessThan(Math.hypot(vNear[0], vNear[1]));

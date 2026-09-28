@@ -11,7 +11,7 @@ import { hash3 } from '../core/random';
 import type { Vec3 } from '../core/vec3';
 import { scale, normalize } from '../core/vec3';
 import type { BasalPhysiology } from '../domain/contracts';
-import type { HeadGeometry, Vessel } from '../anatomy/head';
+import type { Vessel, VesselScene } from '../anatomy/head';
 import { vesselAt, vesselClosest, vesselDistance } from '../anatomy/head';
 import { arterialShapeTable, FISIOLOGIA } from './params';
 import { Respiration } from './respiration';
@@ -105,6 +105,8 @@ export function arterialShape(phase: number): number {
 
 /** Velocidad espacial media del vaso en la fase dada, cm/s. */
 export function vesselVelocityCms(v: Vessel, phase: number, modulation = 1, hemo?: HemodynamicState): number {
+  // Venoso: flujo cuasi estacionario — ignora la forma arterial y la onda hemodinámica.
+  if (v.venous) return v.meanCms * modulation;
   if (hemo) return v.meanCms * hemo.flowFactor * hemo.waveform(phase) * modulation;
   return (v.edvCms + (v.psvCms - v.edvCms) * arterialShape(phase)) * modulation;
 }
@@ -112,7 +114,7 @@ export function vesselVelocityCms(v: Vessel, phase: number, modulation = 1, hemo
 /** Query de flujo por posición: velocidad de la sangre (mm/s) en un punto. */
 export class CerebralFlow {
   constructor(
-    readonly head: HeadGeometry,
+    readonly scene: VesselScene,
     readonly phys: BasalPhysiology,
   ) {}
 
@@ -121,7 +123,7 @@ export class CerebralFlow {
    * Perfil laminar: v(r) = vEje·(1 − 0,85·(r/R)²) dentro del tubo.
    */
   velocityAt(p: Vec3, phase: number, modulation = 1, hemo?: HemodynamicState): Vec3 {
-    const v = vesselAt(this.head, p);
+    const v = vesselAt(this.scene, p);
     if (!v) return [0, 0, 0];
     const d = vesselDistance(v, p); // <0 dentro
     const r = v.radiusMm + d; // distancia al eje

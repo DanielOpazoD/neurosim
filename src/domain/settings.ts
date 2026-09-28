@@ -26,8 +26,8 @@ export function defaultEyeSettings(): AcquisitionSettings {
     spectralGainDb: 0,
     outputPowerDb: FISICA_US.params.defaultEyeOutputPowerDb.value,
     invertColor: false,
-    // El color solo corre en temporal; forma válida por si se activa.
-    colorBox: { uCenter: 0, uHalf: 15, zMinMm: 5, zMaxMm: 40 },
+    // Caja Doppler retrobulbar: nervio + vasos centrales/orbitarios.
+    colorBox: { uCenter: 0, uHalf: 12, zMinMm: 18, zMaxMm: 40 },
   };
 }
 

@@ -19,8 +19,8 @@ import { SeededRandom } from '../core/random';
 import type { Vec3 } from '../core/vec3';
 import { dist, scale } from '../core/vec3';
 import { dopplerShiftHz } from '../core/units';
-import { MATERIALS } from '../anatomy/materials';
-import type { HeadGeometry, Vessel } from '../anatomy/head';
+import { MATERIALS, type MaterialId } from '../anatomy/materials';
+import type { HeadGeometry, Vessel, VesselScene } from '../anatomy/head';
 import { classifyHead, vesselAt, vesselClosest, vesselDistance, vesselFlowDir } from '../anatomy/head';
 import { vesselVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
@@ -126,11 +126,16 @@ export class SampleVolumeIQ {
   };
 
   constructor(
-    private readonly head: HeadGeometry,
+    private readonly scene: VesselScene,
     seed: number,
   ) {
     this.rng = new SeededRandom(seed ^ 0xd0991e);
+    // Escenas craneales sin `classify` usan classifyHead (HeadGeometry);
+    // la estación ocular aporta `classifyEye` en su escena.
+    this.classifyFn = scene.classify ?? ((p: Vec3) => classifyHead(scene as HeadGeometry, p));
   }
+
+  private readonly classifyFn: (p: Vec3) => MaterialId;
 
   get lastComposition(): GateComposition {
     return this.composition;
@@ -174,7 +179,7 @@ export class SampleVolumeIQ {
   private seedVessels(): void {
     const h = [this.halfAxial * 0.95, this.halfLateral * 0.95, this.halfElev * 0.95];
     let placed = 0;
-    for (const v of this.head.vessels) {
+    for (const v of this.scene.vessels) {
       if (placed >= SEED_VESSEL_MAX) break;
       for (let i = 0; i + 1 < v.points.length && placed < SEED_VESSEL_MAX; i++) {
         const a = v.points[i]!;
@@ -237,7 +242,7 @@ export class SampleVolumeIQ {
   }
 
   private backscatterOf(world: Vec3): number {
-    const mat = classifyHead(this.head, world);
+    const mat = this.classifyFn(world);
     // La sangre porta dispersores puntuales; la cifra del material da el orden.
     // Amplitud efectiva 6: la sangre sigue muy por debajo del tejido en modo B
     // pero su energía en el canal Doppler debe superar ~12 dB el ruido para
@@ -271,7 +276,7 @@ export class SampleVolumeIQ {
     if (s.vessel) {
       s.flowBasis = this.flowBasisOf(s.vessel, world);
     } else {
-      s.tissueBasis = tissueMotionBasis(this.head, world);
+      s.tissueBasis = tissueMotionBasis(this.scene, world);
     }
     startAmpRamp(s, s.ampTarget);
     return s;
@@ -351,11 +356,11 @@ export class SampleVolumeIQ {
    * el voxel mezcla sangre y tejido — se clasifica como sangre.
    */
   private vesselAtBlood(world: Vec3): Vessel | null {
-    const v = vesselAt(this.head, world);
+    const v = vesselAt(this.scene, world);
     if (v) return v;
     let best: Vessel | null = null;
     let bestD = DOPPLER.params.partialWallMm.value;
-    for (const cand of this.head.vessels) {
+    for (const cand of this.scene.vessels) {
       const d = vesselDistance(cand, world);
       if (d >= 0 && d < bestD) {
         best = cand;
@@ -472,7 +477,7 @@ export class SampleVolumeIQ {
                 s.flowBasis = this.flowBasisOf(v, s.m);
                 s.tissueBasis = null;
               } else if (!v && !s.vessel) {
-                s.tissueBasis = tissueMotionBasis(this.head, s.m);
+                s.tissueBasis = tissueMotionBasis(this.scene, s.m);
               } else if (s.vessel) {
                 if (v && v !== s.vessel) {
                   s.vessel = v;
@@ -501,7 +506,7 @@ export class SampleVolumeIQ {
               s.vMat[1] = s.flowBasis[1] * u;
               s.vMat[2] = s.flowBasis[2] * u;
             } else {
-              if (!s.tissueBasis) s.tissueBasis = tissueMotionBasis(this.head, s.m);
+              if (!s.tissueBasis) s.tissueBasis = tissueMotionBasis(this.scene, s.m);
               s.vMat = tissueVelocityFromBasis(s.tissueBasis, cardiacPhase, heartRateBpm, tSec);
             }
             const wTarget =

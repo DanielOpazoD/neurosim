@@ -102,3 +102,11 @@ a WebGL2 en bloques posteriores.
   continuidad eleva la velocidad, pero no hay chorro focal ni turbulencia
   post-estenótica; tampoco hay progresión temporal ni respuesta a maniobras
   más allá de la fisiología basal.
+
+- **LIM-26 · Vasos oculares estilizados**: el grafo retrobulbar (ACR, VCR, AO,
+  VOS y ciliares posteriores) son tubos de radio constante y fijo — sin
+  variación de calibre a lo largo del trayecto ni anastomosis. El flujo venoso
+  (VCR, VOS) es estacionario, sin modulación respiratoria ni pulsatilidad de la
+  ACR/VCR por latido; el trayecto de la arteria oftálmica es esquemático
+  (cruce sobre el nervio a ~15 mm retroglobo) y no reproduce sus ramas ni su
+  variabilidad anatómica.

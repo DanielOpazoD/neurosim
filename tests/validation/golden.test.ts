@@ -1,10 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { eyeScene, headScene } from '../../src/app/renderRequest';
+import { eyeDopplerScene, eyeScene, headScene } from '../../src/app/renderRequest';
 import { buildReferenceCase, REFERENCE_SEED } from '../../src/domain/referenceCase';
 import { defaultEyeSettings, defaultTemporalSettings } from '../../src/domain/settings';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
+import { CerebralFlow } from '../../src/physiology/flow';
 import { renderBMode } from '../../src/ultrasound/bmode';
 import { renderColorDoppler } from '../../src/doppler/color';
 import { buildScan } from '../../src/ultrasound/probe';
@@ -12,7 +13,13 @@ import { eyePose, m1Gate, temporalPose } from './helpers';
 import { hashBMode, hashColor, hashSpectral } from './hash';
 
 const goldenPath = resolve(process.cwd(), 'tests/validation/golden.json');
-type Goldens = { eyeDerBmode: string; temporalDerBmode: string; pwM1Point2: string; colorM1Der: string };
+type Goldens = {
+  eyeDerBmode: string;
+  temporalDerBmode: string;
+  pwM1Point2: string;
+  colorM1Der: string;
+  colorAcrDer: string;
+};
 
 function eyeHash(seed: number): string {
   const sim = buildReferenceCase(seed);
@@ -77,6 +84,24 @@ function colorHash(): string {
   return hashColor(vel, pow);
 }
 
+function colorAcrHash(): string {
+  const sim = buildReferenceCase();
+  const settings = defaultEyeSettings();
+  const pose = eyePose(sim, 'der');
+  const scene = eyeDopplerScene(sim.eyes.der);
+  const { vel, pow } = renderColorDoppler(
+    scene,
+    new CerebralFlow(scene, sim.patient.physiology),
+    buildScan(pose, 'linear', 64),
+    pose,
+    settings,
+    sim.patient.seed,
+    0.2,
+    settings.colorBox,
+  );
+  return hashColor(vel, pow);
+}
+
 describe('goldens deterministas', () => {
   it('mantiene los hashes de referencia', () => {
     const values: Goldens = {
@@ -84,6 +109,7 @@ describe('goldens deterministas', () => {
       temporalDerBmode: temporalHash(),
       pwM1Point2: pwHash(),
       colorM1Der: colorHash(),
+      colorAcrDer: colorAcrHash(),
     };
     if (process.env.GOLDEN_UPDATE === '1') {
       writeFileSync(goldenPath, `${JSON.stringify(values, null, 2)}\n`);
