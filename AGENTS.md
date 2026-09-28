@@ -12,3 +12,5 @@
   usar `page.mouse.click` sobre el B-mode, si no los clics no llegan.
 - Capas: `src/anatomy` no puede importar `src/ultrasound` (`tests/layers.test.ts`);
   los hooks de escena (`eyeScene`, `headScene`) viven en `src/app/renderRequest.ts`.
+- Pruebas e2e deterministas: `?clock=fixed&t=0.4` pausa el `SimulationClock` en
+  `t` y desactiva `handMotion`; úsalo en goto cuando se comparen píxeles.

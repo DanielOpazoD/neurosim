@@ -159,6 +159,7 @@
         margin-top: 8px;
       }
       .navigator {
+        display: block;
         width: 100%;
         aspect-ratio: 1;
         background: #0b0d0f;
@@ -242,7 +243,8 @@
     <main>
       <div class="panel">
         <h2>Sonda</h2>
-        <canvas id="navigator" class="navigator" width="300" height="300"></canvas>
+        <div id="navigatorTitle" class="navigatorLegend">Ojo der</div>
+        <canvas id="navigator" class="navigator" width="320" height="320"></canvas>
         <div id="navigatorLegend" class="navigatorLegend" hidden>
           rojo → hacia la sonda · azul ← alejándose
         </div>

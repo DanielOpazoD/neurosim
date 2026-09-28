@@ -504,6 +504,57 @@ export function butterflyLevel(h: HeadGeometry, p: Vec3): number {
   );
 }
 
+/**
+ * Formas del mesencéfalo compartidas entre clasificador y navegador 3D:
+ * dos pedúnculos laterales + tegmento posterior (marco paciente, mm).
+ */
+export function midbrainShapes(h: HeadGeometry): { center: Vec3; radii: Vec3 }[] {
+  const pedRadii: Vec3 = [
+    HEAD.peduncleRadiusXmm.value,
+    HEAD.peduncleRadiusYmm.value,
+    HEAD.peduncleRadiusZmm.value,
+  ];
+  const tegRadii: Vec3 = [
+    HEAD.tegmentumRadiusXmm.value,
+    HEAD.tegmentumRadiusYmm.value,
+    HEAD.tegmentumRadiusZmm.value,
+  ];
+  return [
+    { center: peduncleCenter(h, -1), radii: pedRadii },
+    { center: peduncleCenter(h, 1), radii: pedRadii },
+    {
+      center: [h.midbrainCenter[0], h.midbrainCenter[1], h.midbrainCenter[2] - 4],
+      radii: tegRadii,
+    },
+  ];
+}
+
+/** Formas del diencéfalo (tálamos + tercer ventrículo) para el navegador 3D. */
+export function diencephalonShapes(h: HeadGeometry): {
+  thalami: { center: Vec3; radii: Vec3 }[];
+  ventricle: { center: Vec3; half: Vec3 };
+} {
+  const c = diencephalonCenter(h);
+  return {
+    thalami: ([-1, 1] as const).map((s) => ({
+      center: [c[0] + s * HEAD.thalamusCenterXmm.value, c[1], c[2]] as Vec3,
+      radii: [
+        HEAD.thalamusRadiusXmm.value,
+        HEAD.thalamusRadiusYmm.value,
+        HEAD.thalamusRadiusZmm.value,
+      ] as Vec3,
+    })),
+    ventricle: {
+      center: c,
+      half: [
+        HEAD.thirdVentricleWidthMm.value / 2,
+        HEAD.thirdVentricleHeightMm.value / 2,
+        HEAD.thirdVentricleDepthMm.value / 2,
+      ],
+    },
+  };
+}
+
 function classifyMidbrainSpecial(h: HeadGeometry, p: Vec3): MaterialId | null {
   const md = sub(p, h.midbrainCenter);
   const snHeightMm = (HEAD.snAreaCm2.value * 100) / (Math.PI * HEAD.snHalfWidthMm.value);

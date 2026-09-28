@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 async function freezeAndHash(page: import('@playwright/test').Page): Promise<string> {
-  await page.goto('/');
+  await page.goto('/?clock=fixed&t=0.4');
   await expect
     .poll(
       () =>
@@ -29,8 +29,8 @@ async function freezeAndHash(page: import('@playwright/test').Page): Promise<str
 }
 
 test('dos cargas congeladas conservan el hash B-mode del ojo', async ({ browser }) => {
-  // No existe un parámetro ?t= en la aplicación: esta prueba congela tras el
-  // primer frame disponible y comprueba la reproducibilidad del seed fijo.
+  // ?clock=fixed&t=0.4 fija el reloj de simulación y desactiva el temblor de
+  // mano, así el frame congelado tras la primera pintura es reproducible.
   const firstPage = await browser.newPage();
   const secondPage = await browser.newPage();
   const firstHash = await freezeAndHash(firstPage);

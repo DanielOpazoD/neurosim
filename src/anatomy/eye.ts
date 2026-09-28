@@ -191,15 +191,32 @@ export function sheathRadiiAt(g: EyeGeometry, sMm: number): { minor: number; maj
  * Banda muscular recta inserción → ápex: sección elíptica 9 × 3,5 mm
  * (tangente × radial), adelgazando al 60 % hacia el ápex.
  */
+/** Inserciones y ápex de los rectos en el marco local del ojo (mm). */
+function rectusGeometry(g: EyeGeometry): { apex: Vec3; insertions: Vec3[] } {
+  const r = g.globeRadiusMm;
+  return {
+    apex: [-1.5, -0.5, -(r + 42)],
+    insertions: [
+      [0, 11.5, r - 7], // superior
+      [0, -11.5, r - 7], // inferior
+      [-11.5, 0, r - 7], // medial (nasal, −x local)
+      [11.5, 0, r - 7], // lateral (temporal, +x local)
+    ],
+  };
+}
+
+/** Trayectos inserción→ápex de los rectos en marco paciente (navegador 3D). */
+export function rectusPaths(g: EyeGeometry): { insertion: Vec3; apex: Vec3 }[] {
+  const { apex, insertions } = rectusGeometry(g);
+  return insertions.map((ins) => ({
+    insertion: fromEyeLocal(g, ins),
+    apex: fromEyeLocal(g, apex),
+  }));
+}
+
 function rectusAt(g: EyeGeometry, p: Vec3): boolean {
   const r = g.globeRadiusMm;
-  const apex: Vec3 = [-1.5, -0.5, -(r + 42)];
-  const insertions: Vec3[] = [
-    [0, 11.5, r - 7], // superior
-    [0, -11.5, r - 7], // inferior
-    [-11.5, 0, r - 7], // medial (nasal, −x local)
-    [11.5, 0, r - 7], // lateral (temporal, +x local)
-  ];
+  const { apex, insertions } = rectusGeometry(g);
   for (const ins of insertions) {
     const axis = sub(apex, ins);
     const axisLen2 = dot(axis, axis);

@@ -26,7 +26,7 @@ import {
   SyncRenderClient,
   type RenderClientLike,
 } from '../app/renderClient';
-import type { RenderResponse } from '../app/renderRequest';
+import { type RenderResponse } from '../app/renderRequest';
 import {
   drawCaliperMarks,
   drawColorBox,
@@ -39,7 +39,7 @@ import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 import { buildDebrief } from '../app/debrief';
 import { currentPose } from '../app/poses';
-import { drawNavigator, navigatorCameraPreset } from './navigator3d';
+import { Navigator3D } from './navigator3d';
 import { isWebGL2Available } from '../render/gl/context';
 import { GlBmodePipeline } from '../render/gl/glPipeline';
 import { probeBeamSpec } from '../ultrasound/beam';
@@ -76,7 +76,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const bmodeCv = $<HTMLCanvasElement>('bmode');
 const spectralCv = $<HTMLCanvasElement>('spectral');
 const navigatorCv = $<HTMLCanvasElement>('navigator');
-const navigatorCtx = navigatorCv.getContext('2d')!;
+const navigator3d = new Navigator3D(navigatorCv, sim);
 const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
 const renderer = createRenderClient();
@@ -88,6 +88,11 @@ const gpuAvailable = gpuPipeline !== null && isWebGL2Available();
 const rendererParam = new URLSearchParams(window.location.search).get('renderer');
 if (gpuAvailable && rendererParam === 'gpu') s.renderer = 'gpu';
 document.body.dataset.renderer = s.renderer;
+if (urlParams.get('clock') === 'fixed') {
+  const tParam = Number(urlParams.get('t'));
+  clock.freezeAt(Number.isFinite(tParam) ? tParam : 0.4);
+  s.handMotion = false;
+}
 let lastRender = 0;
 let lastT = performance.now();
 let renderInFlight = false;
@@ -175,7 +180,7 @@ function setTiltPreset(value: number): void {
 function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
-  s.navCamera = navigatorCameraPreset(station, side);
+  navigator3d.resetCamera(station, side);
   s.settings = station === 'ojo' ? defaultEyeSettings() : defaultTemporalSettings();
   const values = {
     depth: s.settings.depthMm,
@@ -207,6 +212,7 @@ function setStation(station: Station, side: Side): void {
     .querySelectorAll('.pwonly')
     .forEach((e) => ((e as HTMLElement).style.opacity = station === 'temporal' ? '1' : '0.4'));
   $('navigatorLegend').hidden = station !== 'temporal';
+  $('navigatorTitle').textContent = station === 'ojo' ? `Ojo ${side}` : `Temporal ${side}`;
   s.pwOn = false;
   $('pw').classList.remove('on');
   syncSpectralGainControl();
@@ -223,6 +229,53 @@ function setStation(station: Station, side: Side): void {
       : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
   s.debrief.setTime(clock.t);
   s.debrief.record('station', `${station} ${side}`, { station, side });
+}
+
+/** Parámetros fisiológicos/de tiempo de una solicitud de render. */
+interface RenderTiming {
+  t: number;
+  cardiacPhase: number;
+  respiratoryPhase: number;
+  flowModulation: number;
+  handMotion: boolean;
+}
+
+function sendRenderRequest(timing: RenderTiming): void {
+  renderInFlight = true;
+  const requestId = ++renderId;
+  renderer
+    .request({
+      id: requestId,
+      seed: sim.patient.seed,
+      willisVariant: sim.willisVariant,
+      side: s.side,
+      station: s.station,
+      settings: { ...s.settings },
+      tiltDeg: s.tiltDeg,
+      offsetMm: s.offsetMm,
+      rotDeg: s.rotDeg,
+      press: s.press,
+      t: timing.t,
+      cardiacPhase: timing.cardiacPhase,
+      respiratoryPhase: timing.respiratoryPhase,
+      handMotion: timing.handMotion,
+      flowModulation: timing.flowModulation,
+      physiology: sim.patient.physiology,
+      color: s.station === 'temporal',
+    })
+    .then((response) => {
+      renderInFlight = false;
+      if (s.frozen) return; // congelado conserva el último frame en vivo; descarta el render en vuelo
+      s.currentFrame = response.frame;
+      pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
+      drawFrame(response);
+    })
+    .catch((error) => {
+      renderInFlight = false;
+      if (!(error instanceof SupersededRenderRequest)) {
+        logError('worker', error);
+      }
+    });
 }
 
 function toggleFreeze(): void {
@@ -416,48 +469,28 @@ function frameLoop(now: number): void {
     if (now - lastRender > 90 && !s.frozen) {
       lastRender = now;
       if (!renderInFlight) {
-        renderInFlight = true;
-        const requestId = ++renderId;
         const phys = sim.physStateAt(clock.t);
-        renderer
-          .request({
-            id: requestId,
-            seed: sim.patient.seed,
-            willisVariant: sim.willisVariant,
-            side: s.side,
-            station: s.station,
-            settings: { ...s.settings },
-            tiltDeg: s.tiltDeg,
-            offsetMm: s.offsetMm,
-            rotDeg: s.rotDeg,
-            press: s.press,
-            t: phys.t,
-            cardiacPhase: phys.cardiacPhase,
-            respiratoryPhase: phys.respiratoryPhase,
-            handMotion: s.handMotion,
-            flowModulation: phys.flowModulation,
-            physiology: sim.patient.physiology,
-            color: s.station === 'temporal',
-          })
-          .then((response) => {
-            renderInFlight = false;
-            s.currentFrame = response.frame;
-            pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
-            drawFrame(response);
-          })
-          .catch((error) => {
-            renderInFlight = false;
-            if (!(error instanceof SupersededRenderRequest)) {
-              logError('worker', error);
-            }
-          });
+        sendRenderRequest({
+          t: phys.t,
+          cardiacPhase: phys.cardiacPhase,
+          respiratoryPhase: phys.respiratoryPhase,
+          flowModulation: phys.flowModulation,
+          handMotion: s.handMotion,
+        });
       }
     } else if (s.frozen && s.cinePlaying && s.cine.length) {
       drawCineFrame();
     }
-    const gateCenter =
-      s.pwOn && s.station === 'temporal' ? pw.gateGeometry(currentPose(sim, s)).center : null;
-    drawNavigator(navigatorCtx, sim, s, currentScan, s.navCamera, gateCenter);
+    const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
+    const gateCenter = s.pwOn && s.station === 'temporal' ? pw.gateGeometry(navPose).center : null;
+    navigator3d.update(
+      s,
+      currentScan,
+      navPose,
+      gateCenter,
+      s.station === 'temporal' ? s.settings.colorBox : null,
+    );
+    navigator3d.render();
     drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
     updateReadouts($('readouts'), sim, s, pw);
     syncProtocolControls();
@@ -769,28 +802,5 @@ $('exportDebrief').addEventListener('click', () => {
   a.href = href;
   a.click();
 });
-let draggingNavigator = false;
-let lastNavigatorX = 0;
-let lastNavigatorY = 0;
-navigatorCv.addEventListener('pointerdown', (e) => {
-  draggingNavigator = true;
-  lastNavigatorX = e.clientX;
-  lastNavigatorY = e.clientY;
-  navigatorCv.setPointerCapture(e.pointerId);
-});
-navigatorCv.addEventListener('pointermove', (e) => {
-  if (!draggingNavigator) return;
-  s.navCamera = {
-    yawDeg: s.navCamera.yawDeg + (e.clientX - lastNavigatorX) * 0.7,
-    pitchDeg: Math.max(-80, Math.min(80, s.navCamera.pitchDeg + (e.clientY - lastNavigatorY) * 0.7)),
-  };
-  lastNavigatorX = e.clientX;
-  lastNavigatorY = e.clientY;
-});
-navigatorCv.addEventListener('pointerup', (e) => {
-  draggingNavigator = false;
-  navigatorCv.releasePointerCapture(e.pointerId);
-});
-
 setStation('ojo', 'der');
 requestAnimationFrame(frameLoop);

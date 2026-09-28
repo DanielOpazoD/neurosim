@@ -53,6 +53,9 @@ npm run dev      # http://localhost:6620
 npm run check    # format + lint + typecheck + test + build
 ```
 
+`?clock=fixed&t=0.4` fija el reloj de simulación (reloj pausado en `t`
+segundos y micro-movimiento de mano desactivado); lo usan las pruebas e2e.
+
 Consulta la [suite de validación](docs/TESTING.md) para los criterios del plan.
 
 ## Documentos
