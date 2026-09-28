@@ -9,12 +9,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { fromEyeLocal, nerveCenterline, rectusPaths, sheathRadiiAt } from '../anatomy/eye';
 import { diencephalonShapes, midbrainShapes, vesselFlowDir, type Vessel } from '../anatomy/head';
-import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
+import { add, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
 import { imageToPatient } from '../ultrasound/probe';
 import type { ScanGeometry } from '../ultrasound/probe';
 import type { ColorBox, ProbePose, Side, Station } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
 import type { AppState } from '../app/state';
+import { buildProbeGroup, updateProbePose } from './probeMesh';
+
+export { probeBasis } from './probeMesh';
 
 export interface NavigatorFrame {
   readonly target: Vec3;
@@ -49,8 +52,7 @@ export function navigatorFrame(
   side: 'der' | 'izq',
   canvasSide: number,
 ): NavigatorFrame {
-  const target =
-    station === 'ojo' ? add(sim.eyes[side].center, scale(sim.eyes[side].anterior, -8)) : vesselCenter(sim);
+  const target = station === 'ojo' ? sim.eyes[side].center : vesselCenter(sim);
   const radiusMm = station === 'ojo' ? 28 : 55;
   return { target, radiusMm, scale: (0.46 * canvasSide) / radiusMm };
 }
@@ -300,17 +302,6 @@ export function describeStaticScene(sim: ReferenceCase, station: Station): Scene
 }
 
 /** Base ortonormal de la sonda: lateral, elevación y forward. */
-export function probeBasis(pose: ProbePose): {
-  origin: Vec3;
-  lateral: Vec3;
-  elevation: Vec3;
-  forward: Vec3;
-} {
-  const forward = normalize(pose.forward);
-  const lateral = normalize(pose.lateral);
-  const elevation = normalize(cross(forward, lateral));
-  return { origin: pose.origin, lateral, elevation, forward };
-}
 
 /** Color del tubo según el flujo respecto a la sonda: rojo hacia, azul alejándose. */
 export function flowColor(vessel: Vessel, poseForward: Vec3): string {
@@ -442,7 +433,8 @@ export class Navigator3D {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly controls: OrbitControls;
   private readonly staticGroup = new THREE.Group();
-  private readonly probeGroup = new THREE.Group();
+  // Sonda compacta y translúcida: la anatomía bajo ella sigue visible.
+  private readonly probeGroup = buildProbeGroup(true, { compact: true });
   private readonly planeGroup = new THREE.Group();
   private readonly vesselMeshes = new Map<string, THREE.MeshStandardMaterial>();
   private readonly sim: ReferenceCase;
@@ -467,7 +459,6 @@ export class Navigator3D {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.15;
     canvas.addEventListener('dblclick', this.onDblClick);
-    this.buildProbe();
     this.buildStatic();
   }
 
@@ -559,40 +550,8 @@ export class Navigator3D {
     this.resetCamera(this.station, this.side);
   }
 
-  private buildProbe(): void {
-    const mat = new THREE.MeshStandardMaterial({ color: '#2f353c', metalness: 0.2, roughness: 0.6 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(46, 14, 22), mat);
-    body.position.set(0, 0, -11);
-    const top = new THREE.Mesh(new THREE.BoxGeometry(34, 10, 16), mat);
-    top.position.set(0, 0, -26);
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(2, 16, 12),
-      new THREE.MeshStandardMaterial({ color: '#e8b44a', emissive: '#e8b44a', emissiveIntensity: 0.4 }),
-    );
-    marker.position.set(21, 0, 0);
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 30, 10), mat);
-    cable.rotation.x = Math.PI / 2;
-    cable.position.set(0, 0, -49);
-    this.probeGroup.add(body, top, marker, cable);
-    // Guarda el tipo para reescalar si cambia el transductor.
-    this.probeGroup.userData.body = body;
-    this.probeGroup.userData.top = top;
-  }
-
   private updateProbe(pose: ProbePose): void {
-    const basis = probeBasis(pose);
-    const m = new THREE.Matrix4().makeBasis(v3(basis.lateral), v3(basis.elevation), v3(basis.forward));
-    this.probeGroup.setRotationFromMatrix(m);
-    this.probeGroup.position.copy(v3(basis.origin));
-    const linear = this.station === 'ojo';
-    if (this.probeGroup.userData.linear !== linear) {
-      this.probeGroup.userData.linear = linear;
-      const body = this.probeGroup.userData.body as THREE.Mesh;
-      const top = this.probeGroup.userData.top as THREE.Mesh;
-      body.geometry.dispose();
-      body.geometry = new THREE.BoxGeometry(linear ? 46 : 28, linear ? 14 : 18, linear ? 22 : 26);
-      top.visible = linear;
-    }
+    updateProbePose(this.probeGroup, pose, this.station === 'ojo');
   }
 
   private updatePlane(

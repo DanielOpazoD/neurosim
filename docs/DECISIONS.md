@@ -262,8 +262,7 @@
     Mayús+flechas inclinan/angulan 1°, Q/E giran el marcador 5°, +/− la
     presión 10 %, R reinicia (0/0/0/0/0, 30 %); inactivo con un control
     editable enfocado; los deslizadores se sincronizan desde el estado cada
-    frame y los cambios se registran como eventos `probe` (máx. 1/300 ms).
-50. **DEC-50** — Casos del plano diencefálico (línea media e hidrocefalia):
+    frame y los cambios se registran como eventos `probe` (máx. 1/300 ms).50. **DEC-50** — Casos del plano diencefálico (línea media e hidrocefalia):
     `buildReferenceHead` acepta overrides de diencéfalo
     (`midlineShiftMm`, `thirdVentricleWidthMm`, `frontalHornScale`) y la
     geometría queda en `HeadGeometry` (`thirdVentricleWidthMm`,
@@ -278,3 +277,34 @@
     (eventos `measurement` con `station`/`tiltDeg`/`valueMm`). Overlay
     docente: etiquetas anatómicas sobre el B-mode temporal cuando el centro
     está a ≤3 mm del plano en elevación.
+50. **DEC-51** — Rediseño UX y vista de cabeza interactiva: la interfaz
+    pasa a tres columnas (Exploración · imagen · Equipo) con revelación
+    progresiva — TGC, Doppler extra, Avanzado e Instructor viven en
+    `<details>`, y el grupo Doppler solo se muestra en estación temporal
+    o con PW activo (`body[data-station]`/`[data-pw]`). El `#spectral`
+    permanece en el DOM pero colapsa (`visibility`/`height:0`) cuando PW
+    está apagado. `#caso` se mueve a la cabecera y las 4 pestañas de
+    estación forman un control segmentado. El CSS vive en
+    `src/ui/styles.css` importado desde `main.ts`. Nueva vista
+    `#headView` (`src/ui/headView3d.ts`): cabeza estilizada construida
+    desde la geometría del caso (cuero cabelludo = `skullRadii`+7 mm,
+    ojos, nariz, orejas, hotspots de ventanas/globos) con la sonda
+    compartida (`src/ui/probeMesh.ts`: `probeBasis`, `buildProbeGroup`,
+    `updateProbePose`, reexportada desde `navigator3d.ts`). Mapa de
+    interacción: arrastrar la sonda proyecta el raycast sobre elipsoide
+    al plano tangente de la estación (`hitToOffsets` →
+    `offsetMm`/`offsetVMm`); rueda = rotación de marcador ±5°;
+    Mayús+arrastrar = `tiltVDeg`/`tiltDeg` (0,25°/px); Alt+rueda =
+    presión ±5 %; arrastrar el fondo orbita; doble clic reinicia la
+    cámara; los hotspots cambian de estación por el mismo camino que las
+    pestañas (`onStationChange`). Los ajustes comparten los mismos
+    `s.offsetMm/s.offsetVMm/s.tiltDeg/...` que los deslizadores, así que
+    ambos permanecen sincronizados sin estado duplicado. La cámara enmarca
+    la cabeza completa (objetivo = centro del cráneo, fov 32, ~4,8×radio
+    máx., zoom 150–500 mm, azimut 55°/30° por estación); la sonda es un
+    transductor realista (huella 50×12/26×18 mm, cuerpo capsular gris,
+    muesca ámbar +lateral, cable). El deslizamiento descompone el delta del
+    puntero sobre los ejes tangentes proyectados a pantalla y limita la
+    fuga vertical a <25 % del cambio lateral en arrastres horizontales.
+    En la estación ocular el navegador anatómico encuadra el globo
+    examinado (`navigatorFrame` → `eye.center`).

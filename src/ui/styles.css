@@ -1,0 +1,441 @@
+/* neurosono-sim — tema oscuro de una columna de acento, grid de 3 columnas. */
+:root {
+  color-scheme: dark;
+  --bg: #14161a;
+  --panel: #1d2126;
+  --line: #2c3138;
+  --txt: #d7dde3;
+  --dim: #8b939c;
+  --acc: #4da3ff;
+  --warn: #e8b44a;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--txt);
+  font:
+    13px/1.45 -apple-system,
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+}
+
+/* ── Cabecera ── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+header h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+header .sub {
+  color: var(--dim);
+  font-size: 12px;
+}
+.casePick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.casePick select {
+  background: #262b31;
+  color: var(--txt);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+  max-width: 220px;
+}
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-left: auto;
+}
+button,
+.tab {
+  background: #262b31;
+  color: var(--txt);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover {
+  border-color: var(--acc);
+}
+button.on {
+  background: #173a5e;
+  border-color: var(--acc);
+  color: #cfe6ff;
+}
+.tabs .tab {
+  border-radius: 0;
+  margin-left: -1px;
+  padding: 5px 12px;
+}
+.tabs .tab:first-child {
+  border-radius: 6px 0 0 6px;
+  margin-left: 0;
+}
+.tabs .tab:last-child {
+  border-radius: 0 6px 6px 0;
+}
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.acousticLabel {
+  color: var(--acc);
+  font: 12px monospace;
+  text-align: right;
+}
+.acousticLabel.warn {
+  color: var(--warn);
+}
+.errorBadge {
+  color: var(--warn);
+  border-color: var(--warn);
+  padding: 2px 7px;
+}
+
+/* ── Disposición ── */
+main {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 290px;
+  grid-template-areas: 'exploracion bmode equipo';
+  gap: 12px;
+  padding: 12px 16px;
+  align-items: start;
+}
+.colLeft {
+  grid-area: exploracion;
+}
+.colCenter {
+  grid-area: bmode;
+  position: relative;
+  min-width: 0;
+}
+.colRight {
+  grid-area: equipo;
+}
+.sec {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--dim);
+  margin: 4px 0 8px;
+}
+canvas {
+  display: block;
+  width: 100%;
+  background: #000;
+  border-radius: 6px;
+}
+#headView {
+  aspect-ratio: 1;
+  background: #17191d;
+  cursor: default;
+  touch-action: none;
+}
+.headHint {
+  color: var(--dim);
+  font-size: 10.5px;
+  line-height: 1.35;
+  margin: 5px 0 10px;
+}
+.navigator {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  background: #0b0d0f;
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.navigatorLegend {
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.2;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+#navigatorTitle {
+  margin-top: 8px;
+  white-space: normal;
+}
+
+/* ── Grupo compacto de sonda ── */
+.probeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+.probeGrid .ctl {
+  margin: 0;
+  font-size: 10.5px;
+}
+.probeGrid .ctl span {
+  font-size: 10.5px;
+}
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--dim);
+  margin-top: 8px;
+}
+.chips {
+  display: none;
+  gap: 6px;
+  margin-top: 8px;
+}
+body[data-station='temporal'] .chips {
+  display: flex;
+}
+.chips button {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* ── B-mode + barra de herramientas ── */
+.bmodeWrap {
+  position: relative;
+}
+#bmode {
+  aspect-ratio: 4 / 3;
+}
+.toolbar {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(16, 20, 26, 0.68);
+  border-radius: 8px;
+}
+.toolbar button {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(38, 43, 49, 0.85);
+}
+.keyHint {
+  position: absolute;
+  bottom: 34px;
+  left: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #cfe3ff;
+  background: rgba(10, 20, 35, 0.72);
+  border: 1px solid #335;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 5;
+}
+.statusbar {
+  min-height: 22px;
+  padding: 3px 4px;
+}
+.note {
+  color: var(--dim);
+  font-size: 11px;
+}
+#spectral {
+  aspect-ratio: 4 / 1.4;
+  margin-top: 8px;
+}
+body:not([data-pw='true']) #spectral {
+  visibility: hidden;
+  height: 0;
+  margin-top: 0;
+}
+.pwOff {
+  display: none;
+  color: var(--dim);
+  font-size: 11px;
+  padding: 4px 2px;
+}
+body:not([data-pw='true']) .pwOff {
+  display: block;
+}
+
+/* ── Controles ── */
+label.ctl {
+  display: block;
+  margin: 7px 0;
+  font-size: 12px;
+}
+label.ctl[hidden] {
+  display: none;
+}
+label.ctl span {
+  display: flex;
+  justify-content: space-between;
+  color: var(--dim);
+}
+label.ctl b {
+  color: var(--txt);
+  font-weight: 500;
+}
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--acc);
+  height: 14px;
+}
+select {
+  background: #262b31;
+  color: var(--txt);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font: inherit;
+}
+.tgc {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.tgc input[type='range'] {
+  margin: 1px 0;
+}
+details.grp,
+details.nested,
+details.scenario {
+  border-top: 1px solid var(--line);
+  padding: 6px 0;
+  margin-top: 4px;
+}
+details summary {
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--dim);
+  list-style: none;
+}
+details summary::before {
+  content: '▸ ';
+}
+details[open] summary::before {
+  content: '▾ ';
+}
+details.nested summary {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11.5px;
+}
+.grpDoppler {
+  display: none;
+}
+body[data-station='temporal'] .grpDoppler,
+body[data-pw='true'] .grpDoppler {
+  display: block;
+}
+.pwonly {
+  transition: opacity 0.15s;
+}
+.readouts {
+  font-variant-numeric: tabular-nums;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 14px;
+}
+.readouts div {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+}
+.readouts div:last-child,
+.readouts div:nth-last-child(2):nth-child(odd) {
+  border-bottom: 0;
+}
+.meas {
+  color: var(--acc);
+}
+.casoInfo {
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.35;
+  margin: 4px 0 6px;
+}
+.casoInfo ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+#debriefReport {
+  font-size: 11px;
+  line-height: 1.45;
+}
+#debriefReport hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+#debriefReport .debrief-error {
+  color: #ff8a8a;
+}
+#debriefReport .debrief-aviso {
+  color: var(--warn);
+}
+#debriefReport .debrief-info {
+  color: var(--acc);
+}
+.btnrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+kbd {
+  background: #262b31;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  font: 10px monospace;
+}
+footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--dim);
+  font-size: 11px;
+  padding: 6px 16px 12px;
+}
+
+@media (max-width: 1200px) {
+  main {
+    grid-template-columns: minmax(0, 1fr) 290px;
+    grid-template-areas:
+      'bmode equipo'
+      'exploracion equipo';
+  }
+}
+@media (max-width: 860px) {
+  main {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'bmode'
+      'exploracion'
+      'equipo';
+  }
+}

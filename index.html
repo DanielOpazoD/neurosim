@@ -4,327 +4,112 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>neurosono-sim — N1</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #14161a;
-        --panel: #1d2126;
-        --line: #2c3138;
-        --txt: #d7dde3;
-        --dim: #8b939c;
-        --acc: #4da3ff;
-        --warn: #e8b44a;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--txt);
-        font:
-          13px/1.45 -apple-system,
-          'Segoe UI',
-          system-ui,
-          sans-serif;
-      }
-      header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 14px;
-        border-bottom: 1px solid var(--line);
-        background: var(--panel);
-      }
-      header h1 {
-        font-size: 15px;
-        font-weight: 600;
-        margin: 0;
-      }
-      header .sub {
-        color: var(--dim);
-        font-size: 12px;
-      }
-      .tabs {
-        display: flex;
-        gap: 6px;
-        margin-left: auto;
-      }
-      button,
-      .tab {
-        background: #262b31;
-        color: var(--txt);
-        border: 1px solid var(--line);
-        border-radius: 6px;
-        padding: 5px 10px;
-        cursor: pointer;
-        font: inherit;
-      }
-      button:hover {
-        border-color: var(--acc);
-      }
-      button.on {
-        background: #173a5e;
-        border-color: var(--acc);
-        color: #cfe6ff;
-      }
-      main {
-        display: grid;
-        grid-template-columns: 220px 1fr 300px;
-        gap: 10px;
-        padding: 10px 14px;
-      }
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 10px;
-      }
-      .panel h2 {
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--dim);
-        margin: 0 0 8px;
-      }
-      label.ctl {
-        display: block;
-        margin: 8px 0;
-        font-size: 12px;
-      }
-      label.ctl[hidden] {
-        display: none;
-      }
-      label.ctl span {
-        display: flex;
-        justify-content: space-between;
-        color: var(--dim);
-      }
-      label.ctl b {
-        color: var(--txt);
-        font-weight: 500;
-      }
-      input[type='range'] {
-        width: 100%;
-        accent-color: var(--acc);
-      }
-      .tgc {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-      }
-      .tgc input[type='range'] {
-        margin: 1px 0;
-      }
-      canvas {
-        display: block;
-        width: 100%;
-        background: #000;
-        border-radius: 6px;
-      }
-      #bmode {
-        aspect-ratio: 4 / 3;
-      }
-      .acousticLabel {
-        color: var(--acc);
-        font: 12px monospace;
-        margin-top: 5px;
-        text-align: right;
-      }
-      .acousticLabel.warn {
-        color: var(--warn);
-      }
-      #spectral {
-        aspect-ratio: 4 / 1.4;
-        margin-top: 8px;
-      }
-      .readouts {
-        font-variant-numeric: tabular-nums;
-      }
-      .readouts div {
-        display: flex;
-        justify-content: space-between;
-        padding: 3px 0;
-        border-bottom: 1px solid var(--line);
-      }
-      .readouts div:last-child {
-        border-bottom: 0;
-      }
-      .meas {
-        color: var(--acc);
-      }
-      .note {
-        color: var(--dim);
-        font-size: 11px;
-        margin-top: 8px;
-      }
-      .navigator {
-        display: block;
-        width: 100%;
-        aspect-ratio: 1;
-        background: #0b0d0f;
-        border-radius: 6px;
-        cursor: crosshair;
-        touch-action: none;
-      }
-      .keyHint {
-        position: absolute;
-        top: 6px;
-        left: 6px;
-        padding: 3px 8px;
-        font-size: 11px;
-        color: #cfe3ff;
-        background: rgba(10, 20, 35, 0.72);
-        border: 1px solid #335;
-        border-radius: 4px;
-        pointer-events: none;
-        z-index: 5;
-      }
-      .panel {
-        position: relative;
-      }
-      .navigatorLegend {
-        color: var(--dim);
-        font-size: 10px;
-        line-height: 1.2;
-        margin-top: 4px;
-        white-space: nowrap;
-      }
-      kbd {
-        background: #262b31;
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        padding: 0 4px;
-        font: 11px monospace;
-      }
-      .btnrow {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 8px;
-      }
-      footer {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        color: var(--dim);
-        font-size: 11px;
-        padding: 6px 14px 12px;
-      }
-      .errorBadge {
-        color: var(--warn);
-        border-color: var(--warn);
-        padding: 2px 7px;
-      }
-      details.scenario {
-        margin-top: 12px;
-        border-top: 1px solid var(--line);
-        padding-top: 8px;
-      }
-      details.scenario summary {
-        cursor: pointer;
-        color: var(--dim);
-        font-size: 12px;
-      }
-      .casoInfo {
-        color: var(--dim);
-        font-size: 11px;
-        line-height: 1.35;
-        margin: 4px 0 6px;
-      }
-      .casoInfo ul {
-        margin: 4px 0 0;
-        padding-left: 16px;
-      }
-      #debriefReport {
-        font-size: 11px;
-        line-height: 1.45;
-      }
-      #debriefReport hr {
-        border: 0;
-        border-top: 1px solid var(--line);
-      }
-      #debriefReport .debrief-error {
-        color: #ff8a8a;
-      }
-      #debriefReport .debrief-aviso {
-        color: var(--warn);
-      }
-      #debriefReport .debrief-info {
-        color: var(--acc);
-      }
-    </style>
   </head>
   <body>
     <header>
       <h1>neurosono-sim</h1>
       <span class="sub">Adulto de referencia N1 · solo exploración normal</span>
+      <label class="casePick"
+        ><span>Caso</span>
+        <select id="caso"></select
+      ></label>
       <div class="tabs">
-        <button class="tab" data-station="ojo" data-side="der">Ojo der</button>
-        <button class="tab" data-station="ojo" data-side="izq">Ojo izq</button>
-        <button class="tab" data-station="temporal" data-side="der">Temporal der</button>
-        <button class="tab" data-station="temporal" data-side="izq">Temporal izq</button>
+        <button class="tab" data-station="ojo" data-side="der">Ojo D</button>
+        <button class="tab" data-station="ojo" data-side="izq">Ojo I</button>
+        <button class="tab" data-station="temporal" data-side="der">Temporal D</button>
+        <button class="tab" data-station="temporal" data-side="izq">Temporal I</button>
+      </div>
+      <div class="headerRight">
+        <div id="acousticLabel" class="acousticLabel"></div>
+        <button id="errores" class="errorBadge" hidden>Errores (0)</button>
       </div>
     </header>
     <main>
-      <div class="panel">
-        <h2>Sonda</h2>
+      <section class="colLeft">
+        <div class="sec">Exploración</div>
+        <canvas id="headView"></canvas>
+        <div class="headHint">
+          Arrastra el transductor · rueda: girar marcador · Mayús+arrastrar: inclinar · teclas: flechas
+        </div>
         <div id="navigatorTitle" class="navigatorLegend">Ojo der</div>
         <canvas id="navigator" class="navigator" width="320" height="320"></canvas>
         <div id="navigatorLegend" class="navigatorLegend" hidden>
           rojo → hacia la sonda · azul ← alejándose
         </div>
-        <label class="ctl"
-          ><span>Inclinación <b id="tiltV">0°</b></span>
-          <input id="tilt" type="range" min="-35" max="35" step="1" value="0"
-        /></label>
-        <label class="ctl"
-          ><span>Barrido lateral <b id="shiftV">0 mm</b></span>
-          <input id="shift" type="range" min="-18" max="18" step="0.5" value="0"
-        /></label>
-        <label class="ctl"
-          ><span>Desplazamiento vertical <b id="shiftYV">0 mm</b></span>
-          <input id="shiftY" type="range" min="-20" max="20" step="0.5" value="0"
-        /></label>
-        <label class="ctl"
-          ><span>Angulación <b id="angulV">0°</b></span>
-          <input id="angul" type="range" min="-25" max="25" step="1" value="0"
-        /></label>
-        <label class="ctl"
-          ><span>Rotación marcador <b id="rotV">0°</b></span>
-          <input id="rot" type="range" min="-90" max="90" step="5" value="0"
-        /></label>
-        <label class="ctl"
-          ><span>Presión <b id="pressV">30%</b></span>
-          <input id="press" type="range" min="0" max="100" step="5" value="30"
-        /></label>
-        <label class="ctl"
-          ><span>Micro-movimiento de mano</span> <input id="handMotion" type="checkbox" checked
-        /></label>
-        <div class="btnrow">
-          <button id="freeze">Congelar <kbd>Esp</kbd></button>
-          <button id="cine" disabled>Cine</button>
+        <div class="probeGrid">
+          <label class="ctl"
+            ><span>Inclinación <b id="tiltV">0°</b></span>
+            <input id="tilt" type="range" min="-35" max="35" step="1" value="0"
+          /></label>
+          <label class="ctl"
+            ><span>Angulación <b id="angulV">0°</b></span>
+            <input id="angul" type="range" min="-25" max="25" step="1" value="0"
+          /></label>
+          <label class="ctl"
+            ><span>Barrido lateral <b id="shiftV">0 mm</b></span>
+            <input id="shift" type="range" min="-18" max="18" step="0.5" value="0"
+          /></label>
+          <label class="ctl"
+            ><span>Desplaz. vertical <b id="shiftYV">0 mm</b></span>
+            <input id="shiftY" type="range" min="-20" max="20" step="0.5" value="0"
+          /></label>
+          <label class="ctl"
+            ><span>Rotación <b id="rotV">0°</b></span>
+            <input id="rot" type="range" min="-90" max="90" step="5" value="0"
+          /></label>
+          <label class="ctl"
+            ><span>Presión <b id="pressV">30%</b></span>
+            <input id="press" type="range" min="0" max="100" step="5" value="30"
+          /></label>
         </div>
-        <div class="btnrow">
+        <label class="switchRow"
+          ><input id="handMotion" type="checkbox" checked /> Micro-movimiento de mano</label
+        >
+        <div class="chips">
           <button id="planoMesencefalico">Plano mesencefálico</button>
           <button id="planoDiencefalico">Plano diencefálico</button>
         </div>
-      </div>
-      <div class="panel">
-        <canvas id="bmode" width="640" height="480"></canvas>
-        <div id="keyHint" class="keyHint" hidden>
-          ← → ↑ ↓ deslizar · Mayús+flechas inclinar/angulación · Q/E girar · +/− presión · R reiniciar sonda
+      </section>
+      <section class="colCenter">
+        <div class="bmodeWrap">
+          <canvas id="bmode" width="640" height="480"></canvas>
+          <div class="toolbar">
+            <button id="freeze">Congelar <kbd>Esp</kbd></button>
+            <button id="cine" disabled>Cine</button>
+            <button id="pw">PW <kbd>P</kbd></button>
+            <button id="audio">Audio</button>
+            <button id="caliper">Caliper <kbd>C</kbd></button>
+            <button id="dvno">DVNO 3 mm</button>
+            <button id="dte">DTE</button>
+            <button id="onsdProtocol">Protocolo DVNO</button>
+            <button id="teaching">Docente <kbd>D</kbd></button>
+            <button id="export">Exportar</button>
+            <button id="exportOnsd">Informe</button>
+            <button id="debrief" hidden>Debriefing</button>
+            <button id="exportDebrief" hidden>Exportar debriefing</button>
+          </div>
+          <div id="keyHint" class="keyHint" hidden>
+            ← → ↑ ↓ deslizar · Mayús+flechas inclinar/angulación · Q/E girar · +/− presión · R reiniciar sonda
+          </div>
         </div>
-        <div id="acousticLabel" class="acousticLabel"></div>
+        <div class="statusbar"><div id="hint" class="note"></div></div>
+        <div class="pwOff">PW apagado — pulsa PW (P) para el espectro</div>
         <canvas id="spectral" width="640" height="224"></canvas>
-      </div>
-      <div class="panel">
-        <h2>Equipo</h2>
+      </section>
+      <section class="colRight">
+        <div class="sec">Equipo</div>
         <label class="ctl"
           ><span>Ganancia <b id="gainV"></b></span> <input id="gain" type="range" min="-20" max="30" step="1"
         /></label>
         <label class="ctl"
-          ><span>TGC <b id="tgcV"></b></span>
+          ><span>Profundidad <b id="depthV"></b></span>
+          <input id="depth" type="range" min="30" max="110" step="5"
+        /></label>
+        <label class="ctl"
+          ><span>Foco <b id="focusV"></b></span> <input id="focus" type="range" min="5" max="60" step="1"
+        /></label>
+        <details class="nested">
+          <summary>TGC <b id="tgcV" hidden></b></summary>
           <span class="tgc">
             <input type="range" data-tgc="0" min="-15" max="15" step="1" value="0" />
             <input type="range" data-tgc="1" min="-15" max="15" step="1" value="0" />
@@ -335,132 +120,109 @@
             <input type="range" data-tgc="6" min="-15" max="15" step="1" value="0" />
             <input type="range" data-tgc="7" min="-15" max="15" step="1" value="0" />
           </span>
-        </label>
-        <label class="ctl"
-          ><span>Profundidad <b id="depthV"></b></span>
-          <input id="depth" type="range" min="30" max="110" step="5"
-        /></label>
-        <label class="ctl"
-          ><span>Foco <b id="focusV"></b></span> <input id="focus" type="range" min="5" max="60" step="1"
-        /></label>
-        <label class="ctl"
-          ><span>Rango dinámico <b id="drV"></b></span>
-          <input id="dr" type="range" min="30" max="90" step="5"
-        /></label>
-        <label class="ctl"
-          ><span>Persistencia</span>
-          <select id="persistencia">
-            <option value="0">0</option>
-            <option value="1">1</option>
-            <option value="2" selected>2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-          </select>
-        </label>
-        <label class="ctl"
-          ><span>Mapa de gris</span>
-          <select id="mapaGris">
-            <option value="lineal">Lineal</option>
-            <option value="sigmoide" selected>Sigmoide</option>
-            <option value="gamma">Gamma 0,8</option>
-          </select>
-        </label>
-        <label class="ctl"
-          ><span>Potencia <b id="outputPowerV"></b></span>
-          <input id="outputPower" type="range" min="-20" max="0" step="1"
-        /></label>
-        <label class="ctl"
-          ><span>Densidad de líneas</span>
-          <select id="densidad">
-            <option value="baja">Baja · 128</option>
-            <option value="media" selected>Media · 176</option>
-            <option value="alta">Alta · 256</option>
-          </select>
-        </label>
-        <label id="rendererCtl" class="ctl" hidden
-          ><span>Renderizador</span>
-          <select id="renderer">
-            <option value="cpu" selected>CPU</option>
-            <option value="gpu">WebGL2 GPU</option>
-          </select>
-        </label>
-        <div class="pwonly">
+        </details>
+        <details class="grp grpDoppler">
+          <summary>Doppler</summary>
+          <div class="pwonly">
+            <label class="ctl"
+              ><span>PRF <b id="prfV"></b></span>
+              <input id="prf" type="range" min="1000" max="16000" step="250"
+            /></label>
+            <label class="ctl"
+              ><span>Puerta <b id="gateV"></b></span>
+              <input id="gate" type="range" min="2" max="15" step="0.5"
+            /></label>
+            <label class="ctl"
+              ><span>Filtro pared <b id="wfV"></b></span>
+              <input id="wf" type="range" min="0" max="800" step="25"
+            /></label>
+            <label class="ctl"
+              ><span>Corrección angular <b id="angV"></b></span>
+              <input id="ang" type="range" min="0" max="75" step="1"
+            /></label>
+            <label class="ctl"
+              ><span>Línea base <b id="baseV"></b></span>
+              <input id="base" type="range" min="0.1" max="0.9" step="0.05"
+            /></label>
+            <details class="nested">
+              <summary>Más Doppler</summary>
+              <label class="ctl"
+                ><span>Barrido <b id="sweepV"></b></span>
+                <select id="sweep">
+                  <option value="2">2 s</option>
+                  <option value="3">3 s</option>
+                  <option value="4" selected>4 s</option>
+                  <option value="6">6 s</option>
+                </select>
+              </label>
+              <label class="ctl"
+                ><span>Paleta</span>
+                <select id="colormap">
+                  <option value="gris" selected>Gris</option>
+                  <option value="ambar">Ámbar</option>
+                </select>
+              </label>
+              <label id="spectralGainCtl" class="ctl" hidden
+                ><span>Ganancia espectral <b id="spectralGainV">0 dB</b></span>
+                <input id="spectralGain" type="range" min="-20" max="20" step="1" value="0"
+              /></label>
+              <label class="ctl"
+                ><span>Volumen <b id="volumeV"></b></span>
+                <input id="volume" type="range" min="0" max="100" step="1" value="40"
+              /></label>
+            </details>
+          </div>
+        </details>
+        <details class="grp">
+          <summary>Avanzado</summary>
           <label class="ctl"
-            ><span>PRF <b id="prfV"></b></span>
-            <input id="prf" type="range" min="1000" max="16000" step="250"
+            ><span>Rango dinámico <b id="drV"></b></span>
+            <input id="dr" type="range" min="30" max="90" step="5"
           /></label>
           <label class="ctl"
-            ><span>Puerta <b id="gateV"></b></span> <input id="gate" type="range" min="2" max="15" step="0.5"
-          /></label>
-          <label class="ctl"
-            ><span>Filtro pared <b id="wfV"></b></span>
-            <input id="wf" type="range" min="0" max="800" step="25"
-          /></label>
-          <label class="ctl"
-            ><span>Corrección angular <b id="angV"></b></span>
-            <input id="ang" type="range" min="0" max="75" step="1"
-          /></label>
-          <label class="ctl"
-            ><span>Línea base <b id="baseV"></b></span>
-            <input id="base" type="range" min="0.1" max="0.9" step="0.05"
-          /></label>
-          <label class="ctl"
-            ><span>Barrido <b id="sweepV"></b></span>
-            <select id="sweep">
-              <option value="2">2 s</option>
-              <option value="3">3 s</option>
-              <option value="4" selected>4 s</option>
-              <option value="6">6 s</option>
+            ><span>Persistencia</span>
+            <select id="persistencia">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
             </select>
           </label>
           <label class="ctl"
-            ><span>Paleta</span>
-            <select id="colormap">
-              <option value="gris" selected>Gris</option>
-              <option value="ambar">Ámbar</option>
+            ><span>Mapa de gris</span>
+            <select id="mapaGris">
+              <option value="lineal">Lineal</option>
+              <option value="sigmoide" selected>Sigmoide</option>
+              <option value="gamma">Gamma 0,8</option>
             </select>
           </label>
-          <label id="spectralGainCtl" class="ctl" hidden
-            ><span>Ganancia espectral <b id="spectralGainV">0 dB</b></span>
-            <input id="spectralGain" type="range" min="-20" max="20" step="1" value="0"
+          <label class="ctl"
+            ><span>Potencia <b id="outputPowerV"></b></span>
+            <input id="outputPower" type="range" min="-20" max="0" step="1"
           /></label>
           <label class="ctl"
-            ><span>Volumen <b id="volumeV"></b></span>
-            <input id="volume" type="range" min="0" max="100" step="1" value="40"
-          /></label>
-        </div>
-        <div class="btnrow">
-          <button id="pw">PW <kbd>P</kbd></button>
-          <button id="audio">Audio</button>
-          <button id="teaching">Docente <kbd>D</kbd></button>
-          <button id="caliper">Caliper <kbd>C</kbd></button>
-          <button id="dvno">DVNO 3 mm</button>
-          <button id="onsdProtocol">Protocolo DVNO</button>
-          <button id="dte">DTE</button>
-          <button id="export">Exportar</button>
-          <button id="exportOnsd">Exportar informe</button>
-          <button id="debrief" hidden>Debriefing</button>
-          <button id="exportDebrief" hidden>Exportar debriefing</button>
-        </div>
-        <h2 style="margin-top: 12px">Medidas</h2>
+            ><span>Densidad de líneas</span>
+            <select id="densidad">
+              <option value="baja">Baja · 128</option>
+              <option value="media" selected>Media · 176</option>
+              <option value="alta">Alta · 256</option>
+            </select>
+          </label>
+          <label id="rendererCtl" class="ctl" hidden
+            ><span>Renderizador</span>
+            <select id="renderer">
+              <option value="cpu" selected>CPU</option>
+              <option value="gpu">WebGL2 GPU</option>
+            </select>
+          </label>
+        </details>
+        <div class="sec">Medidas</div>
         <div id="readouts" class="readouts">
           <div><span>—</span><span>—</span></div>
         </div>
-        <details id="onsdReportPanel" class="scenario">
-          <summary>Informe DVNO</summary>
-          <div id="onsdReport"></div>
-        </details>
-        <details id="debriefPanel" class="scenario">
-          <summary>Debriefing docente</summary>
-          <div id="debriefReport"></div>
-        </details>
-        <div class="note" id="hint"></div>
         <details id="scenarioPanel" class="scenario">
-          <summary>Escenario (instructor)</summary>
-          <label class="ctl"
-            ><span>Caso clínico</span>
-            <select id="caso"></select
-          ></label>
+          <summary>Instructor</summary>
           <div id="casoInfo" class="casoInfo"></div>
           <label class="ctl"
             ><span>PAM <b id="mapV"></b></span> <input id="map" type="range" min="40" max="140" step="1"
@@ -471,13 +233,20 @@
           <label class="ctl"
             ><span>PIC <b id="icpV"></b></span> <input id="icp" type="range" min="0" max="60" step="1"
           /></label>
+          <details id="onsdReportPanel" class="nested">
+            <summary>Informe DVNO</summary>
+            <div id="onsdReport"></div>
+          </details>
+          <details id="debriefPanel" class="nested">
+            <summary>Debriefing docente</summary>
+            <div id="debriefReport"></div>
+          </details>
         </details>
-      </div>
+      </section>
     </main>
     <footer>
       neurosono-sim · simulador docente, no es un dispositivo médico · DVNO interna por defecto; TAMax =
       integral de la envolvente real.
-      <button id="errores" class="errorBadge" hidden>Errores (0)</button>
     </footer>
     <script type="module" src="/src/ui/main.ts"></script>
   </body>

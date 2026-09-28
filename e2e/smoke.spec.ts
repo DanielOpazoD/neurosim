@@ -41,6 +41,10 @@ test('flujo docente completo sin errores', async ({ page }) => {
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto('/');
+  const headView = page.locator('#headView');
+  await expect(headView).toBeVisible();
+  const hvBox = await headView.boundingBox();
+  expect(hvBox && hvBox.width > 40 && hvBox.height > 40).toBe(true);
   await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
   await expect(page.locator('#errores')).toBeHidden();
   expect(consoleErrors).toEqual([]);

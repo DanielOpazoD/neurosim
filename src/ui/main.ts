@@ -43,6 +43,8 @@ import { buildDebrief } from '../app/debrief';
 import { currentPose } from '../app/poses';
 import { lindegaardRatio } from '../doppler/measureMca';
 import { Navigator3D } from './navigator3d';
+import { HeadView3D } from './headView3d';
+import './styles.css';
 import { isWebGL2Available } from '../render/gl/context';
 import { GlBmodePipeline } from '../render/gl/glPipeline';
 import { probeBeamSpec } from '../ultrasound/beam';
@@ -81,6 +83,11 @@ const bmodeCv = $<HTMLCanvasElement>('bmode');
 const spectralCv = $<HTMLCanvasElement>('spectral');
 const navigatorCv = $<HTMLCanvasElement>('navigator');
 const navigator3d = new Navigator3D(navigatorCv, sim);
+const headViewCv = $<HTMLCanvasElement>('headView');
+// Vista de cabeza: arrastrar la sonda escribe offsetMm/offsetVMm directamente.
+const headViewEnabled = !new URLSearchParams(location.search).has('nohead');
+// `?nohead` desactiva la vista de cabeza (aislamiento/diagnóstico).
+const headView = headViewEnabled ? new HeadView3D(headViewCv, sim, s, (st, sd) => setStation(st, sd)) : null;
 const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
 const renderer = createRenderClient();
@@ -122,6 +129,7 @@ if (urlParams.get('clock') === 'fixed') {
   s.persistence = 0;
 }
 let lastRender = 0;
+let lastHeadRender = 0;
 let lastT = performance.now();
 let renderInFlight = false;
 let renderId = 0;
@@ -248,6 +256,7 @@ function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
   navigator3d.resetCamera(station, side);
+  headView?.resetCamera(station, side);
   s.settings = station === 'ojo' ? defaultEyeSettings() : defaultTemporalSettings();
   const values = {
     depth: s.settings.depthMm,
@@ -469,6 +478,8 @@ function syncProbeSlider(id: string, labelId: string, value: number, fmt: (v: nu
 }
 
 function syncProtocolControls(): void {
+  document.body.dataset.station = s.station;
+  document.body.dataset.pw = String(s.pwOn);
   const rot = $('rot') as HTMLInputElement;
   if (rot.value !== String(s.rotDeg)) {
     rot.value = String(s.rotDeg);
@@ -589,6 +600,16 @@ function frameLoop(now: number): void {
       s.station === 'temporal' ? s.settings.colorBox : null,
     );
     navigator3d.render();
+    // La vista de cabeza es una segunda superficie WebGL: a ritmo reducido
+    // basta para la interacción y no satura el renderizador por software.
+    if (headView && headView.update(s, navPose, currentScan)) {
+      if (headView.interacting || now - lastHeadRender > 150) {
+        lastHeadRender = now;
+        headView.render();
+      }
+    } else if (headView?.interacting) {
+      headView.render();
+    }
     drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
     updateReadouts($('readouts'), sim, s, pw);
     syncProtocolControls();
