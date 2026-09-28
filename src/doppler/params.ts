@@ -133,6 +133,14 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['plan-simulador-2026'],
     note: 'Tolerancia absoluta entre PI medido y esperado en el debriefing.',
   },
+  beatCoverageMin: {
+    value: 0.8,
+    unit: 'fracción',
+    range: [0.5, 1],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Cobertura mínima del intervalo RR para incluir un latido en el resumen PW.',
+  },
   bloodReseedRadiusFraction: {
     value: 0.7,
     unit: 'fracción',

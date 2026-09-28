@@ -10,6 +10,7 @@
  * Índices: PI de Gosling = (PSV − EDV)/MFV ; IR = (PSV − EDV)/PSV.
  */
 import { velocityFromShiftMmS, mmsToCms } from '../core/units';
+import { DOPPLER } from './params';
 import { captureNoiseFloorsDb, columnBandEnvelopes, type SpectralColumn } from './spectral';
 
 /**
@@ -152,7 +153,13 @@ export function measureBeats(
     const upper = Math.ceil(rank);
     const fraction = rank - lower;
     const edv = magnitudes[lower]! + (magnitudes[upper]! - magnitudes[lower]!) * fraction;
-    if (!Number.isFinite(psv) || !Number.isFinite(edv) || coveredS <= 0) continue;
+    if (
+      !Number.isFinite(psv) ||
+      !Number.isFinite(edv) ||
+      coveredS < DOPPLER.params.beatCoverageMin.value * b.rr
+    ) {
+      continue;
+    }
     const taMax = integ / coveredS;
     const mfv = taMax > 0 ? taMax : Number.NaN;
     out.push({
@@ -183,12 +190,15 @@ export function summarizeBeats(ms: readonly BeatMeasure[]): {
     const s = [...xs].sort((a, b) => a - b);
     return s[s.length >> 1]!;
   };
+  const psvCms = med(ms.map((m) => m.psvCms));
+  const edvCms = med(ms.map((m) => m.edvCms));
+  const taMaxCms = med(ms.map((m) => m.taMaxCms));
   return {
-    psvCms: med(ms.map((m) => m.psvCms)),
-    edvCms: med(ms.map((m) => m.edvCms)),
-    taMaxCms: med(ms.map((m) => m.taMaxCms)),
-    pi: med(ms.map((m) => m.pi)),
-    ri: med(ms.map((m) => m.ri)),
+    psvCms,
+    edvCms,
+    taMaxCms,
+    pi: Math.abs(psvCms - edvCms) / Math.max(1e-6, Math.abs(taMaxCms)),
+    ri: Math.abs(psvCms - edvCms) / Math.max(1e-6, Math.abs(psvCms)),
     beats: ms.length,
   };
 }

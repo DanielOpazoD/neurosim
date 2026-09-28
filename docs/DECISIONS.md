@@ -145,3 +145,6 @@
     36,67 cm/s (+8,28 % a +4,78 % frente a 35), mientras PSV y TAMax siguen
     dentro de ±5 %. La resolución FFT, los dropouts y el P10 temporal siguen
     siendo limitaciones explícitas.
+38. **DEC-38** — Los resúmenes PW excluyen latidos con cobertura inferior al 80 %
+    del RR y recalculan PI/IR a partir de las medianas resumidas de PSV, EDV y
+    TAMax, evitando mezclar índices de latidos distintos.
