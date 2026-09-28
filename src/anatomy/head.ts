@@ -14,7 +14,7 @@
  */
 import { MATERIALS, type MaterialId } from './materials';
 import { clamp, dist, normalize, scale, sub, type Vec3 } from '../core/vec3';
-import type { SeededRandom } from '../core/random';
+import { hash3, hashString, type SeededRandom } from '../core/random';
 import type { Side, WillisVariant } from '../domain/contracts';
 import { ANATOMIA_CABEZA } from './params';
 import { buildWillisVessels } from './willis';
@@ -25,8 +25,13 @@ const HEAD = ANATOMIA_CABEZA.params;
 export interface Vessel {
   readonly id: string;
   readonly side: Side | 'media';
+  /** Polilínea suave (Catmull-Rom remuestreada ~1 mm) usada en clasificación. */
   readonly points: readonly Vec3[];
+  /** Puntos de control anatómicos que definen el vaso. */
+  readonly controlPoints: readonly Vec3[];
   readonly radiusMm: number;
+  /** Caja envolvente de `points` ± radio, para rechazo rápido por muestra. */
+  readonly aabb: { readonly min: Vec3; readonly max: Vec3 };
   /** +1 orienta el flujo de points[0] hacia el último; −1 invierte esa dirección. */
   readonly flowSign: 1 | -1;
   /** Flujo medio del segmento, ml/min, positivo en la orientación anatómica. */
@@ -96,6 +101,10 @@ function segDist(p: Vec3, a: Vec3, b: Vec3): number {
 
 /** Distancia al tubo (polilínea) de un vaso. */
 export function vesselDistance(v: Vessel, p: Vec3): number {
+  const { min, max } = v.aabb;
+  if (p[0] < min[0] || p[0] > max[0] || p[1] < min[1] || p[1] > max[1] || p[2] < min[2] || p[2] > max[2]) {
+    return Infinity;
+  }
   let d = Infinity;
   for (let i = 0; i + 1 < v.points.length; i++) {
     d = Math.min(d, segDist(p, v.points[i]!, v.points[i + 1]!));
@@ -105,6 +114,10 @@ export function vesselDistance(v: Vessel, p: Vec3): number {
 
 /** Punto más cercano sobre la línea central y tangente local. */
 export function vesselClosest(v: Vessel, p: Vec3): { point: Vec3; tangent: Vec3; sMm: number } {
+  const { min, max } = v.aabb;
+  if (p[0] < min[0] || p[0] > max[0] || p[1] < min[1] || p[1] > max[1] || p[2] < min[2] || p[2] > max[2]) {
+    return { point: [...v.points[0]!] as Vec3, tangent: [1, 0, 0], sMm: 0 };
+  }
   let bestX = v.points[0]![0];
   let bestY = v.points[0]![1];
   let bestZ = v.points[0]![2];
@@ -226,17 +239,66 @@ function ellipsoidLevel(c: Vec3, radii: Vec3, p: Vec3): number {
   return Math.hypot(d[0] / radii[0], d[1] / radii[1], d[2] / radii[2]);
 }
 
-/** ¿Está el punto dentro de la ventana temporal del lado indicado? */
-export function inTemporalWindow(h: HeadGeometry, side: Side, p: Vec3): boolean {
-  return dist(p, h.windowCenter[side]) < h.windowRadiusMm;
+/**
+ * Ruido de retícula trilineal en [-1,1] con paso configurable (idéntico al
+ * de speckle.ts; duplicado aquí porque anatomy no puede importar ultrasound).
+ */
+function latticeNoise(seed: string, p: Vec3, pitchMm: number): number {
+  const fx = p[0] / pitchMm;
+  const fy = p[1] / pitchMm;
+  const fz = p[2] / pitchMm;
+  const x0 = Math.floor(fx);
+  const y0 = Math.floor(fy);
+  const z0 = Math.floor(fz);
+  const tx = fx - x0;
+  const ty = fy - y0;
+  const tz = fz - z0;
+  const sx = tx * tx * (3 - 2 * tx);
+  const sy = ty * ty * (3 - 2 * ty);
+  const sz = tz * tz * (3 - 2 * tz);
+  const nodeSeed = hashString(seed);
+  let acc = 0;
+  for (let dz = 0; dz <= 1; dz++) {
+    for (let dy = 0; dy <= 1; dy++) {
+      for (let dx = 0; dx <= 1; dx++) {
+        const w = (dx ? sx : 1 - sx) * (dy ? sy : 1 - sy) * (dz ? sz : 1 - sz);
+        const node = ((x0 + dx) * 73856093) ^ ((y0 + dy) * 19349663) ^ ((z0 + dz) * 83492791);
+        acc += w * (2 * hash3(node, 0, 0, nodeSeed) - 1);
+      }
+    }
+  }
+  return acc;
 }
 
-/** Espesor óseo efectivo en un punto de la tabla craneal. */
+/** Distancia al centro de ventana más cercano (cualquier lado). */
+function windowDistance(h: HeadGeometry, p: Vec3): number {
+  return Math.min(dist(p, h.windowCenter.izq), dist(p, h.windowCenter.der));
+}
+
+/** ¿Está el punto dentro de la ventana temporal del lado indicado? */
+export function inTemporalWindow(h: HeadGeometry, side: Side, p: Vec3): boolean {
+  return skullThicknessAt(h, p) < (h.skullThicknessMm + h.windowThicknessMm) / 2;
+}
+
+/**
+ * Espesor óseo efectivo en un punto de la tabla craneal: campo suave que
+ * adelgaza hacia la ventana temporal más cercana (escamosa) más un jitter
+ * determinista de ±0,3 mm que rompe la tabla interna perfecta.
+ */
 export function skullThicknessAt(h: HeadGeometry, p: Vec3): number {
-  for (const side of ['izq', 'der'] as const) {
-    if (inTemporalWindow(h, side, p)) return h.windowThicknessMm;
-  }
-  return h.skullThicknessMm;
+  const d = windowDistance(h, p);
+  const w = Math.exp(-((d / h.windowRadiusMm) ** 2));
+  return h.skullThicknessMm - (h.skullThicknessMm - h.windowThicknessMm) * w;
+}
+
+/**
+ * Espesor con jitter determinista de ±0,3 mm (ruido de 6 mm) que rompe la
+ * tabla interna perfecta; nulo en el centro de la ventana.
+ */
+export function skullThicknessJittered(h: HeadGeometry, p: Vec3): number {
+  const d = windowDistance(h, p);
+  const w = Math.exp(-((d / h.windowRadiusMm) ** 2));
+  return skullThicknessAt(h, p) + 0.3 * latticeNoise('craneo:tabla', p, 6) * (1 - w);
 }
 
 /**
@@ -247,11 +309,20 @@ export function skullThicknessAt(h: HeadGeometry, p: Vec3): number {
 export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
   const level = ellipsoidLevel(h.skullCenter, h.skullRadii, p);
   if (level > 1.0) {
-    // cuero cabelludo/músculo: capa de ~6 mm fuera del hueso
-    if (level < 1.0 + 6 / Math.min(...h.skullRadii)) return 'piel';
-    return 'aire';
+    // Cuero cabelludo: 2,5 mm de piel y, en la fosa temporal, ~5 mm de
+    // músculo temporal hipoecoico debajo; fuera de ella, solo piel.
+    const scalpMm = Math.min(...h.skullRadii.map((r) => r)) * (level - 1.0);
+    const inFossa = windowDistance(h, p) < 1.6 * h.windowRadiusMm;
+    const totalMm = inFossa ? 7.5 : 2.5;
+    if (scalpMm > totalMm) return 'aire';
+    // Piel en los 2,5 mm más externos; debajo, temporalis solo en la fosa.
+    if (scalpMm > totalMm - 2.5 || !inFossa) return 'piel';
+    return 'musculoTemporal';
   }
-  const innerLevel = ellipsoidLevel(
+  // El jitter de la tabla solo decide píxeles a <~1 mm de la superficie
+  // interna; en el parénquima profundo basta el espesor suave (sin ruido).
+  const rMin = Math.min(h.skullRadii[0], h.skullRadii[1], h.skullRadii[2]);
+  let innerLevel = ellipsoidLevel(
     h.skullCenter,
     [
       h.skullRadii[0] - skullThicknessAt(h, p),
@@ -260,6 +331,14 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
     ],
     p,
   );
+  if (Math.abs(innerLevel - 1.0) < 1.2 / rMin) {
+    const boneMm = skullThicknessJittered(h, p);
+    innerLevel = ellipsoidLevel(
+      h.skullCenter,
+      [h.skullRadii[0] - boneMm, h.skullRadii[1] - boneMm, h.skullRadii[2] - boneMm],
+      p,
+    );
+  }
   if (innerLevel > 1.0) return 'hueso';
 
   // Vasos intracraneales (antes que el tejido cerebral de fondo).
@@ -267,7 +346,6 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
     if (vesselDistance(v, p) < 0) return 'vaso';
   }
 
-  const md = sub(p, h.midbrainCenter);
   const diencephalon = classifyDiencephalon(h, p);
   if (diencephalon) return diencephalon;
 
@@ -276,20 +354,41 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
 
   // Mesencéfalo en mariposa: dos pedúnculos y un tegmento posterior.
   const mb = butterflyLevel(h, p);
-  if (mb <= 1.0) return 'tejidoCerebral';
+  if (mb <= 1.0) return 'mesencefalo';
 
-  // Cisternas basales: corona ecogénica alrededor del mesencéfalo,
-  // extendida hacia la fisura silviana lateral.
+  // Cisternas basales: corona ecogénica alrededor del mesencéfalo.
   if (mb < 1.45) return 'cisterna';
-  const sylvian = Math.abs(md[2] - 2) < 5 && Math.abs(md[0]) > 14 && Math.abs(md[0]) < 32;
-  if (sylvian && Math.abs(md[1]) < 6) return 'cisterna';
+
+  // Fisura silviana/ínsula: banda ecogénica (LCR+pía) a lo largo del M1.
+  const sylvian = sylvianDist(p);
+  if (sylvian < 1.2) return 'cisterna';
 
   if (isPetrous(h, p)) return 'hueso';
 
   // Ala esfenoidal: cresta ecogénica anterior-lateral (referencia M1/ACA).
   if (isSphenoid(h, p)) return 'hueso';
 
-  return 'tejidoCerebral';
+  // Hoz: lámina dural de línea media por encima del cuerpo calloso.
+  if (Math.abs(p[0]) < 0.6 && p[1] > h.midbrainCenter[1] + 8) return 'hoz';
+
+  // Corteza: banda de ~3 mm pegada a la tabla interna; dentro, sustancia blanca.
+  if (innerLevel > 1.0 - 3 / Math.min(...h.skullRadii)) return 'tejidoCerebral';
+  return 'sustanciaBlanca';
+}
+
+/** Polilínea de la fisura silviana lateral por lado (mm, marco paciente). */
+function sylvianDist(p: Vec3): number {
+  const s = p[0] >= 0 ? 1 : -1;
+  const pts: Vec3[] = [
+    [s * 30, 12, 5],
+    [s * 42, 22, 4],
+    [s * 50, 34, 0],
+  ];
+  let d = Infinity;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    d = Math.min(d, segDist(p, pts[i]!, pts[i + 1]!));
+  }
+  return d;
 }
 
 function diencephalonCenter(h: HeadGeometry): Vec3 {
@@ -364,7 +463,14 @@ function redNucleusCenter(h: HeadGeometry, side: -1 | 1): Vec3 {
   return [h.midbrainCenter[0] + side * 3, h.midbrainCenter[1] + 1, h.midbrainCenter[2] - 4];
 }
 
-function butterflyLevel(h: HeadGeometry, p: Vec3): number {
+/** Mínimo suave polinómico (k en unidades de nivel normalizado). */
+function smin(a: number, b: number, k: number): number {
+  const h0 = Math.max(k - Math.abs(a - b), 0) / k;
+  return Math.min(a, b) - h0 * h0 * k * 0.25;
+}
+
+/** Nivel del mesencéfalo en «mariposa» (≤1 dentro); exportado para headScene. */
+export function butterflyLevel(h: HeadGeometry, p: Vec3): number {
   const pedRadii: Vec3 = [
     HEAD.peduncleRadiusXmm.value,
     HEAD.peduncleRadiusYmm.value,
@@ -376,10 +482,14 @@ function butterflyLevel(h: HeadGeometry, p: Vec3): number {
     HEAD.tegmentumRadiusYmm.value,
     HEAD.tegmentumRadiusZmm.value,
   ];
-  return Math.min(
-    ellipsoidLevel(peduncleCenter(h, -1), pedRadii, p),
-    ellipsoidLevel(peduncleCenter(h, 1), pedRadii, p),
+  return smin(
+    smin(
+      ellipsoidLevel(peduncleCenter(h, -1), pedRadii, p),
+      ellipsoidLevel(peduncleCenter(h, 1), pedRadii, p),
+      0.25,
+    ),
     ellipsoidLevel(tegmentum, tegmentumRadii, p),
+    0.25,
   );
 }
 
@@ -419,7 +529,7 @@ function isPetrous(h: HeadGeometry, p: Vec3): boolean {
 
 function isSphenoid(h: HeadGeometry, p: Vec3): boolean {
   const md = sub(p, h.midbrainCenter);
-  return Math.abs(md[1] + 2) < 3 && md[2] > -2 && Math.abs(md[0]) > 12 && Math.abs(md[0]) < 30;
+  return Math.abs(md[1] + 2) < 3 && md[2] > 6 && Math.abs(md[0]) > 20 && Math.abs(md[0]) < 32;
 }
 
 export function landmarkAt(h: HeadGeometry, p: Vec3): LandmarkId | null {

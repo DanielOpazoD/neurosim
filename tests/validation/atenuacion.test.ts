@@ -15,7 +15,8 @@ describe('validación de atenuación', () => {
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
       const p: Vec3 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-      expect(classifyHead(head, p)).toBe('tejidoCerebral');
+      // Corteza y sustancia blanca comparten α₀ y n → trayecto homogéneo.
+      expect(['tejidoCerebral', 'sustanciaBlanca']).toContain(classifyHead(head, p));
     }
     const measured = skullAttenuationDb(head, a, b, 2);
     const expected = 2 * attenuationDbCm(MATERIALS.tejidoCerebral, 2) * (lengthMm / 10);

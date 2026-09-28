@@ -8,6 +8,7 @@ import {
   trueOnsdMm,
 } from '../src/anatomy/eye';
 import { classifyHead, inTemporalWindow, landmarkAt, skullThicknessAt, vesselAt } from '../src/anatomy/head';
+import { smoothPolyline } from '../src/anatomy/willis';
 import { ANATOMIA_CABEZA, ANATOMIA_OJO } from '../src/anatomy/params';
 import { buildReferenceCase } from '../src/domain/referenceCase';
 import { dist, type Vec3 } from '../src/core/vec3';
@@ -145,31 +146,78 @@ describe('cráneo de referencia N1', () => {
     expect(inTemporalWindow(h, 'der', wc)).toBe(true);
     expect(skullThicknessAt(h, wc)).toBeLessThan(h.skullThicknessMm);
     const fuera = [h.skullCenter[0], h.skullCenter[1] + h.skullRadii[1] - 1, h.skullCenter[2]];
-    expect(skullThicknessAt(h, fuera as [number, number, number])).toBe(h.skullThicknessMm);
+    // Lejos de la ventana el espesor nominal domina (el jitter ±0,3 mm vive
+    // en skullThicknessJittered, aplicado solo en el borde de la tabla).
+    expect(
+      Math.abs(skullThicknessAt(h, fuera as [number, number, number]) - h.skullThicknessMm),
+    ).toBeLessThanOrEqual(0.31);
+  });
+
+  it('el campo de espesor adelgaza suavemente hacia la ventana', () => {
+    const wc = h.windowCenter.der;
+    expect(skullThicknessAt(h, wc)).toBeLessThan(2.2);
+    const lejos: Vec3 = [wc[0] + 40, wc[1], wc[2]];
+    expect(skullThicknessAt(h, lejos)).toBeGreaterThan(4.5);
+  });
+
+  it('el temporalis tapiza la ventana bajo la piel', () => {
+    const wc = h.windowCenter.der;
+    const inward = [h.skullCenter[0] - wc[0], h.skullCenter[1] - wc[1], h.skullCenter[2] - wc[2]] as Vec3;
+    const l = Math.hypot(inward[0], inward[1], inward[2]);
+    const dir: Vec3 = [inward[0] / l, inward[1] / l, inward[2] / l];
+    // 4 mm por dentro de la superficie ósea externa (bajo los 2,5 mm de piel).
+    const p: Vec3 = [wc[0] + dir[0] * -4, wc[1] + dir[1] * -4, wc[2] + dir[2] * -4];
+    expect(classifyHead(h, p)).toBe('musculoTemporal');
+  });
+
+  it('la hoz es una lámina ecogénica sobre el mesencéfalo', () => {
+    const y = h.midbrainCenter[1] + 20;
+    expect(classifyHead(h, [0, y, 0])).toBe('hoz');
+    expect(classifyHead(h, [3, y, 0])).not.toBe('hoz');
+  });
+
+  it('la spline de M1 conserva extremos y segmentos ≤ 1,3 mm', () => {
+    const ctrl = [
+      [-9, 12, -6],
+      [-15, 12.5, -4],
+      [-21, 13, -1.5],
+      [-27, 13.5, 1.5],
+      [-32, 14, 4],
+    ] as Vec3[];
+    const pts = smoothPolyline(ctrl, 1.0);
+    expect(pts[0]).toEqual(ctrl[0]);
+    expect(pts[pts.length - 1]).toEqual(ctrl[ctrl.length - 1]);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      expect(dist(pts[i]!, pts[i + 1]!)).toBeLessThanOrEqual(1.3);
+    }
+    const m1 = h.vessels.find((v) => v.id === 'm1-der')!;
+    const mid = m1.points[Math.floor(m1.points.length / 2)]!;
+    expect(classifyHead(h, mid)).toBe('vaso');
   });
 
   it('el mesencéfalo está dentro del cráneo y es tejido cerebral', () => {
-    expect(classifyHead(h, h.midbrainCenter)).toBe('tejidoCerebral');
+    expect(classifyHead(h, h.midbrainCenter)).toBe('mesencefalo');
   });
 
   it('M1 está a 40–65 mm de la ventana ipsilateral', () => {
     const m1 = h.vessels.find((v) => v.id === 'm1-der')!;
+    const mid = m1.points[Math.floor(m1.points.length / 2)]!;
     const d = Math.hypot(
-      m1.points[2]![0] - h.windowCenter.der[0],
-      m1.points[2]![1] - h.windowCenter.der[1],
-      m1.points[2]![2] - h.windowCenter.der[2],
+      mid[0] - h.windowCenter.der[0],
+      mid[1] - h.windowCenter.der[1],
+      mid[2] - h.windowCenter.der[2],
     );
     expect(d).toBeGreaterThan(30);
     expect(d).toBeLessThan(75);
-    expect(vesselAt(h, m1.points[2]!)).toBe(m1);
-    expect(classifyHead(h, m1.points[2]!)).toBe('vaso');
+    expect(vesselAt(h, mid)).toBe(m1);
+    expect(classifyHead(h, mid)).toBe('vaso');
   });
 
   it('modela pedúnculos, muesca interpeduncular y sustancia negra', () => {
     const offset = ANATOMIA_CABEZA.params.peduncleOffsetXmm.value;
     const c = h.midbrainCenter;
-    expect(classifyHead(h, [c[0] - offset, c[1], c[2]])).toBe('tejidoCerebral');
-    expect(classifyHead(h, [c[0] + offset, c[1], c[2]])).toBe('tejidoCerebral');
+    expect(classifyHead(h, [c[0] - offset, c[1], c[2]])).toBe('mesencefalo');
+    expect(classifyHead(h, [c[0] + offset, c[1], c[2]])).toBe('mesencefalo');
     expect(classifyHead(h, [c[0], c[1], c[2] + 4])).toBe('cisterna');
 
     const snCenter: Vec3 = [c[0] + offset, c[1], c[2] + ANATOMIA_CABEZA.params.snCenterZOffsetMm.value];

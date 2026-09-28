@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { eyeScene } from '../../src/app/renderRequest';
-import { classifyHead } from '../../src/anatomy/head';
+import { eyeScene, headScene } from '../../src/app/renderRequest';
 import { buildReferenceCase, REFERENCE_SEED } from '../../src/domain/referenceCase';
 import { defaultEyeSettings, defaultTemporalSettings } from '../../src/domain/settings';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
@@ -33,7 +32,7 @@ function temporalHash(): string {
   const settings = defaultTemporalSettings();
   const pose = temporalPose(sim, 'der');
   const frame = renderBMode(
-    { classify: (p) => classifyHead(sim.head, p) },
+    headScene(sim.head, `seed-${sim.patient.seed}-der`),
     buildScan(pose, 'sector', 64),
     settings,
     `seed-${sim.patient.seed}-der`,

@@ -49,6 +49,10 @@ export type MaterialId =
   | 'musculoRecto'
   | 'septoOrbitario' // tabiques fibrosos de la grasa retrobulbar
   | 'hueso' // tabla ósea / pared orbitaria / cráneo
+  | 'musculoTemporal' // temporalis sobre la ventana: banda hipoecoica
+  | 'hoz' // hoz del cerebro (dura): lámina ecogénica en la línea media
+  | 'sustanciaBlanca' // parénquima profundo, menos ecogénico que la corteza
+  | 'mesencefalo' // mesencéfalo hipoecoico enmarcado por las cisternas
   | 'tejidoCerebral'
   | 'sustanciaNegra' // bandas hiperecoicas mesencefálicas
   | 'ependimo' // paredes ventriculares
@@ -107,7 +111,15 @@ export const MATERIALS: Readonly<Record<MaterialId, Material>> = Object.freeze({
   septoOrbitario: m('septoOrbitario', 1600, 1100, 0.8, 1.1, 0.9, 0.85),
   // Hueso: α₀=4 conserva α(2 MHz)=16 dB/cm del modelo previo.
   hueso: m('hueso', 2800, 1850, 4.0, 2.0, 0.15, 0.9),
-  tejidoCerebral: m('tejidoCerebral', 1560, 1030, 0.6, 1.2, 0.5, 0.4),
+  // Temporalis: músculo hipoecoico que tapiza la ventana ósea.
+  musculoTemporal: m('musculoTemporal', 1590, 1070, 0.8, 1.1, 0.5, 0.3),
+  // Hoz: pliegue dural, muy ecogénico.
+  hoz: m('hoz', 1600, 1150, 0.8, 1.1, 0.9, 0.85),
+  // Sustancia blanca: algo más hipoecoica que la corteza.
+  sustanciaBlanca: m('sustanciaBlanca', 1560, 1030, 0.6, 1.2, 0.5, 0.35),
+  // Mesencéfalo: hipoecoico frente a las cisternas basales ecogénicas.
+  mesencefalo: m('mesencefalo', 1560, 1035, 0.6, 1.2, 0.35, 0.15),
+  tejidoCerebral: m('tejidoCerebral', 1560, 1030, 0.6, 1.2, 0.5, 0.45),
   // Berg et al. 2008: hiperecogenicidad de sustancia negra en TCS.
   sustanciaNegra: m('sustanciaNegra', 1560, 1040, 0.6, 1.2, 0.7, 0.5),
   ependimo: m('ependimo', 1560, 1040, 0.6, 1.2, 0.85, 0.3),
@@ -116,7 +128,7 @@ export const MATERIALS: Readonly<Record<MaterialId, Material>> = Object.freeze({
   // Las cisternas basales son ecogénicas (pliegues aracnoideos): el «corazón
   // en estrella» de la referencia TCCD. No es LCR anecogénico.
   // Líquidos craneales ajustados para conservar α(2 MHz) del modelo previo.
-  cisterna: m('cisterna', 1500, 1007, 0.3 / 2, 2.0, 0.6, 0.6),
+  cisterna: m('cisterna', 1500, 1007, 0.3 / 2, 2.0, 0.6, 0.7),
   vaso: m('vaso', 1570, 1060, 0.15 / 2, 2.0, 0.35, 0.25),
   aire: m('aire', 343, 1.2, 10.0, 1.1, 0.0, 0.0),
 });

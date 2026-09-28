@@ -46,7 +46,9 @@ export function temporalPose(sim: ReferenceCase, s: PoseInput, side = s.side): P
   const tilt = (s.tiltDeg * Math.PI) / 180;
   const rot = ((s.rotDeg ?? 0) * Math.PI) / 180;
   const fwd = normalize(rotateAround(inward, lateral, tilt));
-  const origin = add(add(wc, scale(fwd, -3)), scale(lateral, s.offsetMm));
+  // Cara de la sonda pegada a la piel (cuero cabelludo ~7,5 mm en la fosa:
+  // 2,5 piel + 5 temporalis) — sin hueco de aire, que atenúa ~20 dB/cm.
+  const origin = add(add(wc, scale(fwd, -7.7)), scale(lateral, s.offsetMm));
   const lat = rotateAround(lateral, fwd, rot);
   return {
     origin,

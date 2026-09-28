@@ -85,13 +85,18 @@ describe('polígono de Willis continuo', () => {
   it('conserva la geometría y radios de la puerta M1', () => {
     const sim = buildReferenceCase();
     const m1 = byId(sim, 'm1-der')!;
-    expect(m1.points).toEqual([
-      [-9, 8, -6],
-      [-14, 9, -4],
-      [-20, 9.5, -1],
-      [-26, 10, 2],
-      [-31, 11, 4],
+    // Puntos de control (definición anatómica); `points` es la spline suave.
+    expect(m1.controlPoints).toEqual([
+      [-9, 12, -6],
+      [-15, 12.5, -4],
+      [-21, 13, -1.5],
+      [-27, 13.5, 1.5],
+      [-32, 14, 4],
     ]);
     expect(m1.radiusMm).toBe(HEAD.m1RadiusMm.value);
+    expect(byId(sim, 'm2-sup-der')!.flowMlMin + byId(sim, 'm2-inf-der')!.flowMlMin).toBeCloseTo(
+      m1.flowMlMin,
+      12,
+    );
   });
 });

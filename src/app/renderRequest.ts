@@ -5,8 +5,8 @@
 import { classifyEye, type EyeGeometry } from '../anatomy/eye';
 import { scatterNoise } from '../ultrasound/speckle';
 import type { MaterialId } from '../anatomy/materials';
-import type { Vec3 } from '../core/vec3';
-import { classifyHead } from '../anatomy/head';
+import { smoothstep, type Vec3 } from '../core/vec3';
+import { butterflyLevel, classifyHead, type HeadGeometry } from '../anatomy/head';
 import type {
   AcquisitionSettings,
   AcquiredFrame,
@@ -73,6 +73,40 @@ export function eyeScene(
   };
 }
 
+/**
+ * Escena transcraneal: clasificación de la cabeza + modulación del speckle —
+ * cisternas más brillantes pegadas al borde del mesencéfalo y parénquima
+ * (sustancia blanca/corteza) con heterogeneidad suave de 2,5 mm.
+ */
+export function headScene(
+  head: HeadGeometry,
+  seedLabel: string,
+): { classify: (p: Vec3) => MaterialId; scatterScale: (p: Vec3) => number } {
+  // renderBMode llama classify y scatterScale sobre el mismo punto por
+  // muestra: memoizar la última clasificación evita una pasada doble.
+  let lastP: Vec3 | null = null;
+  let lastId: MaterialId = 'aire';
+  const classifyCached = (p: Vec3): MaterialId => {
+    if (lastP && p[0] === lastP[0] && p[1] === lastP[1] && p[2] === lastP[2]) return lastId;
+    lastP = p;
+    lastId = classifyHead(head, p);
+    return lastId;
+  };
+  return {
+    classify: classifyCached,
+    scatterScale: (p: Vec3): number => {
+      const id = classifyCached(p);
+      if (id === 'cisterna') {
+        return 1.5 - 0.8 * smoothstep(1.0, 1.45, butterflyLevel(head, p));
+      }
+      if (id === 'sustanciaBlanca' || id === 'tejidoCerebral') {
+        return 0.85 + 0.3 * (0.5 + 0.5 * scatterNoise(`${seedLabel}:wm`, p, 2.5));
+      }
+      return 1;
+    },
+  };
+}
+
 export function renderCase(seed: number, willisVariant: WillisVariant = 'normal'): ReferenceCase {
   const key = `${seed}:${willisVariant}`;
   let sim = cases.get(key);
@@ -97,9 +131,7 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
   const scan = buildScan(pose, req.settings.transducer, linesFor(req.settings.lineDensity));
   const seedLabel = `seed-${sim.patient.seed}-${req.side}`;
   const scene =
-    req.station === 'ojo'
-      ? eyeScene(sim.eyes[req.side], seedLabel)
-      : { classify: (p: Parameters<typeof classifyHead>[1]) => classifyHead(sim.head, p) };
+    req.station === 'ojo' ? eyeScene(sim.eyes[req.side], seedLabel) : headScene(sim.head, seedLabel);
   const bmode = renderBMode(scene, scan, req.settings, seedLabel);
   const frame: AcquiredFrame = {
     tSeconds: req.t,

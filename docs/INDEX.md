@@ -94,7 +94,7 @@
 | Conjunto             | Parámetros |
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         40 |
-| `anatomia-cabeza`    |         72 |
+| `anatomia-cabeza`    |         73 |
 | `doppler`            |         44 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         38 |
