@@ -95,9 +95,11 @@ function vessel(
   radiusMm: number,
   flowMlMin: number,
   flowSign: 1 | -1,
+  stenosisOf?: (id: string) => Vessel['stenosis'],
 ): Vessel {
   const velocity = velocityForFlow(flowMlMin, radiusMm);
   const points = smoothPolyline(controlPoints);
+  const stenosis = stenosisOf?.(id);
   const min: Vec3 = [Infinity, Infinity, Infinity];
   const max: Vec3 = [-Infinity, -Infinity, -Infinity];
   for (const p of points) {
@@ -116,6 +118,7 @@ function vessel(
     flowMlMin,
     aabb: { min, max },
     ...velocity,
+    ...(stenosis ? { stenosis } : {}),
   };
 }
 
@@ -133,6 +136,7 @@ function sideLabel(s: 1 | -1): Side {
 export function buildWillisVessels(
   variant: WillisVariant = 'normal',
   radiusScale: Readonly<Record<string, number>> = {},
+  stenosis: Readonly<Record<string, NonNullable<Vessel['stenosis']>>> = {},
 ): Vessel[] {
   const qM1 = PHYS.qM1MlMin.value;
   const qA2 = PHYS.qA2MlMin.value;
@@ -151,7 +155,16 @@ export function buildWillisVessels(
     radiusMm: number,
     flowMlMin: number,
     flowSign: 1 | -1,
-  ): Vessel => vessel(id, side, controlPoints, radiusMm * (radiusScale[id] ?? 1), flowMlMin, flowSign);
+  ): Vessel =>
+    vessel(
+      id,
+      side,
+      controlPoints,
+      radiusMm * (radiusScale[id] ?? 1),
+      flowMlMin,
+      flowSign,
+      (i) => stenosis[i],
+    );
   const vessels: Vessel[] = [];
 
   for (const s of [1, -1] as const) {

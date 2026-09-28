@@ -16,7 +16,7 @@ import type {
 } from '../domain/contracts';
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
 import { drawBMode, drawColorOverlay } from './canvasDraw';
-import { createInitialState } from '../app/state';
+import { createInitialState, type AppState } from '../app/state';
 import { PwController } from '../app/pwController';
 import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
@@ -114,6 +114,11 @@ if (urlParams.get('clock') === 'fixed') {
   const tParam = Number(urlParams.get('t'));
   clock.freezeAt(Number.isFinite(tParam) ? tParam : 0.4);
   s.handMotion = false;
+  // La persistencia GPU es una aproximación por composición alfa: el redondeo
+  // de premultiplicar/despre-multiplicar aleja los píxeles de la ruta CPU más
+  // que la tolerancia de paridad; en modo reloj fijo se desactiva (los
+  // fotogramas son idénticos, así que la persistencia sería idempotente).
+  s.persistence = 0;
 }
 let lastRender = 0;
 let lastT = performance.now();
@@ -121,12 +126,17 @@ let renderInFlight = false;
 let renderId = 0;
 let currentScan: RenderResponse['scan'] | null = null;
 let colorPersist: { vel: Float32Array; pow: Float32Array; key: string } | null = null;
+let bmodePersist: { db: Float32Array; key: string } | null = null;
+/** α de persistencia B-mode por nivel 0–4 (promedio exponencial en dB). */
+const BMODE_PERSIST_ALPHA = [0, 0.35, 0.55, 0.7, 0.8] as const;
+const GRAY_MAP_CODE = { lineal: 0, sigmoide: 1, gamma: 2 } as const;
 let alaraLogged = false;
 
 function drawGpuBMode(
   bmode: RenderResponse['bmode'],
   scan: RenderResponse['scan'],
   settings: AcquisitionSettings,
+  persistAlpha = 0,
 ): void {
   if (!gpuPipeline) return;
   gpuPipeline.render(bmode.iq, bmode.width, bmode.height, {
@@ -134,9 +144,43 @@ function drawGpuBMode(
     scan,
     settings,
     beam: probeBeamSpec(settings.transducer, settings),
+    grayMap: GRAY_MAP_CODE[s.grayMap],
   });
-  bCtx.clearRect(0, 0, bmodeCv.width, bmodeCv.height);
-  bCtx.drawImage(gpuCanvas, 0, 0);
+  // Aproximación de persistencia en GPU: el pipeline produce píxeles, no dB,
+  // así que se compone el fotograma nuevo sobre el canvas previo con
+  // globalAlpha = 1−α (equivalente al promedio exponencial en píxel, no en dB
+  // como hace la ruta CPU; la diferencia es aceptable como presentación).
+  if (persistAlpha > 0) {
+    bCtx.globalAlpha = 1 - persistAlpha;
+    bCtx.drawImage(gpuCanvas, 0, 0);
+    bCtx.globalAlpha = 1;
+  } else {
+    bCtx.clearRect(0, 0, bmodeCv.width, bmodeCv.height);
+    bCtx.drawImage(gpuCanvas, 0, 0);
+  }
+}
+
+/** Devuelve el `db` mezclado con la persistencia temporal (presentación). */
+function bmodeDbWithPersistence(
+  bmode: RenderResponse['bmode'],
+  frame: RenderResponse['frame'],
+): Float32Array {
+  const alpha = BMODE_PERSIST_ALPHA[s.persistence] ?? 0;
+  const key = `${frame.station}-${frame.side}-${bmode.width}x${bmode.height}-${frame.settings.depthMm}-${frame.settings.lineDensity}-${s.renderer}`;
+  let persist = bmodePersist;
+  if (alpha === 0) {
+    bmodePersist = null;
+    return bmode.db;
+  }
+  if (!persist || persist.key !== key || persist.db.length !== bmode.db.length) {
+    persist = { db: Float32Array.from(bmode.db), key };
+  } else {
+    for (let i = 0; i < persist.db.length; i += 1) {
+      persist.db[i] = alpha * persist.db[i]! + (1 - alpha) * bmode.db[i]!;
+    }
+  }
+  bmodePersist = persist;
+  return persist.db;
 }
 
 function createRenderClient(): RenderClientLike {
@@ -242,6 +286,7 @@ function setStation(station: Station, side: Side): void {
   s.frozen = false;
   currentScan = null;
   colorPersist = null;
+  bmodePersist = null;
   $('freeze').textContent = 'Congelar Esp';
   $('hint').textContent =
     station === 'ojo'
@@ -301,7 +346,10 @@ function sendRenderRequest(timing: RenderTiming): void {
 
 function toggleFreeze(): void {
   s.frozen = !s.frozen;
-  if (!s.frozen) colorPersist = null;
+  if (!s.frozen) {
+    colorPersist = null;
+    bmodePersist = null;
+  }
   $('freeze').textContent = s.frozen ? 'Reanudar' : 'Congelar';
   $('freeze').classList.toggle('on', s.frozen);
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
@@ -323,9 +371,11 @@ function drawFrame(response: RenderResponse): void {
   const { frame, bmode, scan, color } = response;
   currentScan = scan;
   if (s.renderer === 'gpu' && gpuPipeline) {
-    drawGpuBMode(bmode, scan, frame.settings);
+    bmodeDbWithPersistence(bmode, frame); // mantiene la clave/vida del estado
+    drawGpuBMode(bmode, scan, frame.settings, BMODE_PERSIST_ALPHA[s.persistence] ?? 0);
   } else {
-    drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
+    const db = bmodeDbWithPersistence(bmode, frame);
+    drawBMode(bCtx, { ...bmode, db }, { dynamicRangeDb: frame.settings.dynamicRangeDb, grayMap: s.grayMap });
   }
   if (color) {
     const key = JSON.stringify([
@@ -475,10 +525,14 @@ function updateAcousticLabel(): void {
 function drawCineFrame(): void {
   const item = nextCine(s);
   if (!item) return;
+  // El cine guarda la adquisición cruda: se dibuja sin la persistencia en vivo.
   if (s.renderer === 'gpu' && gpuPipeline) {
     drawGpuBMode(item.bmode, item.scan, item.frame.settings);
   } else {
-    drawBMode(bCtx, item.bmode, { dynamicRangeDb: item.frame.settings.dynamicRangeDb });
+    drawBMode(bCtx, item.bmode, {
+      dynamicRangeDb: item.frame.settings.dynamicRangeDb,
+      grayMap: s.grayMap,
+    });
   }
   $('hint').textContent =
     `Cine ${s.cineIdx + 1}/${s.cine.length} · cuadro t=${item.frame.tSeconds.toFixed(2)} s`;
@@ -598,6 +652,24 @@ const colormapInput = $('colormap') as HTMLSelectElement;
 colormapInput.value = s.spectralColormap;
 colormapInput.addEventListener('change', () => {
   s.spectralColormap = colormapInput.value as 'gris' | 'ambar';
+});
+const persistenceInput = $('persistencia') as HTMLSelectElement;
+persistenceInput.value = String(s.persistence);
+persistenceInput.addEventListener('change', () => {
+  s.persistence = Number(persistenceInput.value) as AppState['persistence'];
+  bmodePersist = null;
+  s.debrief.setTime(clock.t);
+  s.debrief.record('settings', `persistencia=${s.persistence}`, {
+    id: 'persistencia',
+    value: s.persistence,
+  });
+});
+const grayMapInput = $('mapaGris') as HTMLSelectElement;
+grayMapInput.value = s.grayMap;
+grayMapInput.addEventListener('change', () => {
+  s.grayMap = grayMapInput.value as AppState['grayMap'];
+  s.debrief.setTime(clock.t);
+  s.debrief.record('settings', `mapaGris=${s.grayMap}`, { id: 'mapaGris', value: s.grayMap });
 });
 const rendererInput = $('renderer') as HTMLSelectElement;
 const rendererControl = $('rendererCtl');

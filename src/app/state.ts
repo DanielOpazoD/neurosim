@@ -3,7 +3,14 @@
  * La capa no conoce el DOM ni ejecuta física.
  */
 import type { BModeFrame } from '../ultrasound/bmode';
-import type { AcquisitionSettings, AcquiredFrame, Measurement, Side, Station } from '../domain/contracts';
+import type {
+  GrayMap,
+  AcquisitionSettings,
+  AcquiredFrame,
+  Measurement,
+  Side,
+  Station,
+} from '../domain/contracts';
 import type { ImagePoint } from '../domain/measure';
 import type { ScanGeometry } from '../ultrasound/probe';
 import { defaultEyeSettings } from '../domain/settings';
@@ -46,6 +53,10 @@ export interface AppState {
   sweepSeconds: 2 | 3 | 4 | 6;
   spectralColormap: 'gris' | 'ambar';
   renderer: 'cpu' | 'gpu';
+  /** Persistencia B-mode (0–4): promedio temporal de fotogramas en dB. */
+  persistence: 0 | 1 | 2 | 3 | 4;
+  /** Mapa de grises del B-mode (post-compresión, presentación). */
+  grayMap: GrayMap;
   teachingMode: boolean;
   debrief: DebriefLog;
 }
@@ -79,6 +90,8 @@ export function createInitialState(): AppState {
     sweepSeconds: 4,
     spectralColormap: 'gris',
     renderer: 'cpu',
+    persistence: 2,
+    grayMap: 'sigmoide',
     teachingMode: false,
     debrief: new DebriefLog(0),
   };

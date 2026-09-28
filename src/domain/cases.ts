@@ -28,6 +28,8 @@ export interface ClinicalCase {
   readonly willisVariant: WillisVariant;
   /** id de vaso → factor sobre el radio (1 = sin cambio; el flujo no varía). */
   readonly vesselRadiusScale: Readonly<Record<string, number>>;
+  /** Estenosis focales por vaso (arco en mm sobre la línea central del vaso). */
+  readonly vesselStenosis?: Readonly<Record<string, { sMm: number; lengthMm: number; radiusScale: number }>>;
   /** Sustituciones de la ventana temporal (espesor óseo y calidad). */
   readonly window: { thicknessMm?: number; quality?: number };
   /**
@@ -101,10 +103,11 @@ export const CASES: readonly ClinicalCase[] = [
     label: 'Estenosis de M1 derecha',
     summary: 'Estenosis focal del segmento M1 derecho con aumento de velocidad.',
     physiology: { mapMmHg: 90, paco2MmHg: 40, icpMmHg: 10 },
-    vesselRadiusScale: { 'm1-der': 0.5 },
+    vesselStenosis: { 'm1-der': { sMm: 12, lengthMm: 6, radiusScale: 0.5 } },
     icaExtracranialTamaxCms: 50,
     teaching: [
-      'Aumento focal de velocidad con ensanchamiento espectral.',
+      'Jet focal en la garganta: velocidad ≥ 2× la prestenótica.',
+      'Ensanchamiento espectral post-estenótico por turbulencia.',
       'Comparar con el M1 contralateral.',
     ],
   },

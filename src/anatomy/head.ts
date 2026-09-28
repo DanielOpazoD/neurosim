@@ -47,6 +47,16 @@ export interface Vessel {
    * `meanCms·modulation` plano, sin forma arterial ni modulación hemodinámica.
    */
   readonly venous?: boolean;
+  /**
+   * Estenosis focal: posición a lo largo de la línea central (`sMm`, arco en mm),
+   * longitud de la lesión y factor de radio mínimo en la garganta. El radio
+   * local es `vesselRadiusAt`; el vaso sin estenosis usa `radiusMm` constante.
+   */
+  readonly stenosis?: {
+    readonly sMm: number;
+    readonly lengthMm: number;
+    readonly radiusScale: number;
+  };
 }
 
 /**
@@ -126,11 +136,27 @@ export function vesselDistance(v: Vessel, p: Vec3): number {
   if (p[0] < min[0] || p[0] > max[0] || p[1] < min[1] || p[1] > max[1] || p[2] < min[2] || p[2] > max[2]) {
     return Infinity;
   }
+  // Estenosis focal: el radio varía con s — usar el punto más cercano.
+  if (v.stenosis) {
+    const c = vesselClosest(v, p);
+    return dist(c.point, p) - vesselRadiusAt(v, c.sMm);
+  }
   let d = Infinity;
   for (let i = 0; i + 1 < v.points.length; i++) {
     d = Math.min(d, segDist(p, v.points[i]!, v.points[i + 1]!));
   }
   return d - v.radiusMm;
+}
+
+/**
+ * Radio local del vaso en el arco `sMm`. Con estenosis: garganta gaussiana
+ * `R·(1 − (1−radiusScale)·exp(−((s−s₀)/(L/2))²))`; sin estenosis, `radiusMm`.
+ */
+export function vesselRadiusAt(v: Vessel, sMm: number): number {
+  const st = v.stenosis;
+  if (!st) return v.radiusMm;
+  const bump = Math.exp(-(((sMm - st.sMm) / (st.lengthMm / 2)) ** 2));
+  return v.radiusMm * (1 - (1 - st.radiusScale) * bump);
 }
 
 /** Punto más cercano sobre la línea central y tangente local. */
@@ -212,6 +238,7 @@ export function buildReferenceHead(
   vesselRadiusScale: Readonly<Record<string, number>> = {},
   windowOverride: { thicknessMm?: number; quality?: number } = {},
   snAreaScale = 1,
+  vesselStenosis: Readonly<Record<string, NonNullable<Vessel['stenosis']>>> = {},
 ): HeadGeometry {
   const skullCenter: Vec3 = [HEAD.skullCenterXmm.value, HEAD.skullCenterYmm.value, HEAD.skullCenterZmm.value];
   const skullRadii: Vec3 = [HEAD.skullRadiusXmm.value, HEAD.skullRadiusYmm.value, HEAD.skullRadiusZmm.value];
@@ -245,7 +272,7 @@ export function buildReferenceHead(
     windowQuality,
     windowCenter: { der: mkWindow('der'), izq: mkWindow('izq') },
     windowRadiusMm: HEAD.windowRadiusMm.value,
-    vessels: buildWillisVessels(variant, vesselRadiusScale),
+    vessels: buildWillisVessels(variant, vesselRadiusScale, vesselStenosis),
     snAreaScale,
     midbrainCenter: [
       HEAD.midbrainCenterXmm.value,

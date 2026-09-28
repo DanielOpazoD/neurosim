@@ -321,6 +321,24 @@
           <input id="dr" type="range" min="30" max="90" step="5"
         /></label>
         <label class="ctl"
+          ><span>Persistencia</span>
+          <select id="persistencia">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </label>
+        <label class="ctl"
+          ><span>Mapa de gris</span>
+          <select id="mapaGris">
+            <option value="lineal">Lineal</option>
+            <option value="sigmoide" selected>Sigmoide</option>
+            <option value="gamma">Gamma 0,8</option>
+          </select>
+        </label>
+        <label class="ctl"
           ><span>Potencia <b id="outputPowerV"></b></span>
           <input id="outputPower" type="range" min="-20" max="0" step="1"
         /></label>
@@ -342,7 +360,7 @@
         <div class="pwonly">
           <label class="ctl"
             ><span>PRF <b id="prfV"></b></span>
-            <input id="prf" type="range" min="1000" max="10000" step="250"
+            <input id="prf" type="range" min="1000" max="16000" step="250"
           /></label>
           <label class="ctl"
             ><span>Puerta <b id="gateV"></b></span> <input id="gate" type="range" min="2" max="15" step="0.5"

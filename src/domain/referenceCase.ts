@@ -60,6 +60,7 @@ export function buildReferenceCase(
     cc.vesselRadiusScale,
     cc.window,
     cc.snAreaCm2Scale ?? 1,
+    cc.vesselStenosis ?? {},
   );
   const respiration = new Respiration(FISIOLOGIA.params.respiratoryRatePerMin.value);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);

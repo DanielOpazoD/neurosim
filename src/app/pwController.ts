@@ -169,7 +169,13 @@ export class PwController {
       if (!chain || !s.pwOn || chain.spectral.columns.length <= 20) {
         return null;
       }
-      const trace = observedTrace(chain.spectral.columns.slice(-400), {
+      // Ventana por TIEMPO (~2,5 s), no por columnas: al subir el PRF las
+      // columnas se densifican (hop/prf) y una ventana fija de N columnas
+      // cubre menos de un latido → la medición queda intermitente.
+      const cols = chain.spectral.columns;
+      const tEnd = cols[cols.length - 1]!.t;
+      const windowCols = cols.filter((c) => c.t >= tEnd - 2.5);
+      const trace = observedTrace(windowCols, {
         f0Hz: s.settings.frequencyMhz * 1e6,
         angleCorrectionRad: (s.settings.angleCorrectionDeg * Math.PI) / 180,
         invert: s.settings.invertColor,

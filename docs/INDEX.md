@@ -44,7 +44,7 @@
 | LIM-22 | Debriefing por reglas               | —                                                                            |
 | LIM-23 | Audio de equipo                     | —                                                                            |
 | LIM-24 | Paridad WebGL2                      | —                                                                            |
-| LIM-25 | Casos clínicos estáticos            | `src/domain/cases.ts`                                                        |
+| LIM-25 | Estenosis focal idealizada          | `src/domain/cases.ts`                                                        |
 | LIM-26 | Vasos oculares estilizados          | `src/anatomy/ocularVessels.ts`, `src/app/renderRequest.ts`                   |
 
 ## IDs de decisiones
@@ -97,6 +97,8 @@
 | DEC-44 | La corona de cisterna basal se adelgaza (butterflyLevel < 1,45          | —                              |
 | DEC-45 | Sustancia negra recalibrada a la referencia de Berg 2008                | —                              |
 | DEC-46 | Doppler ocular sobre la misma `VesselScene` que Willis: el              | `src/anatomy/ocularVessels.ts` |
+| DEC-47 | Persistencia B-mode (0–4) como promedio temporal de                     | —                              |
+| DEC-48 | Estenosis focal de M1 con turbulencia post-estenótica:                  | —                              |
 
 ## Parámetros registrados
 
