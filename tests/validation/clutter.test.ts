@@ -93,7 +93,12 @@ describe('clutter tisular determinista', () => {
       chain.begin(6000, 2e6, 20, wallFilterHz, 0);
       let t = 0;
       for (let i = 0; i < 32; i += 1) {
-        chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+        chain.step(
+          (tt) => sim.physStateAt(tt),
+          t,
+          () => [0, 0, 0],
+          0.064,
+        );
         chain.flush();
         t += 0.064;
       }

@@ -10,8 +10,11 @@ const workerScope = self as unknown as {
 };
 
 workerScope.onmessage = (event) => {
-  const response = renderRequest(event.data, renderCase(event.data.seed, event.data.willisVariant));
-  const transfer: Transferable[] = [response.bmode.db.buffer, response.bmode.iqMagnitude.buffer];
+  const response = renderRequest(
+    event.data,
+    renderCase(event.data.seed, event.data.willisVariant, event.data.caseId),
+  );
+  const transfer: Transferable[] = [response.bmode.db.buffer, response.bmode.iq.buffer];
   if (response.color) {
     transfer.push(response.color.vel.buffer, response.color.pow.buffer, response.color.variance.buffer);
   }

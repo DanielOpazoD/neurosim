@@ -12,11 +12,10 @@ import { measureBeats, observedTrace, summarizeBeats } from '../doppler/measureM
 import { DopplerAudio } from '../doppler/audio';
 import { PwDopplerChain, type AudioSink } from '../doppler/pwChain';
 import type { AppState } from './state';
-import { currentPose } from './poses';
+import { currentPose, handMotionVelocityMmS } from './poses';
 import { DOPPLER } from '../doppler/params';
 import { FISICA_US } from '../ultrasound/params';
 import { logError } from '../core/errorLog';
-import { handTremorVelocityMmS } from '../doppler/clutter';
 import { insonationAngles, type InsonationAngles } from '../doppler/insonation';
 
 export class PwController {
@@ -121,11 +120,14 @@ export class PwController {
         this.lastDg = s.settings.dopplerGainDb;
         this.lastPower = s.settings.outputPowerDb;
       }
-      const pose = currentPose(this.sim, s);
+      const pose = currentPose(this.sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
       chain.setGate(this.gateGeometry(pose));
+      const seed = this.sim.patient.seed;
+      const moving = s.handMotion === true;
       chain.step(
-        this.sim.physStateAt(clock.t),
-        handTremorVelocityMmS(clock.t, this.sim.patient.seed),
+        (tt) => this.sim.physStateAt(tt),
+        clock.t - elapsed,
+        moving ? (tt) => handMotionVelocityMmS(tt, seed) : () => [0, 0, 0],
         elapsed,
       );
       chain.flush();

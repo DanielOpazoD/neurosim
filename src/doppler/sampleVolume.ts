@@ -26,7 +26,7 @@ import { vesselVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
 import { FISIOLOGIA } from '../physiology/params';
 import { DOPPLER } from './params';
-import { tissueVelocityMmS } from './clutter';
+import { tissueMotionBasis, tissueVelocityFromBasis, type TissueMotionBasis } from './clutter';
 
 export interface GateGeometry {
   /** Centro de la puerta en el mundo (mm). */
@@ -80,6 +80,8 @@ interface Scatterer {
   vMat: Vec3;
   /** Base de flujo congelada al clasificar: vMat = flowBasis·u(φ) — cuerda recta. */
   flowBasis: Vec3;
+  /** Geometría tisular cacheada (null en sangre); se recalcula al clasificar. */
+  tissueBasis: TissueMotionBasis | null;
 }
 
 export interface GateComposition {
@@ -197,6 +199,7 @@ export class SampleVolumeIQ {
           const sc = this.makeScatterer(world);
           sc.vessel = v;
           sc.flowBasis = this.flowBasisOf(v, world);
+          sc.tissueBasis = null;
           this.scatterers[placed % N_SCATTERERS] = sc;
           placed++;
         }
@@ -263,8 +266,13 @@ export class SampleVolumeIQ {
       vessel: this.vesselAtBlood(world),
       vMat: [0, 0, 0],
       flowBasis: [0, 0, 0],
+      tissueBasis: null,
     };
-    if (s.vessel) s.flowBasis = this.flowBasisOf(s.vessel, world);
+    if (s.vessel) {
+      s.flowBasis = this.flowBasisOf(s.vessel, world);
+    } else {
+      s.tissueBasis = tissueMotionBasis(this.head, world);
+    }
     startAmpRamp(s, s.ampTarget);
     return s;
   }
@@ -299,6 +307,7 @@ export class SampleVolumeIQ {
       if (inside) {
         const s = this.makeScatterer(inside);
         s.vessel = exited.vessel;
+        s.tissueBasis = null;
         s.vMat = [v[0], v[1], v[2]];
         s.amp = s.ampTarget;
         s.dAmp = 0;
@@ -408,21 +417,34 @@ export class SampleVolumeIQ {
     const invLat2 = 1 / (g.lateralSigmaMm * g.lateralSigmaMm);
     const invEl2 = 1 / (g.elevationSigmaMm * g.elevationSigmaMm);
     const twoPiDt = 2 * Math.PI * dt;
+    const gain = this.equipment.gain;
+    const outAmp = this.equipment.outputAmplitude;
+    const cx = g.center[0];
+    const cy = g.center[1];
+    const cz = g.center[2];
+    const pvx = probeVelocity[0];
+    const pvy = probeVelocity[1];
+    const pvz = probeVelocity[2];
+    const cardiacPhase = phys.cardiacPhase;
+    const heartRateBpm = phys.heartRateBpm;
+    const tSec = phys.t;
 
     for (let k = 0; k < n; k++) {
       let sr = 0;
       let si = 0;
       const slow = this.tick % SLOW_EVERY === 0;
       const reclass = this.tick % RECLASSIFY_EVERY === 0;
-      for (let j = 0; j < this.scatterers.length; j++) {
-        const s = this.scatterers[j]!;
+      const scatterers = this.scatterers;
+      const nSc = scatterers.length;
+      for (let j = 0; j < nSc; j++) {
+        const s = scatterers[j]!;
         s.m[0] += s.vMat[0] * dt;
         s.m[1] += s.vMat[1] * dt;
         s.m[2] += s.vMat[2] * dt;
         if (slow) {
-          const dx = s.m[0] - g.center[0];
-          const dy = s.m[1] - g.center[1];
-          const dz = s.m[2] - g.center[2];
+          const dx = s.m[0] - cx;
+          const dy = s.m[1] - cy;
+          const dz = s.m[2] - cz;
           const ax = dx * g.beamDir[0] + dy * g.beamDir[1] + dz * g.beamDir[2];
           const la = dx * g.lateral[0] + dy * g.lateral[1] + dz * g.lateral[2];
           const el = dx * g.elevation[0] + dy * g.elevation[1] + dz * g.elevation[2];
@@ -448,6 +470,9 @@ export class SampleVolumeIQ {
               if (!s.vessel && v) {
                 s.vessel = v;
                 s.flowBasis = this.flowBasisOf(v, s.m);
+                s.tissueBasis = null;
+              } else if (!v && !s.vessel) {
+                s.tissueBasis = tissueMotionBasis(this.head, s.m);
               } else if (s.vessel) {
                 if (v && v !== s.vessel) {
                   s.vessel = v;
@@ -471,27 +496,22 @@ export class SampleVolumeIQ {
               }
             }
             if (s.vessel) {
-              s.vMat = scale(
-                s.flowBasis,
-                vesselVelocityCms(s.vessel, phys.cardiacPhase, phys.flowModulation, phys.hemo),
-              );
+              const u = vesselVelocityCms(s.vessel, cardiacPhase, phys.flowModulation, phys.hemo);
+              s.vMat[0] = s.flowBasis[0] * u;
+              s.vMat[1] = s.flowBasis[1] * u;
+              s.vMat[2] = s.flowBasis[2] * u;
             } else {
-              s.vMat = tissueVelocityMmS({
-                head: this.head,
-                point: s.m,
-                cardiacPhase: phys.cardiacPhase,
-                heartRateBpm: phys.heartRateBpm,
-                tSec: phys.t,
-              });
+              if (!s.tissueBasis) s.tissueBasis = tissueMotionBasis(this.head, s.m);
+              s.vMat = tissueVelocityFromBasis(s.tissueBasis, cardiacPhase, heartRateBpm, tSec);
             }
             const wTarget =
               0.5 *
               (erf((half - ax) / (ps * Math.SQRT2)) + erf((half + ax) / (ps * Math.SQRT2))) *
               Math.exp(-0.5 * (la * la * invLat2 + el * el * invEl2));
             s.dw = (wTarget - s.w) / SLOW_EVERY;
-            const vx = s.vMat[0] - probeVelocity[0];
-            const vy = s.vMat[1] - probeVelocity[1];
-            const vz = s.vMat[2] - probeVelocity[2];
+            const vx = s.vMat[0] - pvx;
+            const vy = s.vMat[1] - pvy;
+            const vz = s.vMat[2] - pvz;
             const da = s.apAngle * apSigma;
             const bx = bHat[0] + g.lateral[0] * da;
             const by = bHat[1] + g.lateral[1] * da;
@@ -512,15 +532,15 @@ export class SampleVolumeIQ {
           s.amp += s.dAmp;
           s.rampLeft--;
         }
-        const a = s.amp * s.w * this.equipment.outputAmplitude;
+        const a = s.amp * s.w * outAmp;
         sr += a * cr;
         si += a * ci;
       }
       const nr = this.rng.gaussian() * NOISE_STD;
       const ni = this.rng.gaussian() * NOISE_STD;
       this.transmissionNow += (g.transmission - this.transmissionNow) * TRANSMISSION_ALPHA;
-      re[offset + k] = (sr * this.transmissionNow + nr) * this.equipment.gain;
-      im[offset + k] = (si * this.transmissionNow + ni) * this.equipment.gain;
+      re[offset + k] = (sr * this.transmissionNow + nr) * gain;
+      im[offset + k] = (si * this.transmissionNow + ni) * gain;
       this.tick++;
       if (this.tick % (RECLASSIFY_EVERY * 4) === 0) this.updateComposition();
     }

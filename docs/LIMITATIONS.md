@@ -31,12 +31,17 @@ siguiente existe todavía por diseño del plan:
   interobservador ni una curva ROC; usa un único umbral educativo y el informe
   no diagnostica hipertensión intracraneal.
 
-- **LIM-01 · Patología**: sin casos con PIC elevada, vasoespasmo, ni parada
-  circulatoria. La señal ausente NO acredita cese circulatorio (ni en el
+- **LIM-01 · Patología**: existen escenarios patológicos estáticos (HIC,
+  vasoespasmo, estenosis M1, ventana pobre, parada circulatoria, hiper- e
+  hipocapnia) como conjuntos de parámetros; no hay evolución dinámica de la
+  enfermedad. La señal ausente NO acredita cese circulatorio (ni en el
   simulador ni en la clínica).
-- **LIM-02 · Lindegaard**: no hay ACI extracraneal todavía (bloque post-N1).
+- **LIM-02 · Lindegaard**: el índice usa la TAMax de ACI extracraneal
+  declarada por el caso (`icaExtracranialTamaxCms`); la ACI no se insona ni
+  se modela — es un dato del escenario, no una medición.
 - **LIM-03 · DVNO y PIC**: sin mapeo DVNO→PIC ni PI→PIC; la PIC es un
-  parámetro latente del paciente, nunca derivado de la imagen.
+  parámetro latente del paciente, nunca derivado de la imagen. La DVNO sigue
+  `onsdForIcpMm` (lineal, saturada en `onsdMaxMm`).
 - **LIM-04 · Realismo acústico parcial**: el renderer B-mode es CPU con haz
   gaussiano por apertura, lóbulos laterales y refracción del cristalino; aún
   no modela reverb de multicamino ni shadowing complejo fuera de esa interfaz.
@@ -91,3 +96,9 @@ a WebGL2 en bloques posteriores.
   de intensidad y puede depender de la implementación de WebGL2 del navegador.
   En sectores, la textura lateral GPU limita el radio a 64 taps para mantener
   un tamaño finito cerca del ápice; la ruta CPU conserva el kernel de referencia.
+- **LIM-25 · Casos clínicos estáticos**: cada caso es un conjunto fijo de
+  parámetros (fisiología basal, radios vasculares escalados, espesor/calidad
+  de ventana). Vasoespasmo y estenosis escalan el radio de TODO el segmento —
+  continuidad eleva la velocidad, pero no hay chorro focal ni turbulencia
+  post-estenótica; tampoco hay progresión temporal ni respuesta a maniobras
+  más allá de la fisiología basal.

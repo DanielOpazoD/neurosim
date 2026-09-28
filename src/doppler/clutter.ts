@@ -28,34 +28,57 @@ function arterialShapeDerivative(phase: number, heartRateBpm: number): number {
   return (dShapeDPhase - cycleSlope) * (heartRateBpm / 60);
 }
 
-export function tissueVelocityMmS(inp: TissueMotionInput): Vec3 {
-  let nearest = inp.head.vessels[0]!;
-  let nearestDistance = vesselDistance(nearest, inp.point);
-  for (const vessel of inp.head.vessels.slice(1)) {
-    const d = vesselDistance(vessel, inp.point);
+/** Geometría estática del movimiento tisular: solo depende de `point`. */
+export interface TissueMotionBasis {
+  radial: Vec3;
+  dToWall: number;
+}
+
+export function tissueMotionBasis(head: HeadGeometry, point: Vec3): TissueMotionBasis {
+  let nearest = head.vessels[0]!;
+  let nearestDistance = vesselDistance(nearest, point);
+  for (const vessel of head.vessels.slice(1)) {
+    const d = vesselDistance(vessel, point);
     if (d < nearestDistance) {
       nearest = vessel;
       nearestDistance = d;
     }
   }
-  const closest = vesselClosest(nearest, inp.point);
-  const radial = normalize(sub(inp.point, closest.point));
-  const dToWall = Math.max(0, nearestDistance);
-  const dShapeDt = arterialShapeDerivative(inp.cardiacPhase, inp.heartRateBpm);
+  const closest = vesselClosest(nearest, point);
+  const radial = normalize(sub(point, closest.point));
+  return { radial, dToWall: Math.max(0, nearestDistance) };
+}
+
+export function tissueVelocityFromBasis(
+  basis: TissueMotionBasis,
+  cardiacPhase: number,
+  heartRateBpm: number,
+  tSec: number,
+): Vec3 {
+  const dShapeDt = arterialShapeDerivative(cardiacPhase, heartRateBpm);
   const wallMagnitude =
     DOPPLER.params.wallExcursionMm.value *
     dShapeDt *
-    Math.exp(-dToWall / DOPPLER.params.wallMotionDecayMm.value);
-  const wall = scale(radial, wallMagnitude);
+    Math.exp(-basis.dToWall / DOPPLER.params.wallMotionDecayMm.value);
+  const wall = scale(basis.radial, wallMagnitude);
   const respiratoryHz = FISIOLOGIA.params.respiratoryRatePerMin.value / 60;
   const respiratoryVelocity =
     FISIOLOGIA.params.respBrainShiftMm.value *
     2 *
     Math.PI *
     respiratoryHz *
-    Math.cos(2 * Math.PI * respiratoryHz * inp.tSec);
+    Math.cos(2 * Math.PI * respiratoryHz * tSec);
   const brain = [0, 0, DOPPLER.params.brainPulsationMm.value * dShapeDt + respiratoryVelocity] as Vec3;
   return [wall[0] + brain[0], wall[1] + brain[1], wall[2] + brain[2]];
+}
+
+export function tissueVelocityMmS(inp: TissueMotionInput): Vec3 {
+  return tissueVelocityFromBasis(
+    tissueMotionBasis(inp.head, inp.point),
+    inp.cardiacPhase,
+    inp.heartRateBpm,
+    inp.tSec,
+  );
 }
 
 export function handTremorVelocityMmS(tSec: number, seed: number): Vec3 {

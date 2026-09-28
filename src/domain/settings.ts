@@ -14,7 +14,7 @@ export function defaultEyeSettings(): AcquisitionSettings {
     depthMm: FISICA_US.params.defaultEyeDepthMm.value,
     focusMm: FISICA_US.params.defaultEyeFocusMm.value,
     gainDb: FISICA_US.params.defaultEyeGainDb.value,
-    tgcDb: Array(8).fill(FISICA_US.params.defaultTgcDb.value),
+    tgcDb: [-6, -4, -2, 0, 1, 2, 3, 4],
     dynamicRangeDb: FISICA_US.params.defaultEyeDynamicRangeDb.value,
     persistence: FISICA_US.params.defaultEyePersistence.value,
     prfHz: FISICA_US.params.defaultEyePrfHz.value,
@@ -26,6 +26,8 @@ export function defaultEyeSettings(): AcquisitionSettings {
     spectralGainDb: 0,
     outputPowerDb: FISICA_US.params.defaultEyeOutputPowerDb.value,
     invertColor: false,
+    // El color solo corre en temporal; forma válida por si se activa.
+    colorBox: { uCenter: 0, uHalf: 15, zMinMm: 5, zMaxMm: 40 },
   };
 }
 
@@ -37,7 +39,7 @@ export function defaultTemporalSettings(): AcquisitionSettings {
     depthMm: DOPPLER.params.defaultTemporalDepthMm.value,
     focusMm: DOPPLER.params.defaultTemporalFocusMm.value,
     gainDb: DOPPLER.params.defaultTemporalGainDb.value,
-    tgcDb: Array(8).fill(FISICA_US.params.defaultTgcDb.value),
+    tgcDb: [-4, -2, 0, 1, 2, 3, 4, 5],
     dynamicRangeDb: DOPPLER.params.defaultTemporalDynamicRangeDb.value,
     persistence: DOPPLER.params.defaultTemporalPersistence.value,
     prfHz: DOPPLER.params.defaultTemporalPrfHz.value,
@@ -49,5 +51,7 @@ export function defaultTemporalSettings(): AcquisitionSettings {
     spectralGainDb: 0,
     outputPowerDb: FISICA_US.params.defaultTemporalOutputPowerDb.value,
     invertColor: false,
+    // Caja por defecto centrada sobre el espacio basal/M1.
+    colorBox: { uCenter: 0, uHalf: (25 * Math.PI) / 180, zMinMm: 30, zMaxMm: 80 },
   };
 }

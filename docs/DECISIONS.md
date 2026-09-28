@@ -148,3 +148,25 @@
 38. **DEC-38** — Los resúmenes PW excluyen latidos con cobertura inferior al 80 %
     del RR y recalculan PI/IR a partir de las medianas resumidas de PSV, EDV y
     TAMax, evitando mezclar índices de latidos distintos.
+39. **DEC-39** — La geometría del movimiento tisular (vaso más cercano, normal
+    radial, distancia a la pared) se cachea por dispersor y se recalcula solo al
+    reclasificar (cada 96 pulsos, ≈16 ms a 6 kHz), no en cada paso lento (8
+    pulsos). Un dispersor tisular se desplaza <0,1 mm entre reclasificaciones,
+    muy por debajo del paso de la retícula de speckle, por lo que el cambio es
+    físicamente indistinguible; el dorado `pwM1Point2` se regeneró por este
+    motivo. Junto con la geometría vascular sin asignaciones, la prueba de
+    persistencia pasa de 449 s a ≈38 s.
+40. **DEC-40** — Los casos clínicos son conjuntos estáticos de parámetros
+    (`src/domain/cases.ts`) seleccionados por URL (`?caso=`); cambiar de caso
+    recarga la página y descarta los overrides de fisiología/variante, lo que
+    mantiene la inicialización de estado simple y determinista. El espasmo y
+    la estenosis se modelan como escalado del radio vascular antes de
+    `velocityForFlow` (flujo constante → velocidad por continuidad) y la
+    ventana pobre como espesor óseo + pérdida de transmisión relativa a la
+    ventana de referencia, de modo que el caso `normal` reproduce los
+    dorados de N1 sin cambios.
+41. **DEC-41** — El B-mode aplica la PSF sobre el IQ complejo y detecta la
+    envolvente después (`renderBMode`/`postIq`), no sobre la magnitud: el
+    speckle emerge de la interferencia de dispersores sub-resolución. La PSF
+    normaliza energía para no sesgar la amplitud y el test de Rayleigh (SNR
+    de envolvente ≈ 1,91) valida las estadísticas de primer orden.

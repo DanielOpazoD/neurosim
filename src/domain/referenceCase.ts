@@ -16,6 +16,8 @@ import { FISIOLOGIA } from '../physiology/params';
 import type { BasalPhysiology } from './contracts';
 import type { Side } from './contracts';
 import { hemodynamics, onsdForIcpMm } from '../physiology/hemodynamics';
+import type { ClinicalCase } from './cases';
+import { caseById } from './cases';
 
 export interface ReferenceCase {
   readonly patient: PatientState;
@@ -25,6 +27,8 @@ export interface ReferenceCase {
   readonly respiration: Respiration;
   readonly flow: CerebralFlow;
   readonly willisVariant: WillisVariant;
+  /** Caso clínico activo (parámetros estáticos; ver src/domain/cases.ts). */
+  readonly clinicalCase: ClinicalCase;
   readonly physStateAt: (t: number) => PhysState;
   readonly setPhysiology: (p: BasalPhysiology) => void;
 }
@@ -35,9 +39,11 @@ export const REFERENCE_SEED = 0x0c12ab;
 export function buildReferenceCase(
   seed: number = REFERENCE_SEED,
   willisVariant: WillisVariant = 'normal',
+  clinicalCase?: ClinicalCase,
 ): ReferenceCase {
+  const cc = clinicalCase ?? caseById('normal');
   const rng = new SeededRandom(seed);
-  let physiology: BasalPhysiology = { ...MANIFEST.case.physiology };
+  let physiology: BasalPhysiology = { ...MANIFEST.case.physiology, ...cc.physiology };
   const patient: PatientState = {
     seed,
     manifestVersion: MANIFEST.version,
@@ -48,7 +54,7 @@ export function buildReferenceCase(
     buildReferenceEyes(new SeededRandom(seed).fork('eyes'), dvno);
   const eyes = eyesFor(MANIFEST.case.dvnoIntMm);
   rng.fork('eyes');
-  const head = buildReferenceHead(rng.fork('head'), willisVariant);
+  const head = buildReferenceHead(rng.fork('head'), willisVariant, cc.vesselRadiusScale, cc.window);
   const respiration = new Respiration(FISIOLOGIA.params.respiratoryRatePerMin.value);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
   const flow = new CerebralFlow(head, physiology);
@@ -73,5 +79,17 @@ export function buildReferenceCase(
     eyes.der = nextEyes.der;
     eyes.izq = nextEyes.izq;
   };
-  return { patient, eyes, head, cardiac, respiration, flow, willisVariant, physStateAt, setPhysiology };
+  setPhysiology(physiology);
+  return {
+    patient,
+    eyes,
+    head,
+    cardiac,
+    respiration,
+    flow,
+    willisVariant,
+    clinicalCase: cc,
+    physStateAt,
+    setPhysiology,
+  };
 }

@@ -33,7 +33,7 @@ calibración.
 - **anatomia-cabeza.snAreaCm2**, **anatomia-cabeza.snHalfWidthMm**, **anatomia-cabeza.snHalfDepthMm**, **anatomia-cabeza.snCenterYmm**, **anatomia-cabeza.snCenterZOffsetMm**, **anatomia-cabeza.redNucleusRadiusMm** — sustancia negra y núcleos rojos representados como elipsoides; no modelan variabilidad clínica ni casos patológicos.
 - **anatomia-cabeza.thirdVentricleWidthMm**, **anatomia-cabeza.thirdVentricleHeightMm**, **anatomia-cabeza.thirdVentricleDepthMm**, **anatomia-cabeza.ependimoThicknessMm**, **anatomia-cabeza.thalamusRadiusXmm**, **anatomia-cabeza.thalamusRadiusYmm**, **anatomia-cabeza.thalamusRadiusZmm**, **anatomia-cabeza.thalamusCenterXmm**, **anatomia-cabeza.pinealRadiusMm**, **anatomia-cabeza.frontalHornCenterXmm**, **anatomia-cabeza.frontalHornCenterZmm**, **anatomia-cabeza.frontalHornRadiusXmm**, **anatomia-cabeza.frontalHornRadiusYmm**, **anatomia-cabeza.frontalHornRadiusZmm** — III ventrículo, paredes ependimarias, tálamos, pineal, cuernos frontales y peñasco como regiones geométricas implícitas; calibrar contra atlas y TCS.
 - **clasificacion-anatomica-transtemporal** — la clasificación por regiones implícitas prioriza vasos y estructuras superpuestas, pero no reemplaza una segmentación clínica ni representa límites histológicos finos.
-- **anatomia-cabeza.m1RadiusMm**, **anatomia-cabeza.a1RadiusMm**, **anatomia-cabeza.p1RadiusMm**, **anatomia-cabeza.p2RadiusMm**, **anatomia-cabeza.basilarRadiusMm** — radios tubulares; calibrar con angiografía de referencia.
+- **anatomia-cabeza.m1RadiusMm**, **anatomia-cabeza.m2RadiusMm**, **anatomia-cabeza.a1RadiusMm**, **anatomia-cabeza.p1RadiusMm**, **anatomia-cabeza.p2RadiusMm**, **anatomia-cabeza.basilarRadiusMm** — radios tubulares; calibrar con angiografía de referencia.
 - **anatomia-cabeza.icaRadiusMm**, **anatomia-cabeza.acoaRadiusMm**, **anatomia-cabeza.a2RadiusMm**, **anatomia-cabeza.pcoaRadiusMm**, **anatomia-cabeza.vertebralRadiusMm** — radios de los segmentos añadidos del polígono de Willis; las frecuencias de variantes y la morfología se aproximan con Krabbe-Hartkamp 1998, Walter 2007 y AIUM.
 - La comprobación de Murray da `1,73³ = 5,178` frente a
   `1,50³ + 1,20³ = 5,103` en ACI→M1+A1 (≈1,4 % de error), pero
@@ -75,6 +75,10 @@ calibración.
   aproximación educativa sin una fuente específica verificada en este bloque.
 - **doppler.handTremorMmS** — `0,8 mm/s` por componente, dos senos deterministas
   entre 8 y 12 Hz; no representa una trayectoria clínica individual.
+- **doppler.handDriftFastMm** — `0,35 mm` por eje, deriva del pulso a ~0,27 Hz;
+  heurística educativa para el micro-movimiento de la sonda.
+- **doppler.handDriftSlowMm** — `0,6 mm` por eje, deriva lenta del pulso a
+  ~0,06 Hz; misma heurística.
 - **fisiologia.heartRateBpm**, **fisiologia.mapMmHg**, **fisiologia.a1PsvCms**, **fisiologia.a1EdvCms**, **fisiologia.p1PsvCms**, **fisiologia.p1EdvCms**, **fisiologia.basilarPsvCms**, **fisiologia.basilarEdvCms** — fisiología vascular del fixture N1; calibrar contra trazas clínicas anonimizadas.
 - **fisiologia.ejectionFraction**, **fisiologia.windkesselTauS**, **fisiologia.backflowFraction**, **fisiologia.backflowDurationFraction** — parámetros del Windkessel de dos elementos; `windkesselTauS = 0,18 s` es una constante efectiva estimada de decaimiento de la onda de velocidad ACM normalizada, ajustada para media de onda entre 0,34 y 0,39; no representa la RC sistémica fisiológica de 1–2 s. El término de rebote positivo `+3 × backflowFraction` es un truco explícito para hacer visible la segunda joroba/incisura dicrota, no una afirmación de flujo medido.
 - **fisiologia.respiratoryRatePerMin**, **fisiologia.respFlowModulation**, **fisiologia.respBrainShiftMm**, **fisiologia.hrvSd**, **fisiologia.rsaAmplitude** — respiración, modulación hemodinámica y variabilidad RR deterministas; son aproximaciones educativas sin autorregulación ni acoplamiento PIC.

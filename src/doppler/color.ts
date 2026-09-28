@@ -3,7 +3,7 @@
  * Las celdas sin un vaso en el corte no generan clutter todavía (LIM-16).
  */
 import { SeededRandom, hash3 } from '../core/random';
-import type { AcquisitionSettings, ProbePose } from '../domain/contracts';
+import type { AcquisitionSettings, ColorBox, ProbePose } from '../domain/contracts';
 import type { HeadGeometry, Vessel } from '../anatomy/head';
 import { vesselClosest, vesselDistance } from '../anatomy/head';
 import type { CerebralFlow } from '../physiology/flow';
@@ -102,9 +102,21 @@ function cellScatterers(
 }
 
 /**
- * Mapa de color por muestra del barrido. `rows`/`cols` sobre la geometría
- * (`z` profundidad, `u` lateral).
+ * Mapa de color por muestra del barrido. Malla 128(z)×96(u) que cubre solo
+ * `box` en coordenadas de imagen (`z` profundidad, `u` lateral).
  */
+export const COLOR_ROWS = 128;
+export const COLOR_COLS = 96;
+
+export interface ColorGrid {
+  readonly vel: Float32Array;
+  readonly pow: Float32Array;
+  readonly variance: Float32Array;
+  readonly rows: number;
+  readonly cols: number;
+  readonly box: ColorBox;
+}
+
 export function renderColorDoppler(
   head: HeadGeometry,
   flow: CerebralFlow,
@@ -113,11 +125,14 @@ export function renderColorDoppler(
   settings: AcquisitionSettings,
   seed: number,
   cardiacPhase: number,
-  rows: number,
-  cols: number,
+  box: ColorBox,
   flowModulation = 1,
   hemo?: HemodynamicState,
-): [Float32Array, Float32Array, Float32Array] {
+): ColorGrid {
+  const rows = COLOR_ROWS;
+  const cols = COLOR_COLS;
+  const zSpanMm = box.zMaxMm - box.zMinMm;
+  const uSpan = box.uHalf * 2;
   const vel = new Float32Array(rows * cols).fill(Number.NaN);
   const pow = new Float32Array(rows * cols);
   const variance = new Float32Array(rows * cols);
@@ -138,11 +153,11 @@ export function renderColorDoppler(
   const elevation = elevationDirection(pose);
   const attenuationCache = new Map<number, number>();
   for (let zi = 0; zi < rows; zi += 1) {
-    const zMm = ((zi + 0.5) / rows) * settings.depthMm;
+    const zMm = box.zMinMm + ((zi + 0.5) / rows) * zSpanMm;
     const sliceHalfMm = Math.max(1, elevationFwhmMm(beam, zMm) / 2);
-    const axialHalf = settings.depthMm / rows / 2;
+    const axialHalf = zSpanMm / rows / 2;
     for (let ci = 0; ci < cols; ci += 1) {
-      const u = ((ci + 0.5) / cols - 0.5) * scan.widthMmOrRad;
+      const u = box.uCenter + ((ci + 0.5) / cols - 0.5) * uSpan;
       const center = imageToPatient(pose, scan.kind, u, zMm);
       let bestExtra = Infinity;
       let primaryVessel: Vessel | null = null;
@@ -157,7 +172,7 @@ export function renderColorDoppler(
       if (!primaryVessel) continue;
       const axial = beamDirAt(pose, scan.kind, u);
       const lateral = scan.lateralDir;
-      const lateralHalf = Math.abs(scan.widthMmOrRad / cols) / 2;
+      const lateralHalf = uSpan / cols / 2;
       const scatterers = cellScatterers(
         head,
         flow,
@@ -224,5 +239,5 @@ export function renderColorDoppler(
       }
     }
   }
-  return [vel, pow, variance];
+  return { vel, pow, variance, rows, cols, box };
 }

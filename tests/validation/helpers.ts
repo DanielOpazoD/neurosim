@@ -54,7 +54,7 @@ export function temporalPose(sim: ReferenceCase, side: Side): ProbePose {
   const up: Vec3 = [0, 1, 0];
   const lateral = normalize(cross(inward, up));
   return {
-    origin: add(wc, scale(inward, -3)),
+    origin: add(wc, scale(inward, -7.7)),
     forward: inward,
     lateral,
     markerAngleRad: 0,

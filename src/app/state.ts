@@ -26,6 +26,9 @@ export interface AppState {
   press: number;
   frozen: boolean;
   pwOn: boolean;
+  handMotion: boolean;
+  /** Reloj de simulación del frame actual (para micro-movimiento de mano). */
+  tSec?: number;
   caliperMode: 'none' | 'dist' | 'dvno' | 'dte';
   onsdActive: boolean;
   onsdWarning: boolean;
@@ -44,7 +47,6 @@ export interface AppState {
   spectralColormap: 'gris' | 'ambar';
   renderer: 'cpu' | 'gpu';
   teachingMode: boolean;
-  navCamera: { yawDeg: number; pitchDeg: number };
   debrief: DebriefLog;
 }
 
@@ -59,6 +61,7 @@ export function createInitialState(): AppState {
     press: 0.3,
     frozen: false,
     pwOn: false,
+    handMotion: true,
     caliperMode: 'none',
     onsdActive: false,
     onsdWarning: false,
@@ -77,7 +80,6 @@ export function createInitialState(): AppState {
     spectralColormap: 'gris',
     renderer: 'cpu',
     teachingMode: false,
-    navCamera: { yawDeg: -25, pitchDeg: -18 },
     debrief: new DebriefLog(0),
   };
 }

@@ -12,8 +12,20 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
   const mode = s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode';
   return {
     case: sim.patient.label,
+    clinicalCase: sim.clinicalCase.id,
     seed: sim.patient.seed,
     willisVariant: sim.willisVariant,
+    lindegaard: (() => {
+      const last = [...s.debrief.events()]
+        .reverse()
+        .find(
+          (event) =>
+            event.kind === 'freeze' &&
+            typeof event.data?.lindegaard === 'number' &&
+            Number.isFinite(event.data.lindegaard as number),
+        );
+      return last ? (last.data!.lindegaard as number) : undefined;
+    })(),
     frame: s.currentFrame,
     measurements: s.measurements,
     onsdReport: buildReport(s.onsd),

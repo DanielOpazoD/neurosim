@@ -12,30 +12,29 @@ uniform int uKind;
 
 out vec4 outColor;
 
+float sampleDb(vec2 f) {
+  float x = clamp(f.x, 0.0, uSourceSize.x - 1.0);
+  float y = clamp(f.y, 0.0, uSourceSize.y - 1.0);
+  int x0 = int(floor(x));
+  int y0 = int(floor(y));
+  int x1 = min(int(uSourceSize.x) - 1, x0 + 1);
+  int y1 = min(int(uSourceSize.y) - 1, y0 + 1);
+  float tx = x - float(x0);
+  float ty = y - float(y0);
+  float a = texelFetch(uDb, ivec2(x0, y0), 0).r;
+  float b = texelFetch(uDb, ivec2(x1, y0), 0).r;
+  float c = texelFetch(uDb, ivec2(x0, y1), 0).r;
+  float d = texelFetch(uDb, ivec2(x1, y1), 0).r;
+  return mix(mix(a, b, tx), mix(c, d, tx), ty);
+}
+
 void main() {
   vec2 pixel = vec2(gl_FragCoord.x - 0.5, uCanvasSize.y - gl_FragCoord.y - 0.5);
   float db;
   if (uKind == 0) {
     float sx = uCanvasSize.x / uSourceSize.x;
     float sy = uCanvasSize.y / uSourceSize.y;
-    int sourceX = -1;
-    int sourceY = -1;
-    for (int i = 0; i < 1024; ++i) {
-      if (float(i) >= uSourceSize.x) break;
-      float x0 = floor(float(i) * sx);
-      if (pixel.x >= x0 && pixel.x < x0 + sx + 1.0) sourceX = i;
-    }
-    for (int i = 0; i < 1024; ++i) {
-      if (float(i) >= uSourceSize.y) break;
-      float y0 = floor(float(i) * sy);
-      if (pixel.y >= y0 && pixel.y < y0 + sy + 1.0) sourceY = i;
-    }
-    if (sourceX < 0 || sourceY < 0) {
-      outColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
-    ivec2 p = ivec2(sourceX, sourceY);
-    db = texelFetch(uDb, p, 0).r;
+    db = sampleDb(vec2((pixel.x + 0.5) / sx - 0.5, (pixel.y + 0.5) / sy - 0.5));
   } else {
     float halfWidth = uWidthMmOrRad * 0.5;
     float cx = uCanvasSize.x * 0.5;
@@ -49,9 +48,9 @@ void main() {
       outColor = vec4(0.0, 0.0, 0.0, 1.0);
       return;
     }
-    int z = int(floor((r / uDepthMm) * uSourceSize.y));
-    int x = int(floor(((a + halfWidth) / (2.0 * halfWidth)) * uSourceSize.x));
-    db = texelFetch(uDb, ivec2(x, z), 0).r;
+    db = sampleDb(vec2(
+      ((a + halfWidth) / (2.0 * halfWidth)) * uSourceSize.x - 0.5,
+      (r / uDepthMm) * uSourceSize.y - 0.5));
   }
   float gray = clamp(db / uDynamicRangeDb + 1.0, 0.0, 1.0);
   outColor = vec4(vec3(gray), 1.0);

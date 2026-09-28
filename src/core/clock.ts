@@ -49,6 +49,17 @@ export class SimulationClock {
   }
 
   /**
+   * Detiene el reloj en un tiempo absoluto (`?clock=fixed&t=…`, pruebas e2e).
+   * `requestSteps` devuelve 0 a partir de entonces, así que `t` queda fijo.
+   */
+  freezeAt(t: number): void {
+    this._step = Math.round(t / this.dt);
+    this._t = this._step * this.dt;
+    this._pending = 0;
+    this._paused = true;
+  }
+
+  /**
    * Convierte tiempo real transcurrido en número de pasos de integración a
    * ejecutar. Devuelve cuántos pasos debe ejecutar el motor. Se limita a un
    * máximo por llamada para no acumular una deuda infinita si la pestaña

@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { classifyEye } from '../../src/anatomy/eye';
-import { classifyHead } from '../../src/anatomy/head';
+import { eyeScene, headScene } from '../../src/app/renderRequest';
 import { buildReferenceCase, REFERENCE_SEED } from '../../src/domain/referenceCase';
 import { defaultEyeSettings, defaultTemporalSettings } from '../../src/domain/settings';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
@@ -20,7 +19,7 @@ function eyeHash(seed: number): string {
   const settings = defaultEyeSettings();
   const pose = eyePose(sim, 'der');
   const frame = renderBMode(
-    { classify: (p) => classifyEye(sim.eyes.der, p) },
+    eyeScene(sim.eyes.der, `seed-${sim.patient.seed}-der`, { press: 0.3, cardiacPhase: 0.2 }),
     buildScan(pose, 'linear', 64),
     settings,
     `seed-${sim.patient.seed}-der`,
@@ -33,7 +32,7 @@ function temporalHash(): string {
   const settings = defaultTemporalSettings();
   const pose = temporalPose(sim, 'der');
   const frame = renderBMode(
-    { classify: (p) => classifyHead(sim.head, p) },
+    headScene(sim.head, `seed-${sim.patient.seed}-der`, { cardiacPhase: 0.2, respiratoryPhase: 0.3 }),
     buildScan(pose, 'sector', 64),
     settings,
     `seed-${sim.patient.seed}-der`,
@@ -49,7 +48,12 @@ function pwHash(): string {
   chain.begin(6000, 2e6, 20, 100, 0);
   let t = 0;
   while (t < 1) {
-    chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+    chain.step(
+      (tt) => sim.physStateAt(tt),
+      t,
+      () => [0, 0, 0],
+      0.064,
+    );
     chain.flush();
     t += 0.064;
   }
@@ -60,7 +64,7 @@ function colorHash(): string {
   const sim = buildReferenceCase();
   const settings = defaultTemporalSettings();
   const pose = temporalPose(sim, 'der');
-  const [vel, pow] = renderColorDoppler(
+  const { vel, pow } = renderColorDoppler(
     sim.head,
     sim.flow,
     buildScan(pose, 'sector', 64),
@@ -68,8 +72,7 @@ function colorHash(): string {
     settings,
     sim.patient.seed,
     0.2,
-    64,
-    64,
+    settings.colorBox,
   );
   return hashColor(vel, pow);
 }

@@ -4,7 +4,8 @@
  */
 import { attenuationDbCm, MATERIALS } from '../anatomy/materials';
 import type { HeadGeometry } from '../anatomy/head';
-import { classifyHead } from '../anatomy/head';
+import { classifyHead, inTemporalWindow } from '../anatomy/head';
+import { ANATOMIA_CABEZA } from '../anatomy/params';
 import { dist, type Vec3 } from '../core/vec3';
 
 /**
@@ -16,6 +17,7 @@ export function skullAttenuationDb(head: HeadGeometry, from: Vec3, to: Vec3, f0M
   const steps = Math.max(2, Math.ceil(total / 1));
   const ds = total / steps / 10; // cm
   let acc = 0;
+  let windowHit = false;
   for (let i = 0; i < steps; i++) {
     const t = (i + 0.5) / steps;
     const p: Vec3 = [
@@ -23,8 +25,15 @@ export function skullAttenuationDb(head: HeadGeometry, from: Vec3, to: Vec3, f0M
       from[1] + (to[1] - from[1]) * t,
       from[2] + (to[2] - from[2]) * t,
     ];
-    const m = MATERIALS[classifyHead(head, p)];
-    acc += attenuationDbCm(m, f0Mhz) * ds;
+    const id = classifyHead(head, p);
+    acc += attenuationDbCm(MATERIALS[id], f0Mhz) * ds;
+    if (id === 'hueso' && inTemporalWindow(head, 'der', p)) windowHit = true;
+  }
+  // Ventana de mala calidad: pérdida de transmisión respecto a la de referencia
+  // (dispersión/difrasión ósea adicional, no absorbida por el espesor).
+  if (windowHit) {
+    const ref = ANATOMIA_CABEZA.params.windowQuality.value;
+    acc += Math.max(0, -10 * Math.log10(head.windowQuality / ref));
   }
   return 2 * acc;
 }

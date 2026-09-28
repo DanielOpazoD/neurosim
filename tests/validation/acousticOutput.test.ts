@@ -57,7 +57,12 @@ function pwBandPowerDb(outputPowerDb: number): number {
   chain.begin(6000, 2e6, 20, 100, 0, 10 ** (outputPowerDb / 20));
   let t = 0;
   for (let step = 0; step < 16; step += 1) {
-    chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+    chain.step(
+      (tt) => sim.physStateAt(tt),
+      t,
+      () => [0, 0, 0],
+      0.064,
+    );
     chain.flush();
     t += 0.064;
   }
@@ -163,11 +168,13 @@ describe('salida acústica ALARA', () => {
           const material = classifyEye(sim.eyes.der, samplePoint(scan, li, zMm));
           const index = zi * frame.width + li;
           if (material === 'paredGlobo' && zMm >= 25 && zMm < 26) {
-            sclera.push(frame.iqMagnitude[index]!);
+            sclera.push(Math.hypot(frame.iq[2 * index]!, frame.iq[2 * index + 1]!));
             scleraDb.push(frame.db[index]!);
           }
-          if (material === 'vitrio' && zMm >= 14 && zMm < 22 && (li < 18 || li >= frame.width - 18)) {
-            vitreous.push(frame.iqMagnitude[index]!);
+          // Vítreo central: el campo lateral es ahora ecogénico (reborde
+          // óseo y piel hasta rxy ≤ 18 mm), así que se mide en el eje.
+          if (material === 'vitrio' && zMm >= 14 && zMm < 22 && li >= 20 && li < frame.width - 20) {
+            vitreous.push(Math.hypot(frame.iq[2 * index]!, frame.iq[2 * index + 1]!));
             vitreousDb.push(frame.db[index]!);
           }
         }

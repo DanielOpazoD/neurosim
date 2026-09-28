@@ -9,7 +9,7 @@ import type { GateGeometry } from '../src/doppler/sampleVolume';
 import { normalize, sub } from '../src/core/vec3';
 import { defaultTemporalSettings } from '../src/domain/settings';
 import { temporalPose } from '../src/app/poses';
-import { buildScan } from '../src/ultrasound/probe';
+import { beamDirAt, buildScan, imageToPatient } from '../src/ultrasound/probe';
 import { renderColorDoppler } from '../src/doppler/color';
 import { DOPPLER } from '../src/doppler/params';
 import { vesselClosest, vesselDistance, vesselFlowDir } from '../src/anatomy/head';
@@ -94,7 +94,12 @@ describe('PW integrado sobre la ACM del caso N1', () => {
     // 3 s de adquisición en bloques de 64 ms.
     let t = 0;
     for (let step = 0; step < 47; step++) {
-      chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+      chain.step(
+        (tt) => sim.physStateAt(tt),
+        t,
+        () => [0, 0, 0],
+        0.064,
+      );
       chain.flush();
       t += 0.064;
     }
@@ -152,7 +157,12 @@ describe('PW integrado sobre la ACM del caso N1', () => {
       chain.begin(6000, 2e6, 20, 100, 0);
       let t = 0;
       for (let step = 0; step < 47; step++) {
-        chain.step(sim.physStateAt(t), [0, 0, 0], 0.064);
+        chain.step(
+          (tt) => sim.physStateAt(tt),
+          t,
+          () => [0, 0, 0],
+          0.064,
+        );
         chain.flush();
         t += 0.064;
       }
@@ -181,8 +191,8 @@ describe('color Doppler Kasai sobre M1 derecha', () => {
     const settings = defaultTemporalSettings();
     const pose = temporalPose(sim, { side: 'der', station: 'temporal', tiltDeg: 0, offsetMm: 0, press: 0.3 });
     const scan = buildScan(pose, settings.transducer, 64);
-    console.time('renderColorDoppler 64x64');
-    const [vel, power] = renderColorDoppler(
+    console.time('renderColorDoppler 128x96');
+    const grid = renderColorDoppler(
       sim.head,
       sim.flow,
       scan,
@@ -190,37 +200,26 @@ describe('color Doppler Kasai sobre M1 derecha', () => {
       settings,
       sim.patient.seed,
       0.2,
-      64,
-      64,
+      settings.colorBox,
     );
-    console.timeEnd('renderColorDoppler 64x64');
+    console.timeEnd('renderColorDoppler 128x96');
+    const { vel, pow: power, rows, cols, box } = grid;
     const m1 = sim.head.vessels.find((v) => v.id === 'm1-der')!;
     const analytic: number[] = [];
     const measured: number[] = [];
     const nyquist = (1540 * 100 * settings.prfHz) / (4 * settings.frequencyMhz * 1e6);
     for (let i = 0; i < vel.length; i += 1) {
       if (!Number.isFinite(vel[i]) || power[i]! <= DOPPLER.params.colorPowerThreshold.value) continue;
-      const zi = Math.floor(i / 64);
-      const ci = i % 64;
-      const z = ((zi + 0.5) / 64) * settings.depthMm;
-      const u = ((ci + 0.5) / 64 - 0.5) * scan.widthMmOrRad;
-      const p =
-        scan.kind === 'sector'
-          ? ([
-              pose.origin[0] + scan.lines[ci]!.dir[0] * z,
-              pose.origin[1] + scan.lines[ci]!.dir[1] * z,
-              pose.origin[2] + scan.lines[ci]!.dir[2] * z,
-            ] as [number, number, number])
-          : ([
-              pose.origin[0] + pose.lateral[0] * u + pose.forward[0] * z,
-              pose.origin[1] + pose.lateral[1] * u + pose.forward[1] * z,
-              pose.origin[2] + pose.lateral[2] * u + pose.forward[2] * z,
-            ] as [number, number, number]);
+      const zi = Math.floor(i / cols);
+      const ci = i % cols;
+      const z = box.zMinMm + ((zi + 0.5) / rows) * (box.zMaxMm - box.zMinMm);
+      const u = box.uCenter + ((ci + 0.5) / cols - 0.5) * box.uHalf * 2;
+      const p = imageToPatient(pose, scan.kind, u, z);
       const d = vesselDistance(m1, p);
       if (d >= 8) continue;
       const q = vesselClosest(m1, p).point;
       const w = sim.flow.velocityAt(q, 0.2);
-      const dir = scan.lines[ci]!.dir;
+      const dir = beamDirAt(pose, scan.kind, u);
       analytic.push(-(w[0] * dir[0] + w[1] * dir[1] + w[2] * dir[2]) / 10);
       measured.push(vel[i]!);
     }

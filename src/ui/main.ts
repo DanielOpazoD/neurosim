@@ -5,6 +5,7 @@
 import { SimulationClock } from '../core/clock';
 import { errors, logError, onError } from '../core/errorLog';
 import { buildReferenceCase } from '../domain/referenceCase';
+import { CASES, caseById } from '../domain/cases';
 import type {
   AcquisitionSettings,
   BasalPhysiology,
@@ -26,13 +27,21 @@ import {
   SyncRenderClient,
   type RenderClientLike,
 } from '../app/renderClient';
-import type { RenderResponse } from '../app/renderRequest';
-import { drawCaliperMarks, drawGateMarker, drawScale, drawSpectral, updateReadouts } from './overlays';
+import { type RenderResponse } from '../app/renderRequest';
+import {
+  drawCaliperMarks,
+  drawColorBox,
+  drawGateMarker,
+  drawScale,
+  drawSpectral,
+  updateReadouts,
+} from './overlays';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 import { buildDebrief } from '../app/debrief';
 import { currentPose } from '../app/poses';
-import { drawNavigator, navigatorCameraPreset } from './navigator3d';
+import { lindegaardRatio } from '../doppler/measureMca';
+import { Navigator3D } from './navigator3d';
 import { isWebGL2Available } from '../render/gl/context';
 import { GlBmodePipeline } from '../render/gl/glPipeline';
 import { probeBeamSpec } from '../ultrasound/beam';
@@ -44,15 +53,16 @@ const WILLIS_VARIANTS: readonly WillisVariant[] = [
   'pcaFetalDer',
   'pcaFetalIzq',
 ];
-const requestedWillis = new URLSearchParams(window.location.search).get('willis');
+const urlParams = new URLSearchParams(window.location.search);
+const clinicalCase = caseById(urlParams.get('caso'));
+const requestedWillis = urlParams.get('willis');
 const willisVariant: WillisVariant = WILLIS_VARIANTS.includes(requestedWillis as WillisVariant)
   ? (requestedWillis as WillisVariant)
-  : 'normal';
-const sim = buildReferenceCase(undefined, willisVariant);
+  : clinicalCase.willisVariant;
+const sim = buildReferenceCase(undefined, willisVariant, clinicalCase);
 const clock = new SimulationClock();
 const s = createInitialState();
 const pw = new PwController(sim, s);
-const urlParams = new URLSearchParams(window.location.search);
 const scenarioValue = (key: 'map' | 'paco2' | 'icp', fallback: number, lo: number, hi: number): number => {
   const raw = urlParams.get(key);
   const value = raw === null ? Number.NaN : Number(raw);
@@ -69,7 +79,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const bmodeCv = $<HTMLCanvasElement>('bmode');
 const spectralCv = $<HTMLCanvasElement>('spectral');
 const navigatorCv = $<HTMLCanvasElement>('navigator');
-const navigatorCtx = navigatorCv.getContext('2d')!;
+const navigator3d = new Navigator3D(navigatorCv, sim);
 const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
 const renderer = createRenderClient();
@@ -81,11 +91,36 @@ const gpuAvailable = gpuPipeline !== null && isWebGL2Available();
 const rendererParam = new URLSearchParams(window.location.search).get('renderer');
 if (gpuAvailable && rendererParam === 'gpu') s.renderer = 'gpu';
 document.body.dataset.renderer = s.renderer;
+const subtitle = document.querySelector<HTMLElement>('.sub');
+if (subtitle) subtitle.textContent = `${clinicalCase.label} · N2`;
+const casoSelect = $<HTMLSelectElement>('caso');
+for (const c of CASES) {
+  const option = document.createElement('option');
+  option.value = c.id;
+  option.textContent = c.label;
+  casoSelect.appendChild(option);
+}
+casoSelect.value = clinicalCase.id;
+casoSelect.addEventListener('change', () => {
+  // Cambiar de caso recarga la página y descarta overrides de URL obsoletos.
+  const next = new URLSearchParams();
+  next.set('caso', casoSelect.value);
+  window.location.search = next.toString();
+});
+$('casoInfo').innerHTML = `${clinicalCase.summary}<ul>${clinicalCase.teaching
+  .map((t) => `<li>${t}</li>`)
+  .join('')}</ul>`;
+if (urlParams.get('clock') === 'fixed') {
+  const tParam = Number(urlParams.get('t'));
+  clock.freezeAt(Number.isFinite(tParam) ? tParam : 0.4);
+  s.handMotion = false;
+}
 let lastRender = 0;
 let lastT = performance.now();
 let renderInFlight = false;
 let renderId = 0;
 let currentScan: RenderResponse['scan'] | null = null;
+let colorPersist: { vel: Float32Array; pow: Float32Array; key: string } | null = null;
 let alaraLogged = false;
 
 function drawGpuBMode(
@@ -94,7 +129,7 @@ function drawGpuBMode(
   settings: AcquisitionSettings,
 ): void {
   if (!gpuPipeline) return;
-  gpuPipeline.render(bmode.iqMagnitude, bmode.width, bmode.height, {
+  gpuPipeline.render(bmode.iq, bmode.width, bmode.height, {
     dz: bmode.dzMm,
     scan,
     settings,
@@ -167,7 +202,7 @@ function setTiltPreset(value: number): void {
 function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
-  s.navCamera = navigatorCameraPreset(station, side);
+  navigator3d.resetCamera(station, side);
   s.settings = station === 'ojo' ? defaultEyeSettings() : defaultTemporalSettings();
   const values = {
     depth: s.settings.depthMm,
@@ -186,6 +221,10 @@ function setStation(station: Station, side: Side): void {
   for (const id of Object.keys(values)) {
     $<HTMLInputElement>(id).dispatchEvent(new Event('input'));
   }
+  tgcInputs.forEach((input) => {
+    input.value = String(s.settings.tgcDb[Number(input.dataset.tgc)] ?? 0);
+    input.dispatchEvent(new Event('input'));
+  });
   ($('densidad') as HTMLSelectElement).value = s.settings.lineDensity;
   document.querySelectorAll('.tab').forEach((el) => {
     const t = el as HTMLElement;
@@ -195,6 +234,7 @@ function setStation(station: Station, side: Side): void {
     .querySelectorAll('.pwonly')
     .forEach((e) => ((e as HTMLElement).style.opacity = station === 'temporal' ? '1' : '0.4'));
   $('navigatorLegend').hidden = station !== 'temporal';
+  $('navigatorTitle').textContent = station === 'ojo' ? `Ojo ${side}` : `Temporal ${side}`;
   s.pwOn = false;
   $('pw').classList.remove('on');
   syncSpectralGainControl();
@@ -203,6 +243,7 @@ function setStation(station: Station, side: Side): void {
   s.cineIdx = 0;
   s.frozen = false;
   currentScan = null;
+  colorPersist = null;
   $('freeze').textContent = 'Congelar Esp';
   $('hint').textContent =
     station === 'ojo'
@@ -212,8 +253,57 @@ function setStation(station: Station, side: Side): void {
   s.debrief.record('station', `${station} ${side}`, { station, side });
 }
 
+/** Parámetros fisiológicos/de tiempo de una solicitud de render. */
+interface RenderTiming {
+  t: number;
+  cardiacPhase: number;
+  respiratoryPhase: number;
+  flowModulation: number;
+  handMotion: boolean;
+}
+
+function sendRenderRequest(timing: RenderTiming): void {
+  renderInFlight = true;
+  const requestId = ++renderId;
+  renderer
+    .request({
+      id: requestId,
+      seed: sim.patient.seed,
+      willisVariant: sim.willisVariant,
+      caseId: sim.clinicalCase.id,
+      side: s.side,
+      station: s.station,
+      settings: { ...s.settings },
+      tiltDeg: s.tiltDeg,
+      offsetMm: s.offsetMm,
+      rotDeg: s.rotDeg,
+      press: s.press,
+      t: timing.t,
+      cardiacPhase: timing.cardiacPhase,
+      respiratoryPhase: timing.respiratoryPhase,
+      handMotion: timing.handMotion,
+      flowModulation: timing.flowModulation,
+      physiology: sim.patient.physiology,
+      color: s.station === 'temporal',
+    })
+    .then((response) => {
+      renderInFlight = false;
+      if (s.frozen) return; // congelado conserva el último frame en vivo; descarta el render en vuelo
+      s.currentFrame = response.frame;
+      pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
+      drawFrame(response);
+    })
+    .catch((error) => {
+      renderInFlight = false;
+      if (!(error instanceof SupersededRenderRequest)) {
+        logError('worker', error);
+      }
+    });
+}
+
 function toggleFreeze(): void {
   s.frozen = !s.frozen;
+  if (!s.frozen) colorPersist = null;
   $('freeze').textContent = s.frozen ? 'Reanudar' : 'Congelar';
   $('freeze').classList.toggle('on', s.frozen);
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
@@ -224,6 +314,10 @@ function toggleFreeze(): void {
     frozen: s.frozen,
     bloodFraction: composition?.bloodFraction ?? 0,
     pi: summary?.pi ?? Number.NaN,
+    lindegaard:
+      summary && composition?.dominantVesselId?.startsWith('m1-')
+        ? lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms)
+        : Number.NaN,
   });
 }
 
@@ -236,17 +330,38 @@ function drawFrame(response: RenderResponse): void {
     drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
   }
   if (frame.station === 'temporal' && color) {
+    const key = JSON.stringify([
+      color.rows,
+      color.cols,
+      color.box,
+      frame.side,
+      frame.settings.depthMm,
+      frame.settings.prfHz,
+    ]);
+    let persist = colorPersist;
+    if (!persist || persist.key !== key || persist.vel.length !== color.vel.length) {
+      persist = { vel: Float32Array.from(color.vel), pow: Float32Array.from(color.pow), key };
+    } else {
+      for (let i = 0; i < color.vel.length; i += 1) {
+        const pwNew = color.pow[i]!;
+        persist.pow[i] = Math.max(pwNew, persist.pow[i]! * 0.65);
+        const vNew = color.vel[i]!;
+        if (pwNew > 0.02 && Number.isFinite(vNew)) {
+          const prev = persist.vel[i]!;
+          persist.vel[i] = 0.55 * vNew + 0.45 * (Number.isFinite(prev) ? prev : vNew);
+        }
+      }
+    }
+    colorPersist = persist;
     drawColorOverlay(
       bCtx,
-      color.vel,
-      color.pow,
-      color.w,
-      color.h,
+      { vel: persist.vel, pow: persist.pow, rows: color.rows, cols: color.cols, box: color.box },
       scan,
       frame.settings.depthMm,
       frame.settings.prfHz,
       frame.settings.frequencyMhz,
     );
+    drawColorBox(bCtx, s, frame.settings.colorBox);
     if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
   }
   drawCaliperMarks(bCtx, s);
@@ -376,51 +491,33 @@ function frameLoop(now: number): void {
   lastT = now;
   try {
     for (let i = 0; i < clock.requestSteps(elapsed); i++) clock.advance();
+    s.tSec = clock.t;
     pw.step(clock, elapsed);
     if (now - lastRender > 90 && !s.frozen) {
       lastRender = now;
       if (!renderInFlight) {
-        renderInFlight = true;
-        const requestId = ++renderId;
         const phys = sim.physStateAt(clock.t);
-        renderer
-          .request({
-            id: requestId,
-            seed: sim.patient.seed,
-            willisVariant: sim.willisVariant,
-            side: s.side,
-            station: s.station,
-            settings: { ...s.settings },
-            tiltDeg: s.tiltDeg,
-            offsetMm: s.offsetMm,
-            rotDeg: s.rotDeg,
-            press: s.press,
-            t: phys.t,
-            cardiacPhase: phys.cardiacPhase,
-            respiratoryPhase: phys.respiratoryPhase,
-            flowModulation: phys.flowModulation,
-            physiology: sim.patient.physiology,
-            color: s.station === 'temporal',
-          })
-          .then((response) => {
-            renderInFlight = false;
-            s.currentFrame = response.frame;
-            pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
-            drawFrame(response);
-          })
-          .catch((error) => {
-            renderInFlight = false;
-            if (!(error instanceof SupersededRenderRequest)) {
-              logError('worker', error);
-            }
-          });
+        sendRenderRequest({
+          t: phys.t,
+          cardiacPhase: phys.cardiacPhase,
+          respiratoryPhase: phys.respiratoryPhase,
+          flowModulation: phys.flowModulation,
+          handMotion: s.handMotion,
+        });
       }
     } else if (s.frozen && s.cinePlaying && s.cine.length) {
       drawCineFrame();
     }
-    const gateCenter =
-      s.pwOn && s.station === 'temporal' ? pw.gateGeometry(currentPose(sim, s)).center : null;
-    drawNavigator(navigatorCtx, sim, s, currentScan, s.navCamera, gateCenter);
+    const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
+    const gateCenter = s.pwOn && s.station === 'temporal' ? pw.gateGeometry(navPose).center : null;
+    navigator3d.update(
+      s,
+      currentScan,
+      navPose,
+      gateCenter,
+      s.station === 'temporal' ? s.settings.colorBox : null,
+    );
+    navigator3d.render();
     drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
     updateReadouts($('readouts'), sim, s, pw);
     syncProtocolControls();
@@ -473,6 +570,21 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
 ($('icp') as HTMLInputElement).value = String(initialPhysiology.icpMmHg);
 ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
 
+const tgcInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-tgc]'));
+tgcInputs.forEach((input) => {
+  const band = Number(input.dataset.tgc);
+  const update = () => {
+    const v = parseFloat(input.value);
+    const next = s.settings.tgcDb.slice();
+    next[band] = v;
+    s.settings = { ...s.settings, tgcDb: next };
+    $('tgcV').textContent = `${v} dB`;
+    s.debrief.setTime(clock.t);
+    s.debrief.record('settings', `tgc${band}=${v}`, { id: `tgc${band}`, value: v });
+  };
+  input.addEventListener('input', update);
+});
+
 ($('densidad') as HTMLSelectElement).addEventListener('change', (event) => {
   setLineDensity((event.target as HTMLSelectElement).value as LineDensity);
 });
@@ -506,6 +618,17 @@ volumeInput.addEventListener('input', () => {
   volumeValue.textContent = `${s.volume}%`;
   pw.setVolume(s.volume);
 });
+const handMotionInput = $('handMotion') as HTMLInputElement;
+handMotionInput.checked = s.handMotion;
+handMotionInput.addEventListener('change', () => {
+  s.handMotion = handMotionInput.checked;
+  s.debrief.setTime(clock.t);
+  s.debrief.record('settings', `microMovimientoMano=${s.handMotion ? 'on' : 'off'}`, {
+    id: 'handMotion',
+    value: s.handMotion,
+  });
+});
+
 $('planoMesencefalico').addEventListener('click', () => setTiltPreset(0));
 $('planoDiencefalico').addEventListener('click', () => setTiltPreset(10));
 
@@ -585,7 +708,72 @@ $('onsdProtocol').addEventListener('click', () => {
     started: s.onsdActive,
   });
 });
+let boxDrag: { du: number; dz: number; x0: number; y0: number; moved: boolean } | null = null;
+let suppressClick = false;
+bmodeCv.addEventListener('pointerdown', (e) => {
+  if (s.station !== 'temporal' || e.button !== 0) return;
+  const r = bmodeCv.getBoundingClientRect();
+  const point = canvasToImagePoint(
+    ((e.clientX - r.left) / r.width) * bmodeCv.width,
+    ((e.clientY - r.top) / r.height) * bmodeCv.height,
+    s,
+    bmodeCv.width,
+    bmodeCv.height,
+  );
+  const box = s.settings.colorBox;
+  if (Math.abs(point.u - box.uCenter) > box.uHalf || point.z < box.zMinMm || point.z > box.zMaxMm) {
+    return;
+  }
+  boxDrag = {
+    du: point.u - box.uCenter,
+    dz: point.z - (box.zMinMm + box.zMaxMm) / 2,
+    x0: e.clientX,
+    y0: e.clientY,
+    moved: false,
+  };
+  bmodeCv.setPointerCapture(e.pointerId);
+});
+bmodeCv.addEventListener('pointermove', (e) => {
+  if (!boxDrag) return;
+  if (Math.hypot(e.clientX - boxDrag.x0, e.clientY - boxDrag.y0) >= 4) boxDrag.moved = true;
+  if (!boxDrag.moved) return;
+  const r = bmodeCv.getBoundingClientRect();
+  const point = canvasToImagePoint(
+    ((e.clientX - r.left) / r.width) * bmodeCv.width,
+    ((e.clientY - r.top) / r.height) * bmodeCv.height,
+    s,
+    bmodeCv.width,
+    bmodeCv.height,
+  );
+  const box = s.settings.colorBox;
+  const halfU = (currentScan?.widthMmOrRad ?? box.uHalf * 2) / 2;
+  const uCenter = Math.max(-halfU + box.uHalf, Math.min(halfU - box.uHalf, point.u - boxDrag.du));
+  const halfZ = (box.zMaxMm - box.zMinMm) / 2;
+  const zCenter = Math.max(2 + halfZ, Math.min(s.settings.depthMm - halfZ, point.z - boxDrag.dz));
+  s.settings = {
+    ...s.settings,
+    colorBox: { uCenter, uHalf: box.uHalf, zMinMm: zCenter - halfZ, zMaxMm: zCenter + halfZ },
+  };
+});
+bmodeCv.addEventListener('pointerup', (e) => {
+  if (!boxDrag) return;
+  if (boxDrag.moved) {
+    suppressClick = true;
+    s.debrief.setTime(clock.t);
+    s.debrief.record(
+      'settings',
+      `cajaColor=${s.settings.colorBox.uCenter.toFixed(3)},${s.settings.colorBox.zMinMm.toFixed(1)}-${s.settings.colorBox.zMaxMm.toFixed(1)}`,
+      {},
+    );
+  }
+  boxDrag = null;
+  if (bmodeCv.hasPointerCapture(e.pointerId)) bmodeCv.releasePointerCapture(e.pointerId);
+});
 bmodeCv.addEventListener('click', (e) => {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
   const r = bmodeCv.getBoundingClientRect();
   const point = canvasToImagePoint(
     ((e.clientX - r.left) / r.width) * bmodeCv.width,
@@ -641,28 +829,5 @@ $('exportDebrief').addEventListener('click', () => {
   a.href = href;
   a.click();
 });
-let draggingNavigator = false;
-let lastNavigatorX = 0;
-let lastNavigatorY = 0;
-navigatorCv.addEventListener('pointerdown', (e) => {
-  draggingNavigator = true;
-  lastNavigatorX = e.clientX;
-  lastNavigatorY = e.clientY;
-  navigatorCv.setPointerCapture(e.pointerId);
-});
-navigatorCv.addEventListener('pointermove', (e) => {
-  if (!draggingNavigator) return;
-  s.navCamera = {
-    yawDeg: s.navCamera.yawDeg + (e.clientX - lastNavigatorX) * 0.7,
-    pitchDeg: Math.max(-80, Math.min(80, s.navCamera.pitchDeg + (e.clientY - lastNavigatorY) * 0.7)),
-  };
-  lastNavigatorX = e.clientX;
-  lastNavigatorY = e.clientY;
-});
-navigatorCv.addEventListener('pointerup', (e) => {
-  draggingNavigator = false;
-  navigatorCv.releasePointerCapture(e.pointerId);
-});
-
 setStation('ojo', 'der');
 requestAnimationFrame(frameLoop);

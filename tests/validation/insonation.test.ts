@@ -10,6 +10,11 @@ function syntheticHead(): HeadGeometry {
       [0, 0, 0],
       [10, 0, 0],
     ],
+    controlPoints: [
+      [0, 0, 0],
+      [10, 0, 0],
+    ],
+    aabb: { min: [-1, -1, -1], max: [11, 1, 1] },
     radiusMm: 1,
     flowSign: 1,
     flowMlMin: 1,

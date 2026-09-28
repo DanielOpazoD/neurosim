@@ -32,7 +32,8 @@ async function waitForPaint(
         }
         return sum > 0 && changed;
       },
-      { timeout: 5000, intervals: [100, 250, 500] },
+      // El render temporal (B-mode + color) tarda >1 s en CI con SwiftShader.
+      { timeout: 20_000, intervals: [100, 250, 500] },
     )
     .toBeGreaterThan(0);
 }
@@ -40,7 +41,7 @@ async function waitForPaint(
 for (const station of ['ojo', 'temporal']) {
   test(`paridad CPU/WebGL2 ${station}`, async ({ browser, baseURL }) => {
     const cpu = await browser.newPage();
-    await cpu.goto(`${baseURL}/?renderer=cpu`);
+    await cpu.goto(`${baseURL}/?renderer=cpu&clock=fixed&t=0.4`);
     await expect(cpu.locator('body')).toHaveAttribute('data-renderer', 'cpu');
     if (!(await webglAvailable(cpu))) {
       test.skip(true, 'WebGL2 + EXT_color_buffer_float no disponible en Chromium headless');
@@ -54,7 +55,7 @@ for (const station of ['ojo', 'temporal']) {
     const cpuPixels = await pixels(cpu);
 
     const gpu = await browser.newPage();
-    await gpu.goto(`${baseURL}/?renderer=gpu`);
+    await gpu.goto(`${baseURL}/?renderer=gpu&clock=fixed&t=0.4`);
     await expect(gpu.locator('body')).toHaveAttribute('data-renderer', 'gpu');
     const gpuBefore = await pixels(gpu);
     if (station === 'temporal') await gpu.locator('[data-station="temporal"][data-side="der"]').click();
