@@ -4,7 +4,7 @@
  */
 import { SeededRandom, hash3 } from '../core/random';
 import type { AcquisitionSettings, ColorBox, ProbePose } from '../domain/contracts';
-import type { HeadGeometry, Vessel } from '../anatomy/head';
+import type { HeadGeometry, Vessel, VesselScene } from '../anatomy/head';
 import { vesselClosest, vesselDistance } from '../anatomy/head';
 import type { CerebralFlow } from '../physiology/flow';
 import { elevationFwhmMm, probeBeamSpec } from '../ultrasound/beam';
@@ -43,7 +43,7 @@ function elevationDirection(pose: ProbePose): [number, number, number] {
 }
 
 function cellScatterers(
-  head: HeadGeometry,
+  scene: VesselScene,
   flow: CerebralFlow,
   center: [number, number, number],
   axial: [number, number, number],
@@ -82,7 +82,7 @@ function cellScatterers(
       amplitude = DOPPLER.params.amplitudSangre.value;
     } else {
       const tissueVelocity = tissueVelocityMmS({
-        head,
+        scene: scene,
         point: p,
         cardiacPhase,
         heartRateBpm,
@@ -118,7 +118,7 @@ export interface ColorGrid {
 }
 
 export function renderColorDoppler(
-  head: HeadGeometry,
+  scene: VesselScene,
   flow: CerebralFlow,
   scan: ScanGeometry,
   pose: ProbePose,
@@ -161,7 +161,7 @@ export function renderColorDoppler(
       const center = imageToPatient(pose, scan.kind, u, zMm);
       let bestExtra = Infinity;
       let primaryVessel: Vessel | null = null;
-      for (const vessel of head.vessels) {
+      for (const vessel of scene.vessels) {
         const distance = vesselDistance(vessel, center);
         if (distance < bestExtra) {
           bestExtra = distance;
@@ -174,7 +174,7 @@ export function renderColorDoppler(
       const lateral = scan.lateralDir;
       const lateralHalf = uSpan / cols / 2;
       const scatterers = cellScatterers(
-        head,
+        scene,
         flow,
         center,
         axial,
@@ -198,7 +198,9 @@ export function renderColorDoppler(
       const attenuationKey = zi * 16 + Math.floor(ci / 4);
       let attDb = attenuationCache.get(attenuationKey);
       if (attDb === undefined) {
-        attDb = skullAttenuationDb(head, pose.origin, center, settings.frequencyMhz);
+        attDb = scene.attenuationDb
+          ? scene.attenuationDb(pose.origin, center, settings.frequencyMhz)
+          : skullAttenuationDb(scene as HeadGeometry, pose.origin, center, settings.frequencyMhz);
         attenuationCache.set(attenuationKey, attDb);
       }
       const transmission = Math.pow(10, -attDb / 20);

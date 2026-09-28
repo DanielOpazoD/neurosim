@@ -230,9 +230,7 @@ function setStation(station: Station, side: Side): void {
     const t = el as HTMLElement;
     t.classList.toggle('on', t.dataset.station === station && t.dataset.side === side);
   });
-  document
-    .querySelectorAll('.pwonly')
-    .forEach((e) => ((e as HTMLElement).style.opacity = station === 'temporal' ? '1' : '0.4'));
+  document.querySelectorAll('.pwonly').forEach((e) => ((e as HTMLElement).style.opacity = '1'));
   $('navigatorLegend').hidden = station !== 'temporal';
   $('navigatorTitle').textContent = station === 'ojo' ? `Ojo ${side}` : `Temporal ${side}`;
   s.pwOn = false;
@@ -284,7 +282,7 @@ function sendRenderRequest(timing: RenderTiming): void {
       handMotion: timing.handMotion,
       flowModulation: timing.flowModulation,
       physiology: sim.patient.physiology,
-      color: s.station === 'temporal',
+      color: true,
     })
     .then((response) => {
       renderInFlight = false;
@@ -329,7 +327,7 @@ function drawFrame(response: RenderResponse): void {
   } else {
     drawBMode(bCtx, bmode, { dynamicRangeDb: frame.settings.dynamicRangeDb });
   }
-  if (frame.station === 'temporal' && color) {
+  if (color) {
     const key = JSON.stringify([
       color.rows,
       color.cols,
@@ -369,7 +367,7 @@ function drawFrame(response: RenderResponse): void {
 }
 
 function syncSpectralGainControl(): void {
-  const active = s.station === 'temporal' && s.pwOn;
+  const active = s.pwOn;
   const control = $('spectralGainCtl');
   const input = $<HTMLInputElement>('spectralGain');
   control.hidden = !active;
@@ -452,7 +450,7 @@ function updateAcousticLabel(): void {
   const output = acousticOutput({
     transducer: s.settings.transducer,
     station: s.station,
-    mode: s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode',
+    mode: s.pwOn ? 'pw' : 'color',
     frequencyMhz: s.settings.frequencyMhz,
     focusMm: s.settings.focusMm,
     prfHz: s.settings.prfHz,
@@ -652,7 +650,6 @@ $('cine').addEventListener('click', () => {
   $('cine').classList.toggle('on', s.cinePlaying);
 });
 $('pw').addEventListener('click', () => {
-  if (s.station !== 'temporal') return;
   s.pwOn = !s.pwOn;
   $('pw').classList.toggle('on', s.pwOn);
   syncSpectralGainControl();
@@ -711,7 +708,7 @@ $('onsdProtocol').addEventListener('click', () => {
 let boxDrag: { du: number; dz: number; x0: number; y0: number; moved: boolean } | null = null;
 let suppressClick = false;
 bmodeCv.addEventListener('pointerdown', (e) => {
-  if (s.station !== 'temporal' || e.button !== 0) return;
+  if (e.button !== 0) return;
   const r = bmodeCv.getBoundingClientRect();
   const point = canvasToImagePoint(
     ((e.clientX - r.left) / r.width) * bmodeCv.width,
@@ -782,7 +779,7 @@ bmodeCv.addEventListener('click', (e) => {
     bmodeCv.width,
     bmodeCv.height,
   );
-  if (s.pwOn && s.station === 'temporal') {
+  if (s.pwOn) {
     s.gateDepthMm = point.z;
     s.gateUMm = point.u;
     return;

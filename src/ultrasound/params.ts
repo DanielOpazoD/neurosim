@@ -287,12 +287,12 @@ export const FISICA_US = defineParameters('fisica-ultrasonido', {
     note: 'Persistencia ocular de fábrica.',
   },
   defaultEyePrfHz: {
-    value: 2500,
+    value: 4000,
     unit: 'Hz',
     range: [1000, 5000],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'PRF ocular de fábrica.',
+    note: 'PRF Doppler ocular de fábrica (Nyquist ≈15 cm/s a 10 MHz; la ACR aliasa levemente en sístole).',
   },
   defaultEyeGateMm: {
     value: 2,

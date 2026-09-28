@@ -22,6 +22,9 @@ import { add, dist, dot, normalize, scale, smoothstep, sub, v3, type Vec3 } from
 import type { SeededRandom } from '../core/random';
 import type { Side } from '../domain/contracts';
 import { ANATOMIA_OJO } from './params';
+import type { Vessel } from './head';
+import { vesselDistance } from './head';
+import { buildOcularVessels } from './ocularVessels';
 
 const EYE = ANATOMIA_OJO.params;
 export const DURA_MM = EYE.duraMm.value;
@@ -53,6 +56,11 @@ export interface EyeGeometry {
   readonly gazeAngleRad: number;
   /** Fase determinista de la tortuosidad del nervio, rad. */
   readonly tortuosityPhaseRad: number;
+  /**
+   * Vasos retrobulbares (ACR, VCR, AO, VOS, 2 ACP) en coordenadas del
+   * paciente — misma interfaz `Vessel` que Willis (ver `ocularVessels.ts`).
+   */
+  readonly vessels: readonly Vessel[];
 }
 
 /** Adulto de referencia N1: dos ojos con asimetría pequeña documentada. */
@@ -71,7 +79,7 @@ export function buildReferenceEyes(
     const superior = v3(0, 1, 0);
     // Asimetrías documentadas del fixture (pequeñas, deterministas).
     const r = rng.fork(`eye-${side}`);
-    return {
+    const base = {
       side,
       center,
       anterior,
@@ -89,17 +97,25 @@ export function buildReferenceEyes(
       gazeAngleRad: EYE.gazeAngleRad.value,
       tortuosityPhaseRad: r.range(0, 2 * Math.PI),
     };
+    // Los vasos se construyen tras el marco: `fromEyeLocal` necesita la base.
+    return { ...base, vessels: buildOcularVessels(base) };
   };
   return { der: mk('der'), izq: mk('izq') };
 }
 
 /** Convierte un punto del paciente al marco local del ojo (anterior=+z, temporal=+x, superior=+y). */
-export function toEyeLocal(g: EyeGeometry, p: Vec3): Vec3 {
+export function toEyeLocal(
+  g: Pick<EyeGeometry, 'center' | 'temporal' | 'superior' | 'anterior'>,
+  p: Vec3,
+): Vec3 {
   const d = sub(p, g.center);
   return [dot(d, g.temporal), dot(d, g.superior), dot(d, g.anterior)];
 }
 
-export function fromEyeLocal(g: EyeGeometry, p: Vec3): Vec3 {
+export function fromEyeLocal(
+  g: Pick<EyeGeometry, 'center' | 'temporal' | 'superior' | 'anterior'>,
+  p: Vec3,
+): Vec3 {
   return add(g.center, add(add(scale(g.temporal, p[0]), scale(g.superior, p[1])), scale(g.anterior, p[2])));
 }
 
@@ -108,7 +124,10 @@ export function fromEyeLocal(g: EyeGeometry, p: Vec3): Vec3 {
  * papila (polo posterior, ~1.2 mm nasal = −x local) y se dirige posterior y
  * nasalmente con una curva suave. `sMm` = mm por detrás del globo.
  */
-export function nerveCenterline(g: EyeGeometry, sMm: number): Vec3 {
+export function nerveCenterline(
+  g: Pick<EyeGeometry, 'gazeAngleRad' | 'tortuosityPhaseRad' | 'globeRadiusMm'>,
+  sMm: number,
+): Vec3 {
   const bend = 1 - Math.exp(-sMm / 18); // 0→1
   const gaze = g.gazeAngleRad;
   const tortuosity =
@@ -307,6 +326,14 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
   const dg = Math.hypot(x, y, z);
   const rxy = Math.hypot(x, y);
 
+  // Vasos retrobulbares (grafo `g.vessels`, espacio del paciente): el tubo
+  // del vaso manda sobre nervio, vaina, grasa o pared — sustituye el antiguo
+  // tubo ACR cableado en la sección del nervio.
+  const pp = fromEyeLocal(g, p);
+  for (const v of g.vessels) {
+    if (vesselDistance(v, pp) < 0) return 'vaso';
+  }
+
   // Fuera de toda región orbitaria → aire muy anterior o tejido facial.
   const anteriorSurface = r + EYE.eyelidAnteriorMm.value; // frente del párpado sobre el globo
   if (z > anteriorSurface + EYE.eyelidAirGapMm.value) return 'aire';
@@ -395,13 +422,7 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
     const en = Math.hypot(sec.inPlane[0] / a, sec.inPlane[1] / b);
     if (en <= 1) {
       const eNerve = sec.distToCenterMm / radii.nerve;
-      if (eNerve <= 1) {
-        // Vasos retinianos centrales: tubo de 0,18 mm desplazado dentro del nervio.
-        if (sec.sMm <= 12 && Math.hypot(sec.inPlane[0] - 0.35, sec.inPlane[1] + 0.2) <= 0.18) {
-          return 'vaso';
-        }
-        return 'nervioOptico';
-      }
+      if (eNerve <= 1) return 'nervioOptico';
       if (en <= (a - g.duraMm) / a) return 'lcrVaina';
       return 'duraVaina';
     }

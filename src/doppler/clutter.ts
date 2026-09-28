@@ -1,14 +1,14 @@
 import type { Vec3 } from '../core/vec3';
 import { normalize, scale, sub } from '../core/vec3';
 import { hash3 } from '../core/random';
-import type { HeadGeometry } from '../anatomy/head';
+import type { VesselScene } from '../anatomy/head';
 import { vesselClosest, vesselDistance } from '../anatomy/head';
 import { arterialShape } from '../physiology/flow';
 import { DOPPLER } from './params';
 import { FISIOLOGIA } from '../physiology/params';
 
 export interface TissueMotionInput {
-  head: HeadGeometry;
+  scene: VesselScene;
   point: Vec3;
   cardiacPhase: number;
   heartRateBpm: number;
@@ -34,10 +34,10 @@ export interface TissueMotionBasis {
   dToWall: number;
 }
 
-export function tissueMotionBasis(head: HeadGeometry, point: Vec3): TissueMotionBasis {
-  let nearest = head.vessels[0]!;
+export function tissueMotionBasis(scene: VesselScene, point: Vec3): TissueMotionBasis {
+  let nearest = scene.vessels[0]!;
   let nearestDistance = vesselDistance(nearest, point);
-  for (const vessel of head.vessels.slice(1)) {
+  for (const vessel of scene.vessels.slice(1)) {
     const d = vesselDistance(vessel, point);
     if (d < nearestDistance) {
       nearest = vessel;
@@ -74,7 +74,7 @@ export function tissueVelocityFromBasis(
 
 export function tissueVelocityMmS(inp: TissueMotionInput): Vec3 {
   return tissueVelocityFromBasis(
-    tissueMotionBasis(inp.head, inp.point),
+    tissueMotionBasis(inp.scene, inp.point),
     inp.cardiacPhase,
     inp.heartRateBpm,
     inp.tSec,

@@ -13,10 +13,12 @@ import {
   insideInnerTable,
   type HeadGeometry,
   type Vessel,
+  type VesselScene,
 } from '../anatomy/head';
 import { DOPPLER } from '../doppler/params';
+import { pathAttenuationDb } from '../ultrasound/attenuation';
 import { FISIOLOGIA } from '../physiology/params';
-import { arterialShape } from '../physiology/flow';
+import { arterialShape, CerebralFlow } from '../physiology/flow';
 import type {
   AcquisitionSettings,
   AcquiredFrame,
@@ -139,6 +141,20 @@ export function eyeScene(
 }
 
 /**
+ * Escena vascular ocular para la cadena Doppler: vasos retrobulbares del ojo,
+ * clasificación `classifyEye` y atenuación por trayectoria sin ventana ósea
+ * (la órbita no tiene hueso en el eje del haz; LIM-26).
+ */
+export function eyeDopplerScene(eye: EyeGeometry): VesselScene {
+  const classify = (p: Vec3): MaterialId => classifyEye(eye, p);
+  return {
+    vessels: eye.vessels,
+    classify,
+    attenuationDb: (from: Vec3, to: Vec3, f0Mhz: number) => pathAttenuationDb(classify, from, to, f0Mhz),
+  };
+}
+
+/**
  * Escena transcraneal: clasificación de la cabeza + modulación del speckle —
  * cisternas más brillantes pegadas al borde del mesencéfalo y parénquima
  * (sustancia blanca/corteza) con heterogeneidad suave de 2,5 mm.
@@ -166,6 +182,8 @@ export function headScene(
   head: HeadGeometry,
   seedLabel: string,
   motion?: HeadMotion,
+  /** Multiplicador de amplitud de `sustanciaNegra` (caso Parkinson; 1 = normal). */
+  snEchogenicity = 1,
 ): { classify: (p: Vec3) => MaterialId; scatterScale: (p: Vec3) => number; warp?: (p: Vec3) => Vec3 } {
   // renderBMode llama classify y scatterScale sobre el mismo punto por
   // muestra: memoizar la última clasificación evita una pasada doble.
@@ -252,6 +270,7 @@ export function headScene(
       if (id === 'cisterna') {
         return 1.25 - 0.55 * smoothstep(1.0, 1.25, butterflyLevel(head, p));
       }
+      if (id === 'sustanciaNegra') return snEchogenicity;
       if (id === 'sustanciaBlanca' || id === 'tejidoCerebral') {
         return 0.85 + 0.3 * (0.5 + 0.5 * scatterNoise(`${seedLabel}:wm`, p, 2.5));
       }
@@ -296,10 +315,15 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
           press: req.press ?? 0,
           cardiacPhase: req.cardiacPhase,
         })
-      : headScene(sim.head, seedLabel, {
-          cardiacPhase: req.cardiacPhase,
-          respiratoryPhase: req.respiratoryPhase,
-        });
+      : headScene(
+          sim.head,
+          seedLabel,
+          {
+            cardiacPhase: req.cardiacPhase,
+            respiratoryPhase: req.respiratoryPhase,
+          },
+          sim.clinicalCase.snEchogenicity ?? 1,
+        );
   const bmode = renderBMode(scene, scan, req.settings, seedLabel);
   const frame: AcquiredFrame = {
     tSeconds: req.t,
@@ -318,11 +342,19 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
     caseId: sim.patient.label,
     seed: sim.patient.seed,
   };
+  const dopplerScene: VesselScene | null =
+    req.station === 'ojo'
+      ? eyeDopplerScene(sim.eyes[req.side])
+      : req.station === 'temporal'
+        ? sim.head
+        : null;
+  const dopplerFlow =
+    req.station === 'ojo' && dopplerScene ? new CerebralFlow(dopplerScene, sim.patient.physiology) : sim.flow;
   const color =
-    req.color && req.station === 'temporal'
+    req.color && dopplerScene
       ? renderColorDoppler(
-          sim.head,
-          sim.flow,
+          dopplerScene,
+          dopplerFlow,
           scan,
           pose,
           req.settings,

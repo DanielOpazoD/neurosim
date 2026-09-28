@@ -42,6 +42,25 @@ export interface Vessel {
   readonly psvCms: number;
   /** Velocidad telediastólica de referencia, cm/s. */
   readonly edvCms: number;
+  /**
+   * Vaso venoso: flujo cuasi estacionario — `vesselVelocityCms` devuelve
+   * `meanCms·modulation` plano, sin forma arterial ni modulación hemodinámica.
+   */
+  readonly venous?: boolean;
+}
+
+/**
+ * Escena vascular mínima para la cadena Doppler (color, PW, insonación,
+ * movimiento tisular): cualquier geometría con vasos la satisface
+ * (`HeadGeometry`, o el grafo ocular `EyeGeometry.vessels`). `classify` y
+ * `attenuationDb` permiten a una escena no craneal aportar su propio material
+ * y modelo de atenuación; si faltan, los consumidores asumen la cabeza.
+ */
+export interface VesselScene {
+  readonly vessels: readonly Vessel[];
+  readonly classify?: (p: Vec3) => MaterialId;
+  /** Atenuación ida y vuelta (dB) sonda→punto, igual que `skullAttenuationDb`. */
+  readonly attenuationDb?: (from: Vec3, to: Vec3, f0Mhz: number) => number;
 }
 
 /** Cabeza del adulto de referencia con ventanas temporales. */
@@ -66,6 +85,8 @@ export interface HeadGeometry {
   readonly midbrainRadii: Vec3;
   /** Centro del III ventrículo en el plano diencefálico. */
   readonly thirdVentricleCenter: Vec3;
+  /** Escala del área de sustancia nigra (casos con SN hiperecogénica; 1 normal). */
+  readonly snAreaScale?: number;
 }
 
 export type LandmarkId =
@@ -190,6 +211,7 @@ export function buildReferenceHead(
   variant: WillisVariant = 'normal',
   vesselRadiusScale: Readonly<Record<string, number>> = {},
   windowOverride: { thicknessMm?: number; quality?: number } = {},
+  snAreaScale = 1,
 ): HeadGeometry {
   const skullCenter: Vec3 = [HEAD.skullCenterXmm.value, HEAD.skullCenterYmm.value, HEAD.skullCenterZmm.value];
   const skullRadii: Vec3 = [HEAD.skullRadiusXmm.value, HEAD.skullRadiusYmm.value, HEAD.skullRadiusZmm.value];
@@ -224,6 +246,7 @@ export function buildReferenceHead(
     windowCenter: { der: mkWindow('der'), izq: mkWindow('izq') },
     windowRadiusMm: HEAD.windowRadiusMm.value,
     vessels: buildWillisVessels(variant, vesselRadiusScale),
+    snAreaScale,
     midbrainCenter: [
       HEAD.midbrainCenterXmm.value,
       HEAD.midbrainCenterYmm.value,
@@ -562,7 +585,8 @@ export function diencephalonShapes(h: HeadGeometry): {
 
 function classifyMidbrainSpecial(h: HeadGeometry, p: Vec3): MaterialId | null {
   const md = sub(p, h.midbrainCenter);
-  const snHeightMm = (HEAD.snAreaCm2.value * 100) / (Math.PI * HEAD.snHalfWidthMm.value);
+  const snHeightMm =
+    (HEAD.snAreaCm2.value * (h.snAreaScale ?? 1) * 100) / (Math.PI * HEAD.snHalfWidthMm.value);
   for (const s of [-1, 1] as const) {
     if (
       ellipsoidLevel(
@@ -602,7 +626,8 @@ function isSphenoid(h: HeadGeometry, p: Vec3): boolean {
 export function landmarkAt(h: HeadGeometry, p: Vec3): LandmarkId | null {
   const md = sub(p, h.midbrainCenter);
   const d = sub(p, h.thirdVentricleCenter);
-  const snHeightMm = (HEAD.snAreaCm2.value * 100) / (Math.PI * HEAD.snHalfWidthMm.value);
+  const snHeightMm =
+    (HEAD.snAreaCm2.value * (h.snAreaScale ?? 1) * 100) / (Math.PI * HEAD.snHalfWidthMm.value);
   const width = HEAD.thirdVentricleWidthMm.value / 2;
   if (
     dist(p, [h.thirdVentricleCenter[0], h.thirdVentricleCenter[1], h.thirdVentricleCenter[2] - 7]) <=
@@ -675,8 +700,8 @@ export function materialAtHead(h: HeadGeometry, p: Vec3) {
 }
 
 /** Vaso dominante en un punto (el más cercano cuyo tubo lo contiene). */
-export function vesselAt(h: HeadGeometry, p: Vec3): Vessel | null {
-  for (const v of h.vessels) {
+export function vesselAt(scene: VesselScene, p: Vec3): Vessel | null {
+  for (const v of scene.vessels) {
     if (vesselDistance(v, p) < 0) return v;
   }
   return null;

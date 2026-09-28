@@ -60,6 +60,9 @@ del motor.
   2009;29:1179-89.
 - **walter-tccs-2007** — Walter U. Transcranial sonography in brain
   disorders. Ultraschall Med. 2007.
+- **lieb-orbital-doppler** — Lieb WE et al. Colour Doppler imaging of the
+  eye and orbit. Arch Ophthalmol 1991; calibres y velocidades orbitarias
+  (ACR ~10/3, AO ~35/8 cm/s, venas centrales ~6–8 cm/s).
 - **berg-midbrain-2008** — Berg D, Godau J, Walter U. Transcranial
   sonography in movement disorders. Lancet Neurol. 2008;7:1044-55.
 - **seidel-tcs-1995** — Seidel G, Kaps M, Gerriets T. Potential and

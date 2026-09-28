@@ -1,7 +1,7 @@
 // Adaptado de DanielOpazoD/vexus-sim @ 59fb7b18e9c1 — src/doppler/pwChain.ts (MIT).
 import type { Vec3 } from '../core/vec3';
 import type { PhysState } from '../physiology/flow';
-import type { HeadGeometry } from '../anatomy/head';
+import type { VesselScene } from '../anatomy/head';
 import { SampleVolumeIQ, type GateGeometry } from './sampleVolume';
 import { SpectralProcessor } from './spectral';
 import { WallFilter } from './wallFilter';
@@ -34,8 +34,8 @@ export class PwDopplerChain {
   private pending = 0;
   private prfHz = 4000;
 
-  constructor(head: HeadGeometry, seed: number, audio: AudioSink = SILENT_AUDIO) {
-    this.sampleVolume = new SampleVolumeIQ(head, seed);
+  constructor(scene: VesselScene, seed: number, audio: AudioSink = SILENT_AUDIO) {
+    this.sampleVolume = new SampleVolumeIQ(scene, seed);
     this.wallFilter = new WallFilter(DOPPLER.params.wallFilterDefaultHz.value, this.prfHz);
     this.spectral = new SpectralProcessor({ fftSize: 128, hop: 24 });
     this.audio = audio;

@@ -14,9 +14,12 @@ exacta; una señal ausente no acredita cese circulatorio.
 
 - Biblioteca de casos clínicos (`?caso=` o panel del instructor): normal,
   hipertensión intracraneal, vasoespasmo, estenosis M1, ventana pobre,
-  parada circulatoria, hipercapnia e hipocapnia.
+  parada circulatoria, hipercapnia, hipocapnia y Parkinson (sustancia nigra
+  hiperecogénica ≥0,25 cm²/lado en el plano mesencefálico).
 - Ojo bilateral: sonda lineal 10 MHz, anatomía orbital completa, DVNO
-  medible a 3 mm retroglobo (convención interna por defecto).
+  medible a 3 mm retroglobo (convención interna por defecto). Doppler color
+  y PW sobre el grafo vascular retrobulbar (ACR 10/3, VCR venosa, AO 35/8,
+  VOS venosa, ciliares posteriores), misma cadena `VesselScene` que Willis.
 - Ventana transtemporal bilateral: cráneo, mesencéfalo, polígono de Willis;
   B-mode + Doppler color + PW con audio y medidas PSV/EDV/TAMax/PI/IR y
   índice de Lindegaard.
