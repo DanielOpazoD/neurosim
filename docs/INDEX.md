@@ -86,6 +86,7 @@
 | DEC-35 | El audio direccional usa ventanas Hann con overlap-add del 50 %,        | —                          |
 | DEC-36 | La etapa post-IQ determinista puede ejecutarse en WebGL2:               | —                          |
 | DEC-37 | La envolvente PW estima su borde con interpolación sub-bin en           | —                          |
+| DEC-38 | Los resúmenes PW excluyen latidos con cobertura inferior al 80 %        | —                          |
 
 ## Parámetros registrados
 
@@ -93,6 +94,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         37 |
 | `anatomia-cabeza`    |         72 |
-| `doppler`            |         43 |
+| `doppler`            |         44 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         38 |

@@ -119,3 +119,5 @@ calibración.
   lento del audio direccional.
 - **doppler.audioLowpassFrac** — `0,9` de PRF/2, corte estimado del paso bajo
   que limita contenido próximo al límite de Nyquist antes del resampleo.
+- **doppler.beatCoverageMin** — `0,8`, cobertura mínima estimada del intervalo
+  RR para que un latido parcial contribuya a las medidas resumidas.
