@@ -8,7 +8,9 @@ import { skullAttenuationDb } from '../src/ultrasound/attenuation';
 import { hemodynamics } from '../src/physiology/hemodynamics';
 import { trueOnsdMm } from '../src/anatomy/eye';
 import { lindegaardRatio } from '../src/doppler/measureMca';
-import { sub, normalize, add, scale } from '../src/core/vec3';
+import { sub, normalize, add, scale, dot } from '../src/core/vec3';
+import { landmarkAt } from '../src/anatomy/head';
+import { temporalPose } from '../src/app/poses';
 
 describe('biblioteca de casos clínicos', () => {
   it('cada caso construye un ReferenceCase y caseById cae a normal', () => {
@@ -102,5 +104,56 @@ describe('biblioteca de casos clínicos', () => {
       2.4,
       6,
     );
+  });
+});
+
+describe('casos del plano diencefálico', () => {
+  it('desplazamientoLineaMedia mueve el III ventrículo +6 mm y la distancia sonda→III difiere ~12 mm', () => {
+    const normal = buildReferenceCase();
+    const sim = buildReferenceCase(undefined, 'normal', caseById('desplazamientoLineaMedia'));
+    const c0 = normal.head.thirdVentricleCenter;
+    // El centro original ya no es ventrículo; el desplazado +6 mm sí.
+    expect(landmarkAt(sim.head, c0)).not.toBe('tercerVentriculo');
+    expect(landmarkAt(sim.head, [c0[0] + 6, c0[1], c0[2]])).toBe('tercerVentriculo');
+    expect(sim.truths.midlineShiftMm).toBe(6);
+    // Profundidad axial (a lo largo del haz) al III ventrículo desde cada ventana.
+    const depth = (side: 'der' | 'izq') => {
+      const pose = temporalPose(sim, {
+        side,
+        station: 'temporal',
+        tiltDeg: 10,
+        offsetMm: 0,
+        rotDeg: 0,
+        press: 0.3,
+      });
+      return dot(sub(sim.head.thirdVentricleCenter, pose.origin), pose.forward);
+    };
+    const delta = depth('der') - depth('izq');
+    expect(Math.abs(delta - 12)).toBeLessThanOrEqual(1);
+  });
+
+  it('hidrocefalia: III ventrículo de 12 ± 0,5 mm y cuernos frontales ×1,6', () => {
+    const sim = buildReferenceCase(undefined, 'normal', caseById('hidrocefalia'));
+    const c = sim.head.thirdVentricleCenter;
+    expect(sim.truths.thirdVentricleWidthMm).toBe(12);
+    let x0: number | null = null;
+    let x1: number | null = null;
+    for (let x = -15; x <= 15; x += 0.05) {
+      if (classifyHead(sim.head, [c[0] + x, c[1], c[2]]) === 'lcrVaina') {
+        if (x0 === null) x0 = x;
+        x1 = x;
+      }
+    }
+    expect(x1! - x0!).toBeGreaterThanOrEqual(11.5);
+    expect(x1! - x0!).toBeLessThanOrEqual(12.5);
+    // Cuerno frontal dilatado: un punto a 1,3× el radio lateral nominal sigue siendo LCR.
+    const horn = [
+      c[0]! + ANATOMIA_CABEZA.params.frontalHornCenterXmm.value,
+      c[1]!,
+      c[2]! + ANATOMIA_CABEZA.params.frontalHornCenterZmm.value,
+    ];
+    const edge = [horn[0]! + ANATOMIA_CABEZA.params.frontalHornRadiusXmm.value * 1.3, horn[1]!, horn[2]!];
+    expect(classifyHead(sim.head, edge as [number, number, number])).toBe('lcrVaina');
+    expect(classifyHead(buildReferenceCase().head, edge as [number, number, number])).not.toBe('lcrVaina');
   });
 });

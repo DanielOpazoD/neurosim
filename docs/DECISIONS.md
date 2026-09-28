@@ -263,3 +263,18 @@
     presión 10 %, R reinicia (0/0/0/0/0, 30 %); inactivo con un control
     editable enfocado; los deslizadores se sincronizan desde el estado cada
     frame y los cambios se registran como eventos `probe` (máx. 1/300 ms).
+50. **DEC-50** — Casos del plano diencefálico (línea media e hidrocefalia):
+    `buildReferenceHead` acepta overrides de diencéfalo
+    (`midlineShiftMm`, `thirdVentricleWidthMm`, `frontalHornScale`) y la
+    geometría queda en `HeadGeometry` (`thirdVentricleWidthMm`,
+    `frontalHornScale`, `midlineShiftMm`), de modo que `classifyHead`,
+    `landmarkAt`, `diencephalonShapes` y la losa de la hoz siguen la verdad
+    del caso. El desplazamiento +x mueve III ventrículo, tálamos, pineal,
+    cuernos frontales y hoz pero NO el mesencéfalo (masa supratentorial,
+    LIM-28). Las verdades se exponen en `sim.truths` y viajan en la sección
+    `instructor` del export. El debrief valida la medida del III ventrículo
+    (±1 mm) y el desplazamiento (der − izq)/2 (±1,5 mm) solo cuando la
+    calibración `distancia` se tomó en estación temporal con tilt ≥ 8°
+    (eventos `measurement` con `station`/`tiltDeg`/`valueMm`). Overlay
+    docente: etiquetas anatómicas sobre el B-mode temporal cuando el centro
+    está a ≤3 mm del plano en elevación.

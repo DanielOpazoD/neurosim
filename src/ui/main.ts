@@ -32,6 +32,7 @@ import {
   drawCaliperMarks,
   drawColorBox,
   drawGateMarker,
+  drawTeachingLandmarks,
   drawScale,
   drawSpectral,
   updateReadouts,
@@ -415,6 +416,7 @@ function drawFrame(response: RenderResponse): void {
     if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
   }
   drawCaliperMarks(bCtx, s);
+  drawTeachingLandmarks(bCtx, sim, s, scan);
   drawScale(bCtx, sim, s, s.currentFrame);
 }
 
@@ -434,6 +436,9 @@ function recordMeasurement(): void {
   s.debrief.record('measurement', measurement.kind, {
     kind: measurement.kind,
     side: measurement.side,
+    station: s.station,
+    tiltDeg: s.tiltDeg,
+    valueMm: measurement.value,
     gainDb: s.settings.gainDb,
     referenceOffsetMm: measurement.referenceOffsetMm ?? Number.NaN,
     realDeg: angle?.realDeg ?? Number.NaN,

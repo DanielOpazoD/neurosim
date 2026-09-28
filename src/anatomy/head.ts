@@ -95,6 +95,12 @@ export interface HeadGeometry {
   readonly midbrainRadii: Vec3;
   /** Centro del III ventrículo en el plano diencefálico. */
   readonly thirdVentricleCenter: Vec3;
+  /** Ancho lateral del III ventrículo, mm (sustitución de caso p. ej. hidrocefalia). */
+  readonly thirdVentricleWidthMm: number;
+  /** Escala sobre los radios de los cuernos frontales (1 = normal). */
+  readonly frontalHornScale: number;
+  /** Desplazamiento de línea media supratentorial en mm (+ = hacia la izquierda, +x). */
+  readonly midlineShiftMm: number;
   /** Escala del área de sustancia nigra (casos con SN hiperecogénica; 1 normal). */
   readonly snAreaScale?: number;
 }
@@ -239,7 +245,13 @@ export function buildReferenceHead(
   windowOverride: { thicknessMm?: number; quality?: number } = {},
   snAreaScale = 1,
   vesselStenosis: Readonly<Record<string, NonNullable<Vessel['stenosis']>>> = {},
+  diencephalon: {
+    midlineShiftMm?: number;
+    thirdVentricleWidthMm?: number;
+    frontalHornScale?: number;
+  } = {},
 ): HeadGeometry {
+  const midlineShiftMm = diencephalon.midlineShiftMm ?? 0;
   const skullCenter: Vec3 = [HEAD.skullCenterXmm.value, HEAD.skullCenterYmm.value, HEAD.skullCenterZmm.value];
   const skullRadii: Vec3 = [HEAD.skullRadiusXmm.value, HEAD.skullRadiusYmm.value, HEAD.skullRadiusZmm.value];
   const r = rng.fork('head');
@@ -281,10 +293,13 @@ export function buildReferenceHead(
     ],
     midbrainRadii: [HEAD.midbrainRadiusXmm.value, HEAD.midbrainRadiusYmm.value, HEAD.midbrainRadiusZmm.value],
     thirdVentricleCenter: [
-      HEAD.midbrainCenterXmm.value,
+      HEAD.midbrainCenterXmm.value + midlineShiftMm,
       HEAD.midbrainCenterYmm.value + 12,
       HEAD.midbrainCenterZmm.value - 9,
     ],
+    thirdVentricleWidthMm: diencephalon.thirdVentricleWidthMm ?? HEAD.thirdVentricleWidthMm.value,
+    frontalHornScale: diencephalon.frontalHornScale ?? 1,
+    midlineShiftMm,
   };
 }
 
@@ -453,8 +468,9 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
   // Ala esfenoidal: cresta ecogénica anterior-lateral (referencia M1/ACA).
   if (isSphenoid(h, p)) return 'hueso';
 
-  // Hoz: lámina dural de línea media por encima del cuerpo calloso.
-  if (Math.abs(p[0]) < 0.6 && p[1] > h.midbrainCenter[1] + 8) return 'hoz';
+  // Hoz: lámina dural de línea media por encima del cuerpo calloso (sigue el
+  // desplazamiento de línea media del caso, si existe).
+  if (Math.abs(p[0] - h.midlineShiftMm) < 0.6 && p[1] > h.midbrainCenter[1] + 8) return 'hoz';
 
   // Corteza: banda de ~3 mm pegada a la tabla interna; dentro, sustancia blanca.
   if (innerLevel > 1.0 - 3 / Math.min(...h.skullRadii)) return 'tejidoCerebral';
@@ -483,9 +499,10 @@ function diencephalonCenter(h: HeadGeometry): Vec3 {
 function classifyDiencephalon(h: HeadGeometry, p: Vec3): MaterialId | null {
   const c = diencephalonCenter(h);
   const d = sub(p, c);
-  const width = HEAD.thirdVentricleWidthMm.value / 2;
+  const width = h.thirdVentricleWidthMm / 2;
   const height = HEAD.thirdVentricleHeightMm.value / 2;
   const depth = HEAD.thirdVentricleDepthMm.value / 2;
+  const hornScale = h.frontalHornScale;
   const insideLong = Math.abs(d[1]) <= height && Math.abs(d[2]) <= depth;
   const pineal = [c[0], c[1], c[2] - 7] as Vec3;
   if (dist(p, pineal) <= HEAD.pinealRadiusMm.value) return 'pineal';
@@ -498,7 +515,11 @@ function classifyDiencephalon(h: HeadGeometry, p: Vec3): MaterialId | null {
     if (
       ellipsoidLevel(
         horn,
-        [HEAD.frontalHornRadiusXmm.value, HEAD.frontalHornRadiusYmm.value, HEAD.frontalHornRadiusZmm.value],
+        [
+          HEAD.frontalHornRadiusXmm.value * hornScale,
+          HEAD.frontalHornRadiusYmm.value * hornScale,
+          HEAD.frontalHornRadiusZmm.value * hornScale,
+        ],
         p,
       ) <= 1
     ) {
@@ -621,7 +642,7 @@ export function diencephalonShapes(h: HeadGeometry): {
     ventricle: {
       center: c,
       half: [
-        HEAD.thirdVentricleWidthMm.value / 2,
+        h.thirdVentricleWidthMm / 2,
         HEAD.thirdVentricleHeightMm.value / 2,
         HEAD.thirdVentricleDepthMm.value / 2,
       ],
@@ -674,7 +695,7 @@ export function landmarkAt(h: HeadGeometry, p: Vec3): LandmarkId | null {
   const d = sub(p, h.thirdVentricleCenter);
   const snHeightMm =
     (HEAD.snAreaCm2.value * (h.snAreaScale ?? 1) * 100) / (Math.PI * HEAD.snHalfWidthMm.value);
-  const width = HEAD.thirdVentricleWidthMm.value / 2;
+  const width = h.thirdVentricleWidthMm / 2;
   if (
     dist(p, [h.thirdVentricleCenter[0], h.thirdVentricleCenter[1], h.thirdVentricleCenter[2] - 7]) <=
     HEAD.pinealRadiusMm.value
@@ -707,6 +728,7 @@ export function landmarkAt(h: HeadGeometry, p: Vec3): LandmarkId | null {
   )
     return 'cisternaInterpeduncular';
   if (butterflyLevel(h, p) <= 1) return 'mesencefalo';
+  const hornScale = h.frontalHornScale;
   for (const s of [-1, 1] as const) {
     const horn: Vec3 = [
       h.thirdVentricleCenter[0] + s * HEAD.frontalHornCenterXmm.value,
@@ -716,7 +738,11 @@ export function landmarkAt(h: HeadGeometry, p: Vec3): LandmarkId | null {
     if (
       ellipsoidLevel(
         horn,
-        [HEAD.frontalHornRadiusXmm.value, HEAD.frontalHornRadiusYmm.value, HEAD.frontalHornRadiusZmm.value],
+        [
+          HEAD.frontalHornRadiusXmm.value * hornScale,
+          HEAD.frontalHornRadiusYmm.value * hornScale,
+          HEAD.frontalHornRadiusZmm.value * hornScale,
+        ],
         p,
       ) <= 1
     )

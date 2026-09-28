@@ -54,6 +54,10 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
           paco2MmHg: sim.patient.physiology.paco2MmHg,
           icpMmHg: sim.patient.physiology.icpMmHg,
           hemodynamics: sim.physStateAt(0).hemo,
+          truths: {
+            thirdVentricleWidthMm: sim.truths.thirdVentricleWidthMm,
+            midlineShiftMm: sim.truths.midlineShiftMm,
+          },
         }
       : undefined,
     errores: errors(),

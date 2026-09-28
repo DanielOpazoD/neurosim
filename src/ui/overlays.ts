@@ -3,7 +3,8 @@
  * No contiene adquisición ni estado físico propio.
  */
 import { fromEyeLocal, nerveCenterline, trueOnsdMm } from '../anatomy/eye';
-import { add, scale } from '../core/vec3';
+import { diencephalonShapes } from '../anatomy/head';
+import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { ANATOMIA_OJO } from '../anatomy/params';
 import type { AcquiredFrame } from '../domain/contracts';
@@ -171,6 +172,55 @@ export function drawScale(
   ctx.setLineDash([]);
   ctx.fillStyle = 'rgba(77,163,255,0.9)';
   ctx.fillText('3 mm retroglobo', x + 8, y - 4);
+}
+
+/** Etiquetas docentes del plano diencefálico/mesencefálico sobre el B-mode
+ * (III ventrículo, tálamos, pineal, mesencéfalo, alas esfenoidales). Solo si
+ * el centro proyectado cae a ≤3 mm del plano de barrido en elevación. */
+export function drawTeachingLandmarks(
+  ctx: CanvasRenderingContext2D,
+  sim: ReferenceCase,
+  s: AppState,
+  scan: ScanGeometry,
+): void {
+  if (!s.teachingMode || s.station !== 'temporal' || scan.kind !== 'sector') return;
+  const h = sim.head;
+  const pose = currentPose(sim, s);
+  const fwd = normalize(pose.forward);
+  const elev = normalize(cross(pose.lateral, fwd));
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  const scalePx = Math.min(H * 1.15, Math.hypot(W / 2, H)) / s.settings.depthMm;
+  const shapes = diencephalonShapes(h);
+  const c = h.thirdVentricleCenter;
+  const items: [string, Vec3][] = [
+    ['III ventrículo', c],
+    ['tálamo', shapes.thalami[0]!.center],
+    ['tálamo', shapes.thalami[1]!.center],
+    ['pineal', [c[0], c[1], c[2] - 7]],
+    ['mesencéfalo', h.midbrainCenter],
+    ['ala esfenoidal', [h.midbrainCenter[0] - 24, h.midbrainCenter[1] - 2, h.midbrainCenter[2] + 10]],
+    ['ala esfenoidal', [h.midbrainCenter[0] + 24, h.midbrainCenter[1] - 2, h.midbrainCenter[2] + 10]],
+  ];
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = 'rgba(143,211,255,0.8)';
+  for (const [label, p] of items) {
+    const rel = sub(p, pose.origin);
+    if (Math.abs(dot(rel, elev)) > 3) continue; // fuera del plano en elevación
+    const zAxial = dot(rel, fwd);
+    if (zAxial <= 0) continue;
+    const uComp = dot(rel, pose.lateral);
+    const r = Math.hypot(zAxial, uComp);
+    if (r > s.settings.depthMm) continue;
+    const u = Math.atan2(uComp, zAxial);
+    const x = W / 2 + Math.sin(u) * r * scalePx;
+    const y = Math.cos(u) * r * scalePx;
+    if (x < 4 || x > W - 4 || y < 4 || y > H - 4) continue;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillText(label, x + 4, y - 3);
+  }
 }
 
 export function drawSpectral(

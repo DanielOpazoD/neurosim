@@ -109,10 +109,14 @@ calibración.
   debriefing; no sustituye una segmentación vascular clínica.
 - **doppler.debriefAngleMaxDeg**, **doppler.debriefGainSaturationDb**,
   **doppler.debriefOffsetTargetMm**, **doppler.debriefOffsetToleranceMm**,
-  **doppler.debriefMeasurementErrorMm**, **doppler.debriefPiTolerance** —
+  **doppler.debriefMeasurementErrorMm**, **doppler.debriefPiTolerance**,
+  **doppler.debriefDiencephalicTiltDeg**, **doppler.debriefVentricleTolMm**,
+  **doppler.debriefMidlineShiftTolMm** —
   umbrales docentes para advertir de ángulo, ganancia, posición DVNO, error de
-  medición y discrepancia de PI; son parámetros educativos con evidencia
-  explícita y no reglas diagnósticas.
+  medición, discrepancia de PI, planeidad del corte diencefálico (tilt) y
+  tolerancias de la medida del III ventrículo y del desplazamiento de línea
+  media; son parámetros educativos con evidencia explícita y no reglas
+  diagnósticas.
 - **doppler.spectralGammaDisplay** — `0,7`, gamma estimada para expandir la
   visibilidad de niveles bajos en la presentación del espectro; no modifica
   `powerDb` ni las mediciones.

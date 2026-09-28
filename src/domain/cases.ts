@@ -17,7 +17,9 @@ export type CaseId =
   | 'paradaCirculatoria'
   | 'hipercapnia'
   | 'hipocapnia'
-  | 'parkinson';
+  | 'parkinson'
+  | 'desplazamientoLineaMedia'
+  | 'hidrocefalia';
 
 export interface ClinicalCase {
   readonly id: CaseId;
@@ -41,6 +43,12 @@ export interface ClinicalCase {
   readonly snEchogenicity?: number;
   /** Escala del área en planta de la sustancia nigra (1 = normal). */
   readonly snAreaCm2Scale?: number;
+  /** Desplazamiento de línea media supratentorial, mm (+ = hacia +x/izquierda). */
+  readonly midlineShiftMm?: number;
+  /** Ancho del III ventrículo, mm (sustituye el valor anatómico). */
+  readonly thirdVentricleWidthMm?: number;
+  /** Escala de los radios de los cuernos frontales (1 = normal). */
+  readonly frontalHornScale?: number;
   /** Puntos docentes (2–4 viñetas) mostrados bajo el selector de caso. */
   readonly teaching: readonly string[];
 }
@@ -172,6 +180,37 @@ export const CASES: readonly ClinicalCase[] = [
     teaching: [
       'SN hiperecogénica ≥ 0,20–0,25 cm² (percentil 90) en TCS; hallazgo de apoyo, no diagnóstico.',
       'Hemodinámica y DVNO sin cambios respecto al caso normal.',
+    ],
+  },
+  {
+    ...BASE,
+    id: 'desplazamientoLineaMedia',
+    label: 'Desplazamiento de línea media',
+    summary:
+      'Hematoma subdural derecho: masa supratentorial que empuja el III ventrículo ~6 mm hacia la izquierda.',
+    physiology: { mapMmHg: 100, paco2MmHg: 40, icpMmHg: 22 },
+    midlineShiftMm: 6,
+    icaExtracranialTamaxCms: 45,
+    teaching: [
+      'Plano diencefálico (inclinación +10°): localiza la línea ecogénica del III ventrículo.',
+      'Mide la distancia sonda→III ventrículo desde la ventana derecha y desde la izquierda.',
+      'Desplazamiento = (der − izq) / 2; >5 mm es significativo.',
+      'La DVNO suele estar elevada por la PIC.',
+    ],
+  },
+  {
+    ...BASE,
+    id: 'hidrocefalia',
+    label: 'Hidrocefalia',
+    summary: 'III ventrículo de 12 mm y cuernos frontales dilatados con PIC elevada.',
+    physiology: { mapMmHg: 95, paco2MmHg: 40, icpMmHg: 25 },
+    thirdVentricleWidthMm: 12,
+    frontalHornScale: 1.6,
+    icaExtracranialTamaxCms: 45,
+    teaching: [
+      'III ventrículo >10 mm en el adulto sugiere dilatación ventricular.',
+      'Mide el ancho borde a borde del epéndimo ecogénico.',
+      'Los cuernos frontales también se dilatan.',
     ],
   },
 ];

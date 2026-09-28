@@ -31,6 +31,11 @@ export interface ReferenceCase {
   readonly clinicalCase: ClinicalCase;
   readonly physStateAt: (t: number) => PhysState;
   readonly setPhysiology: (p: BasalPhysiology) => void;
+  /** Verdades del modelo medibles en pantalla (docencia). */
+  readonly truths: {
+    readonly thirdVentricleWidthMm: number;
+    readonly midlineShiftMm: number;
+  };
 }
 
 /** Semilla fija del adulto de referencia N1. */
@@ -61,6 +66,11 @@ export function buildReferenceCase(
     cc.window,
     cc.snAreaCm2Scale ?? 1,
     cc.vesselStenosis ?? {},
+    {
+      midlineShiftMm: cc.midlineShiftMm,
+      thirdVentricleWidthMm: cc.thirdVentricleWidthMm,
+      frontalHornScale: cc.frontalHornScale,
+    },
   );
   const respiration = new Respiration(FISIOLOGIA.params.respiratoryRatePerMin.value);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
@@ -98,5 +108,9 @@ export function buildReferenceCase(
     clinicalCase: cc,
     physStateAt,
     setPhysiology,
+    truths: {
+      thirdVentricleWidthMm: head.thirdVentricleWidthMm,
+      midlineShiftMm: head.midlineShiftMm,
+    },
   };
 }
