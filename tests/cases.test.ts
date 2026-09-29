@@ -7,7 +7,7 @@ import { buildReferenceCase } from '../src/domain/referenceCase';
 import { skullAttenuationDb } from '../src/ultrasound/attenuation';
 import { hemodynamics } from '../src/physiology/hemodynamics';
 import { trueOnsdMm } from '../src/anatomy/eye';
-import { lindegaardRatio } from '../src/doppler/measureMca';
+import { lindegaardIndex, lindegaardInterpretation, lindegaardRatio } from '../src/doppler/measureMca';
 import { sub, normalize, add, scale, dot } from '../src/core/vec3';
 import { landmarkAt } from '../src/anatomy/head';
 import { temporalPose } from '../src/app/poses';
@@ -69,6 +69,20 @@ describe('biblioteca de casos clínicos', () => {
   it('lindegaardRatio divide TAMax ACM por ACI extracraneal', () => {
     expect(lindegaardRatio(180, 45)).toBe(4);
     expect(lindegaardRatio(-180, 45)).toBe(4);
+  });
+
+  it('lindegaardIndex prefiere la ACI medida y cae a la de referencia (DEC-58)', () => {
+    expect(lindegaardIndex(-150, -37.5, 45)).toEqual({
+      mcaTaMaxCms: 150,
+      icaTaMaxCms: 37.5,
+      ratio: 4,
+      icaSource: 'medida',
+    });
+    expect(lindegaardIndex(90, null, 45)).toMatchObject({ ratio: 2, icaSource: 'referencia' });
+    expect(lindegaardIndex(90, Number.NaN, 45).icaSource).toBe('referencia');
+    expect(lindegaardInterpretation(2.2)).toBe('hiperemia o normal');
+    expect(lindegaardInterpretation(4)).toBe('vasoespasmo leve-moderado');
+    expect(lindegaardInterpretation(6.5)).toBe('vasoespasmo grave');
   });
 
   it('parkinson: SN ≥ 0,25 cm² por lado (percentil 90) y más ecogénica', () => {

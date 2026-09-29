@@ -9,6 +9,38 @@ import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport } from '../domain/onsdProtocol';
 import { guideById, type GuideProgress, type GuideSummary } from '../domain/guides';
 
+/**
+ * Lindegaard exportado (DEC-58): último índice registrado al congelar (con la
+ * ACI medida si existía), su origen, el medido y el de referencia, y la ACI
+ * medida por lado junto a la TAMax de referencia del caso.
+ */
+function lindegaardExport(sim: ReferenceCase, s: AppState): Record<string, unknown> {
+  const last = [...s.debrief.events()]
+    .reverse()
+    .find(
+      (event) =>
+        event.kind === 'freeze' &&
+        typeof event.data?.lindegaard === 'number' &&
+        Number.isFinite(event.data.lindegaard as number),
+    );
+  const num = (key: string): number | undefined => {
+    const v = last?.data?.[key];
+    return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+  };
+  const source = last?.data?.lindegaardSource;
+  return {
+    lindegaard: num('lindegaard'),
+    lindegaardDetalle: {
+      fuente: typeof source === 'string' && source ? source : undefined,
+      medido: num('lindegaardMedido'),
+      referencia: num('lindegaardReferencia'),
+      mcaTaMaxCms: num('mcaTaMaxCms'),
+      aciMedida: { der: s.icaMeasured.der, izq: s.icaMeasured.izq },
+      aciReferenciaCms: sim.clinicalCase.icaExtracranialTamaxCms,
+    },
+  };
+}
+
 export function exportPayload(sim: ReferenceCase, s: AppState): object {
   const mode = imagingMode(s);
   return {
@@ -16,17 +48,7 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
     clinicalCase: sim.clinicalCase.id,
     seed: sim.patient.seed,
     willisVariant: sim.willisVariant,
-    lindegaard: (() => {
-      const last = [...s.debrief.events()]
-        .reverse()
-        .find(
-          (event) =>
-            event.kind === 'freeze' &&
-            typeof event.data?.lindegaard === 'number' &&
-            Number.isFinite(event.data.lindegaard as number),
-        );
-      return last ? (last.data!.lindegaard as number) : undefined;
-    })(),
+    ...lindegaardExport(sim, s),
     frame: s.currentFrame,
     measurements: s.measurements,
     onsdReport: buildReport(s.onsd),

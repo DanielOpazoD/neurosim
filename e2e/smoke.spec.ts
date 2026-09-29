@@ -113,6 +113,13 @@ test('flujo docente completo sin errores', async ({ page }) => {
   expect(payload.measurements).toEqual(expect.any(Array));
   expect(payload.settings.lineDensity).toBe('media');
   expect(payload.errores).toEqual([]);
+
+  // Ventana submandibular (DEC-58): mismo examen DTC, lado D, B-mode pintado.
+  await page.locator('.win[data-window="submandibular"]').click();
+  await expect(page.locator('body')).toHaveAttribute('data-station', 'submandibular');
+  await expect(page.locator('.tab[data-station="submandibular"][data-side="der"]')).toHaveClass(/on/);
+  await expect(page.locator('#freezeLabel')).toHaveText('Congelar');
+  await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

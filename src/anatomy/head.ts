@@ -48,6 +48,14 @@ export interface Vessel {
    */
   readonly venous?: boolean;
   /**
+   * Patrón de resistencia distal (DEC-58). Ausente o `'baja'`: onda arterial
+   * de baja resistencia modulada por la hemodinámica cerebral (ACM, ACI).
+   * `'alta'`: onda de alta resistencia (ACE y ramas) con EDV baja e incisura
+   * dicrota, fija entre `edvCms` y `psvCms`: el territorio extracraneal no
+   * sigue la reactividad al CO₂ ni la autorregulación cerebral.
+   */
+  readonly waveform?: 'baja' | 'alta';
+  /**
    * Estenosis focal: posición a lo largo de la línea central (`sMm`, arco en mm),
    * longitud de la lesión y factor de radio mínimo en la garganta. El radio
    * local es `vesselRadiusAt`; el vaso sin estenosis usa `radiusMm` constante.

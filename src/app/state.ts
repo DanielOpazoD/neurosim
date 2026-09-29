@@ -23,6 +23,21 @@ export interface CineItem {
   scan: ScanGeometry;
 }
 
+/**
+ * Última TAMax de ACI extracraneal medida por lado (ventana submandibular,
+ * DEC-58): denominador del Lindegaard. `tSec` es el tiempo de simulación de
+ * la última columna usada en la medida.
+ */
+export interface IcaMeasure {
+  readonly taMaxCms: number;
+  readonly psvCms: number;
+  readonly edvCms: number;
+  readonly ri: number;
+  readonly beats: number;
+  readonly vesselId: string;
+  readonly tSec: number;
+}
+
 export interface AppState {
   station: Station;
   side: Side;
@@ -65,6 +80,8 @@ export interface AppState {
   grayMap: GrayMap;
   teachingMode: boolean;
   debrief: DebriefLog;
+  /** ACI medida por lado (Lindegaard medido, DEC-58); null sin medida. */
+  icaMeasured: Record<Side, IcaMeasure | null>;
 }
 
 export function createInitialState(): AppState {
@@ -103,6 +120,7 @@ export function createInitialState(): AppState {
     grayMap: 'sigmoide',
     teachingMode: false,
     debrief: new DebriefLog(0),
+    icaMeasured: { der: null, izq: null },
   };
 }
 

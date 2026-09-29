@@ -15,7 +15,7 @@
  * espesor elevacional del haz. Nada consulta «si el cursor está dentro del
  * vaso»: la señal emerge de la física.
  */
-import { SeededRandom } from '../core/random';
+import { hash3, SeededRandom } from '../core/random';
 import type { Vec3 } from '../core/vec3';
 import { dist, scale } from '../core/vec3';
 import { dopplerShiftHz } from '../core/units';
@@ -359,7 +359,41 @@ export class SampleVolumeIQ {
       const c = this.worldToGate(w);
       if (Math.abs(c[0]) < h[0]! && Math.abs(c[1]) < h[1]! && Math.abs(c[2]) < h[2]!) return w;
     }
-    return null;
+    return this.pointOnVesselInBoxFallback(v, h);
+  }
+
+  /**
+   * Respaldo determinista (sin consumir el RNG) cuando los 40 intentos al
+   * azar fallan: ocurre en vasos largos casi paralelos al haz (ACI cervical,
+   * DEC-58), donde la caja cubre < 10 % de la línea central y la sangre que
+   * reentraba como tejido agotaba la puerta en ~1 s. Elige un segmento cuyo
+   * punto medio cae en la caja (índice y desplazamiento radial por hash del
+   * tick). Los vasos cortos (Willis, órbita) casi nunca llegan aquí.
+   */
+  private pointOnVesselInBoxFallback(v: Vessel, h: readonly number[]): Vec3 | null {
+    const g = this.gate!;
+    const candidates: Vec3[] = [];
+    for (let i = 0; i + 1 < v.points.length; i++) {
+      const a = v.points[i]!;
+      const b = v.points[i + 1]!;
+      const m: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+      const c = this.worldToGate(m);
+      if (Math.abs(c[0]) < h[0]! && Math.abs(c[1]) < h[1]! && Math.abs(c[2]) < h[2]!) candidates.push(m);
+    }
+    if (!candidates.length) return null;
+    const k = this.tick | 0;
+    const m =
+      candidates[
+        Math.min(candidates.length - 1, Math.floor(hash3(k, 1, 2, 0x52534544) * candidates.length))
+      ]!;
+    const r =
+      v.radiusMm * DOPPLER.params.bloodReseedRadiusFraction.value * Math.sqrt(hash3(k, 3, 4, 0x52534544));
+    const th = hash3(k, 5, 6, 0x52534544) * 2 * Math.PI;
+    return [
+      m[0] + g.lateral[0] * (r * Math.cos(th)) + g.elevation[0] * (r * Math.sin(th)),
+      m[1] + g.lateral[1] * (r * Math.cos(th)) + g.elevation[1] * (r * Math.sin(th)),
+      m[2] + g.lateral[2] * (r * Math.cos(th)) + g.elevation[2] * (r * Math.sin(th)),
+    ];
   }
 
   /**

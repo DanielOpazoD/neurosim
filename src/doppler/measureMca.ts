@@ -206,8 +206,50 @@ export function summarizeBeats(ms: readonly BeatMeasure[]): {
 /**
  * Índice de Lindegaard: TAMax de la ACM / TAMax de la ACI extracraneal.
  * Valores ≥3 sugieren vasoespasmo frente a hiperemia (lindegaard-indice-1989).
- * La ACI no se insona en este simulador: el denominador viene del caso (LIM-02).
+ * El denominador es la TAMax de ACI medida en la ventana submandibular
+ * (DEC-58) o, si aún no se midió, la de referencia del caso (LIM-02).
  */
 export function lindegaardRatio(tamaxMcaCms: number, icaCms: number): number {
-  return Math.abs(tamaxMcaCms) / Math.max(1e-6, icaCms);
+  return Math.abs(tamaxMcaCms) / Math.max(1e-6, Math.abs(icaCms));
+}
+
+/** Origen del denominador del Lindegaard. */
+export type LindegaardIcaSource = 'medida' | 'referencia';
+
+export interface LindegaardResult {
+  readonly mcaTaMaxCms: number;
+  readonly icaTaMaxCms: number;
+  readonly ratio: number;
+  readonly icaSource: LindegaardIcaSource;
+}
+
+/**
+ * Lindegaard con la ACI medida del mismo lado si existe (`measuredIcaCms`
+ * finito y > 0); si no, con la TAMax de referencia del caso.
+ */
+export function lindegaardIndex(
+  tamaxMcaCms: number,
+  measuredIcaCms: number | null | undefined,
+  referenceIcaCms: number,
+): LindegaardResult {
+  const measured =
+    measuredIcaCms !== null &&
+    measuredIcaCms !== undefined &&
+    Number.isFinite(measuredIcaCms) &&
+    Math.abs(measuredIcaCms) > 0;
+  const ica = measured ? Math.abs(measuredIcaCms) : Math.abs(referenceIcaCms);
+  return {
+    mcaTaMaxCms: Math.abs(tamaxMcaCms),
+    icaTaMaxCms: ica,
+    ratio: lindegaardRatio(tamaxMcaCms, ica),
+    icaSource: measured ? 'medida' : 'referencia',
+  };
+}
+
+/** Interpretación docente: < 3 hiperemia/normal, 3–6 vasoespasmo leve-moderado, > 6 grave. */
+export function lindegaardInterpretation(ratio: number): string {
+  if (!Number.isFinite(ratio)) return '—';
+  if (ratio < 3) return 'hiperemia o normal';
+  if (ratio <= 6) return 'vasoespasmo leve-moderado';
+  return 'vasoespasmo grave';
 }

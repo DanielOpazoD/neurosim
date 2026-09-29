@@ -55,3 +55,22 @@ export function defaultTemporalSettings(): AcquisitionSettings {
     colorBox: { uCenter: 0, uHalf: (25 * Math.PI) / 180, zMinMm: 30, zMaxMm: 80 },
   };
 }
+
+/**
+ * Ventana submandibular (DEC-58): misma sonda sectorial de 2 MHz que la
+ * temporal, profundidad 70 mm, puerta en la ACI distal y caja de color
+ * 25–60 mm. Sin hueso en el trayecto, la ganancia baja respecto a la temporal.
+ */
+export function defaultSubmandibularSettings(): AcquisitionSettings {
+  const base = defaultTemporalSettings();
+  return {
+    ...base,
+    depthMm: 70,
+    focusMm: 45,
+    // Sin cráneo en el trayecto el eco llega ~16 dB más fuerte: −2 dB iguala
+    // el brillo medio de la imagen temporal de fábrica (14 dB).
+    gainDb: -2,
+    tgcDb: [-6, -4, -2, 0, 1, 2, 3, 4],
+    colorBox: { uCenter: 0, uHalf: (20 * Math.PI) / 180, zMinMm: 25, zMaxMm: 60 },
+  };
+}

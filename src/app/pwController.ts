@@ -12,12 +12,18 @@ import type { Vec3 } from '../core/vec3';
 import { beamDirAt, elevAxis, imageToPatient } from '../ultrasound/probe';
 import { skullAttenuationDb } from '../ultrasound/attenuation';
 import type { VesselScene } from '../anatomy/head';
-import { measureBeats, observedTrace, summarizeBeats } from '../doppler/measureMca';
+import {
+  lindegaardIndex,
+  measureBeats,
+  observedTrace,
+  summarizeBeats,
+  type LindegaardResult,
+} from '../doppler/measureMca';
 import { DopplerAudio } from '../doppler/audio';
 import type { AudioSink } from '../doppler/pwChain';
 import type { GateComposition, GateGeometry } from '../doppler/sampleVolume';
 import type { SpectralColumn } from '../doppler/spectral';
-import type { AppState } from './state';
+import type { AppState, IcaMeasure } from './state';
 import { currentPose } from './poses';
 import { DOPPLER } from '../doppler/params';
 import { FISICA_US } from '../ultrasound/params';
@@ -436,7 +442,53 @@ export class PwController {
     }
     const value = this.computeMcaMeasure();
     this.measureCache = { revision: this.rev, settingsKey, atMs: now, value };
+    this.recordIcaMeasure(value);
     return value;
+  }
+
+  /**
+   * Ventana submandibular (DEC-58): con la puerta en la ACI (vaso dominante
+   * `aci-*`, ≥ 20 % de sangre) y ≥ 2 latidos, la medida queda como TAMax de
+   * ACI del lado explorado, con el tiempo de su última columna.
+   */
+  private recordIcaMeasure(value: ReturnType<typeof summarizeBeats>): void {
+    const s = this.state;
+    if (!value || value.beats < 2 || s.station !== 'submandibular') return;
+    if (this.sceneKey !== `${s.station}-${s.side}`) return;
+    const comp = this.lastComposition;
+    const vesselId = comp?.dominantVesselId ?? null;
+    if (!vesselId?.startsWith('aci-') || (comp?.bloodFraction ?? 0) < 0.2) return;
+    const measure: IcaMeasure = {
+      taMaxCms: Math.abs(value.taMaxCms),
+      psvCms: Math.abs(value.psvCms),
+      edvCms: Math.abs(value.edvCms),
+      ri: value.ri,
+      beats: value.beats,
+      vesselId,
+      tSec: this.cols[this.cols.length - 1]?.t ?? 0,
+    };
+    s.icaMeasured = { ...s.icaMeasured, [s.side]: measure };
+  }
+
+  /** Última ACI medida de un lado (null si aún no se midió). */
+  measuredIca(side: AppState['side'] = this.state.side): IcaMeasure | null {
+    return this.state.icaMeasured[side];
+  }
+
+  /**
+   * Lindegaard del lado actual si la puerta está en la M1 y hay medida:
+   * ACI medida del MISMO lado si existe; si no, la de referencia del caso.
+   */
+  lindegaard(): LindegaardResult | null {
+    const s = this.state;
+    if (s.station !== 'temporal') return null;
+    const summary = this.latestMcaMeasure();
+    if (!summary || !this.lastComposition?.dominantVesselId?.startsWith('m1-')) return null;
+    return lindegaardIndex(
+      summary.taMaxCms,
+      s.icaMeasured[s.side]?.taMaxCms,
+      this.sim.clinicalCase.icaExtracranialTamaxCms,
+    );
   }
 
   /** Medida sin caché (coste ~30–60 ms con 2,5 s de columnas). */

@@ -21,7 +21,8 @@ introducir una dependencia de ejecución hacia la composición de la aplicación
 La UI es el único lugar que conoce el DOM y el canvas.
 
 - **core**: reloj, RNG, unidades, vectores, FFT y validación de evidencia.
-- **anatomy**: materiales, ojo y cabeza; produce geometría y clasificación.
+- **anatomy**: materiales, ojo, cabeza y cuello; produce geometría y
+  clasificación.
 - **physiology**: ciclo cardíaco y velocidades vasculares.
 - **ultrasound**: geometría de sonda, B-mode y atenuación.
 - **doppler**: volumen de muestra, cadena PW, filtro, espectro, color y medidas
@@ -62,7 +63,8 @@ Responsables concretos:
 
 - La fisiología vive en `src/physiology/flow.ts`; el caso la conecta con
   `src/domain/referenceCase.ts`.
-- La anatomía se construye en `src/anatomy/eye.ts` y `src/anatomy/head.ts`;
+- La anatomía se construye en `src/anatomy/eye.ts`, `src/anatomy/head.ts` y
+  `src/anatomy/neck.ts` (ventana submandibular, DEC-58);
   `src/anatomy/materials.ts` aporta las propiedades de material.
 - La pose y el barrido se calculan en `src/app/poses.ts` y
   `src/ultrasound/probe.ts`.

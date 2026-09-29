@@ -9,6 +9,7 @@ import type { PatientState, WillisVariant } from './contracts';
 import { MANIFEST } from './manifest';
 import { buildReferenceEyes, type EyeGeometry } from '../anatomy/eye';
 import { buildReferenceHead, type HeadGeometry } from '../anatomy/head';
+import { buildReferenceNecks, type NeckGeometry } from '../anatomy/neck';
 import { CardiacCycle, CerebralFlow } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
 import { Respiration } from '../physiology/respiration';
@@ -23,6 +24,11 @@ export interface ReferenceCase {
   readonly patient: PatientState;
   readonly eyes: Record<Side, EyeGeometry>;
   readonly head: HeadGeometry;
+  /**
+   * Escena submandibular por lado (DEC-58): ACI cervical distal con el caudal
+   * de Willis ipsilateral, ACE, yugular interna, glándula y mandíbula.
+   */
+  readonly neck: Record<Side, NeckGeometry>;
   readonly cardiac: CardiacCycle;
   readonly respiration: Respiration;
   readonly flow: CerebralFlow;
@@ -72,6 +78,7 @@ export function buildReferenceCase(
       frontalHornScale: cc.frontalHornScale,
     },
   );
+  const neck = buildReferenceNecks(head.vessels);
   const respiration = new Respiration(FISIOLOGIA.params.respiratoryRatePerMin.value);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
   const flow = new CerebralFlow(head, physiology);
@@ -101,6 +108,7 @@ export function buildReferenceCase(
     patient,
     eyes,
     head,
+    neck,
     cardiac,
     respiration,
     flow,

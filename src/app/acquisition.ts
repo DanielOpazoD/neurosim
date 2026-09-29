@@ -4,6 +4,7 @@
  */
 import { classifyEye } from '../anatomy/eye';
 import { classifyHead } from '../anatomy/head';
+import { classifyNeck } from '../anatomy/neck';
 import type { SimulationClock } from '../core/clock';
 import type { ReferenceCase } from '../domain/referenceCase';
 import type { AcquiredFrame } from '../domain/contracts';
@@ -16,6 +17,10 @@ export function sceneClassify(sim: ReferenceCase, s: AppState) {
   if (s.station === 'ojo') {
     const eye = sim.eyes[s.side];
     return { classify: (p: Parameters<typeof classifyEye>[1]) => classifyEye(eye, p) };
+  }
+  if (s.station === 'submandibular') {
+    const neck = sim.neck[s.side];
+    return { classify: (p: Parameters<typeof classifyNeck>[1]) => classifyNeck(neck, p) };
   }
   return { classify: (p: Parameters<typeof classifyHead>[1]) => classifyHead(sim.head, p) };
 }

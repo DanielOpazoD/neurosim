@@ -15,6 +15,8 @@ import type { ScanGeometry } from '../ultrasound/probe';
 import type { ColorBox, ProbePose, Side, Station } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
 import type { AppState } from '../app/state';
+import { isTcdStation } from '../domain/contracts';
+import { neckPoint } from '../anatomy/neck';
 import { buildProbeGroup, updateProbePose } from './probeMesh';
 
 export { probeBasis } from './probeMesh';
@@ -28,15 +30,16 @@ export interface NavigatorFrame {
 const eyePreset = { yawDeg: -25, pitchDeg: -18 };
 
 export function navigatorCameraPreset(
-  station: 'ojo' | 'temporal',
+  station: Station,
   side: 'der' | 'izq',
 ): {
   yawDeg: number;
   pitchDeg: number;
 } {
-  return station === 'ojo'
-    ? { yawDeg: eyePreset.yawDeg, pitchDeg: eyePreset.pitchDeg }
-    : { yawDeg: side === 'der' ? -70 : 70, pitchDeg: -4 };
+  if (station === 'ojo') return { yawDeg: eyePreset.yawDeg, pitchDeg: eyePreset.pitchDeg };
+  // Submandibular: vista lateral-anterior algo desde abajo (ACI/ACE/yugular).
+  if (station === 'submandibular') return { yawDeg: side === 'der' ? -60 : 60, pitchDeg: -18 };
+  return { yawDeg: side === 'der' ? -70 : 70, pitchDeg: -4 };
 }
 
 function vesselCenter(sim: ReferenceCase): Vec3 {
@@ -51,15 +54,17 @@ const EYE_TARGET_POSTERIOR_MM = 10;
 
 export function navigatorFrame(
   sim: ReferenceCase,
-  station: 'ojo' | 'temporal',
+  station: Station,
   side: 'der' | 'izq',
   canvasSide: number,
 ): NavigatorFrame {
   const target =
     station === 'ojo'
       ? add(sim.eyes[side].center, scale(normalize(sim.eyes[side].anterior), -EYE_TARGET_POSTERIOR_MM))
-      : vesselCenter(sim);
-  const radiusMm = station === 'ojo' ? 28 : 55;
+      : station === 'submandibular'
+        ? neckPoint(sim.neck[side].frame, 40, 0, 0)
+        : vesselCenter(sim);
+  const radiusMm = station === 'ojo' ? 28 : station === 'submandibular' ? 50 : 55;
   return { target, radiusMm, scale: (0.46 * canvasSide) / radiusMm };
 }
 
@@ -329,9 +334,70 @@ function describeEye(sim: ReferenceCase, side: Side): SceneDescriptor {
   };
 }
 
-/** Escena estática de la estación (ojo = ambos ojos; temporal = cráneo). */
+/**
+ * Cuello (DEC-58): vasos cervicales de ambos lados (ACI, ACE con ramas,
+ * yugular interna) como tubos, sifones carotídeos intracraneales para la
+ * continuidad, glándulas submandibulares estilizadas y la rama mandibular.
+ */
+function describeNeck(sim: ReferenceCase): SceneDescriptor {
+  const h = sim.head;
+  const tubes: TubeDesc[] = [];
+  const ellipsoids: EllipsoidDesc[] = [
+    { center: h.skullCenter, radii: h.skullRadii, color: '#b9c0c8', opacity: 0.08 },
+  ];
+  const bands: BandDesc[] = [];
+  for (const side of ['der', 'izq'] as const) {
+    const neck = sim.neck[side];
+    for (const v of neck.vessels) {
+      tubes.push({
+        points: v.points,
+        radiusMm: v.radiusMm,
+        color: v.venous ? '#4da3ff' : '#e85d5d',
+        opacity: v.venous ? 0.7 : 1,
+        emissive: 0.25,
+        vesselId: v.id,
+      });
+    }
+    const siphon = h.vessels.find((v) => v.id === `ica-${side}`);
+    if (siphon) {
+      tubes.push({
+        points: siphon.points,
+        radiusMm: siphon.radiusMm,
+        color: '#b04848',
+        opacity: 0.6,
+        emissive: 0,
+      });
+    }
+    const f = neck.frame;
+    const g = neck.gland;
+    ellipsoids.push({
+      center: neckPoint(f, g.center[0], g.center[1], g.center[2]),
+      radii: [g.radii[1], g.radii[0], g.radii[2]] as Vec3,
+      color: '#d8b36a',
+      opacity: 0.25,
+    });
+    // Rama mandibular: banda ósea lateral al haz.
+    bands.push({
+      from: neckPoint(f, 3, 21, 6),
+      to: neckPoint(f, 90, 16.5, 6),
+      radiusMm: 3,
+      color: '#e6e0d0',
+      opacity: 0.35,
+    });
+  }
+  const c = h.skullCenter;
+  const labels: LabelDesc[] = [
+    { position: [c[0], -40, c[2] + 90], text: 'ANT' },
+    { position: [c[0], 20, c[2]], text: 'SUP' },
+    { position: [60, -40, c[2]], text: 'IZQ' },
+  ];
+  return { ...EMPTY, ellipsoids, tubes, bands, labels };
+}
+
+/** Escena estática de la estación (ojo = ambos ojos; temporal = cráneo; submandibular = cuello). */
 export function describeStaticScene(sim: ReferenceCase, station: Station): SceneDescriptor {
   if (station === 'temporal') return describeHead(sim);
+  if (station === 'submandibular') return describeNeck(sim);
   const der = describeEye(sim, 'der');
   const izq = describeEye(sim, 'izq');
   const merge = <T>(a: readonly T[], b: readonly T[]): T[] => [...a, ...b];
@@ -636,8 +702,12 @@ export class Navigator3D {
     this.planeKey = key;
     this.dirty = true;
     // Color de los tubos por sentido de flujo (sin reconstruir geometría).
-    if (this.station === 'temporal') {
-      for (const v of this.sim.head.vessels) {
+    if (isTcdStation(this.station)) {
+      const vessels =
+        this.station === 'temporal'
+          ? this.sim.head.vessels
+          : [...this.sim.neck.der.vessels, ...this.sim.neck.izq.vessels];
+      for (const v of vessels) {
         const mat = this.vesselMeshes.get(v.id);
         if (mat) mat.color.set(flowColor(v, pose.forward));
       }
@@ -786,7 +856,7 @@ export class Navigator3D {
       ),
     );
     // Caja de color (temporal): arcos a zMin/zMax + radiales laterales.
-    if (colorBox && this.station === 'temporal') {
+    if (colorBox && isTcdStation(this.station)) {
       const kind = scan.kind;
       const pts: THREE.Vector3[] = [];
       const uMin = colorBox.uCenter - colorBox.uHalf;
