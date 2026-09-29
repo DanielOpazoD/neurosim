@@ -136,6 +136,183 @@ function segDist(p: Vec3, a: Vec3, b: Vec3): number {
   return Math.hypot(p[0] - qx, p[1] - qy, p[2] - qz);
 }
 
+/**
+ * Segmentos precalculados por vaso (DEC-54): extremos, vector ab, los dos
+ * denominadores que usan `segDist` y `vesselClosest`, longitud y arco
+ * acumulado — con la misma aritmética que el cálculo por llamada.
+ */
+interface SegCache {
+  readonly n: number;
+  readonly ax: Float64Array;
+  readonly ay: Float64Array;
+  readonly az: Float64Array;
+  readonly abx: Float64Array;
+  readonly aby: Float64Array;
+  readonly abz: Float64Array;
+  /** max(1e-9, |ab|²) como en `segDist`. */
+  readonly denD: Float64Array;
+  /** |ab| (Math.hypot) y max(1e-9, |ab|·|ab|) como en `vesselClosest`. */
+  readonly len: Float64Array;
+  readonly denC: Float64Array;
+  /** Arco acumulado antes del segmento i (suma secuencial de |ab|). */
+  readonly sAcc: Float64Array;
+  /** Bloques de SEG_BLOCK segmentos: esfera envolvente (centro, radio). */
+  readonly nb: number;
+  readonly bcx: Float64Array;
+  readonly bcy: Float64Array;
+  readonly bcz: Float64Array;
+  readonly brad: Float64Array;
+}
+
+/** Segmentos por bloque para el descarte por esfera envolvente. */
+const SEG_BLOCK = 8;
+
+const segCaches = new WeakMap<Vessel, SegCache>();
+function segCache(v: Vessel): SegCache {
+  let c = segCaches.get(v);
+  if (c) return c;
+  const n = Math.max(0, v.points.length - 1);
+  const ax = new Float64Array(n);
+  const ay = new Float64Array(n);
+  const az = new Float64Array(n);
+  const abx = new Float64Array(n);
+  const aby = new Float64Array(n);
+  const abz = new Float64Array(n);
+  const denD = new Float64Array(n);
+  const len = new Float64Array(n);
+  const denC = new Float64Array(n);
+  const sAcc = new Float64Array(n);
+  let acc = 0;
+  for (let i = 0; i < n; i++) {
+    const a = v.points[i]!;
+    const b = v.points[i + 1]!;
+    ax[i] = a[0];
+    ay[i] = a[1];
+    az[i] = a[2];
+    const x = b[0] - a[0];
+    const y = b[1] - a[1];
+    const z = b[2] - a[2];
+    abx[i] = x;
+    aby[i] = y;
+    abz[i] = z;
+    denD[i] = Math.max(1e-9, x * x + y * y + z * z);
+    const l = Math.hypot(x, y, z);
+    len[i] = l;
+    denC[i] = Math.max(1e-9, l * l);
+    sAcc[i] = acc;
+    acc += l;
+  }
+  const nb = Math.ceil(n / SEG_BLOCK);
+  const bcx = new Float64Array(nb);
+  const bcy = new Float64Array(nb);
+  const bcz = new Float64Array(nb);
+  const brad = new Float64Array(nb);
+  for (let b = 0; b < nb; b++) {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let z0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    let z1 = -Infinity;
+    const iEnd = Math.min(n, (b + 1) * SEG_BLOCK);
+    for (let i = b * SEG_BLOCK; i <= iEnd; i++) {
+      const q = v.points[i]!;
+      x0 = Math.min(x0, q[0]);
+      y0 = Math.min(y0, q[1]);
+      z0 = Math.min(z0, q[2]);
+      x1 = Math.max(x1, q[0]);
+      y1 = Math.max(y1, q[1]);
+      z1 = Math.max(z1, q[2]);
+    }
+    bcx[b] = (x0 + x1) / 2;
+    bcy[b] = (y0 + y1) / 2;
+    bcz[b] = (z0 + z1) / 2;
+    // Radio holgado (+1e-6) para absorber el redondeo.
+    brad[b] = Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2 + 1e-6;
+  }
+  c = { n, ax, ay, az, abx, aby, abz, denD, len, denC, sAcc, nb, bcx, bcy, bcz, brad };
+  segCaches.set(v, c);
+  return c;
+}
+
+let scratchD2 = new Float64Array(256);
+function scratch(n: number): Float64Array {
+  if (scratchD2.length < n) scratchD2 = new Float64Array(Math.max(n, 2 * scratchD2.length));
+  return scratchD2;
+}
+
+/**
+ * Margen relativo del prefiltro por distancia al cuadrado: `Math.hypot` y
+ * `√(dx²+dy²+dz²)` difieren en pocos ulp (~1e-16), así que un segmento cuyo
+ * d² supera al mínimo en más de 1e-12 no puede dar el mínimo exacto. Solo los
+ * candidatos se evalúan con `Math.hypot` → resultados bit a bit idénticos.
+ */
+const D2_MARGIN = 1e-12;
+
+/**
+ * Primera pasada: d² de cada segmento a `p` en `d2s` (con el denominador
+ * `den`, el de `segDist` o el de `vesselClosest`) y devuelve el mínimo. Los
+ * bloques cuya esfera envolvente queda estrictamente más lejos que el mejor
+ * d² hallado se marcan +∞ sin evaluar: no pueden contener el mínimo ni un
+ * candidato de la segunda pasada (margen 1e-9 ≫ redondeo). El bloque más
+ * cercano se evalúa primero para que el descarte sea eficaz.
+ */
+function segD2Pass(
+  c: SegCache,
+  den: Float64Array,
+  px: number,
+  py: number,
+  pz: number,
+  d2s: Float64Array,
+): number {
+  let best2 = Infinity;
+  let first = 0;
+  if (c.nb > 1) {
+    let bestLb = Infinity;
+    for (let b = 0; b < c.nb; b++) {
+      const dx = px - c.bcx[b]!;
+      const dy = py - c.bcy[b]!;
+      const dz = pz - c.bcz[b]!;
+      const lb = Math.sqrt(dx * dx + dy * dy + dz * dz) - c.brad[b]!;
+      if (lb < bestLb) {
+        bestLb = lb;
+        first = b;
+      }
+    }
+  }
+  for (let k = 0; k < c.nb; k++) {
+    const b = k === 0 ? first : k <= first ? k - 1 : k;
+    const i0 = b * SEG_BLOCK;
+    const i1 = Math.min(c.n, i0 + SEG_BLOCK);
+    if (best2 < Infinity) {
+      const dx = px - c.bcx[b]!;
+      const dy = py - c.bcy[b]!;
+      const dz = pz - c.bcz[b]!;
+      const lb = Math.sqrt(dx * dx + dy * dy + dz * dz) - c.brad[b]! - 1e-6;
+      if (lb > 0 && lb * lb > best2 * (1 + 1e-9)) {
+        for (let i = i0; i < i1; i++) d2s[i] = Infinity;
+        continue;
+      }
+    }
+    for (let i = i0; i < i1; i++) {
+      const ax = c.ax[i]!;
+      const ay = c.ay[i]!;
+      const az = c.az[i]!;
+      const abx = c.abx[i]!;
+      const aby = c.aby[i]!;
+      const abz = c.abz[i]!;
+      const t = clamp(((px - ax) * abx + (py - ay) * aby + (pz - az) * abz) / den[i]!, 0, 1);
+      const dx = px - (ax + abx * t);
+      const dy = py - (ay + aby * t);
+      const dz = pz - (az + abz * t);
+      const d2 = dx * dx + dy * dy + dz * dz;
+      d2s[i] = d2;
+      if (d2 < best2) best2 = d2;
+    }
+  }
+  return best2;
+}
+
 /** Distancia al tubo (polilínea) de un vaso. */
 export function vesselDistance(v: Vessel, p: Vec3): number {
   const { min, max } = v.aabb;
@@ -147,11 +324,93 @@ export function vesselDistance(v: Vessel, p: Vec3): number {
     const c = vesselClosest(v, p);
     return dist(c.point, p) - vesselRadiusAt(v, c.sMm);
   }
+  const c = segCache(v);
+  const d2s = scratch(c.n);
+  const px = p[0];
+  const py = p[1];
+  const pz = p[2];
+  const best2 = segD2Pass(c, c.denD, px, py, pz, d2s);
+  const lim = best2 + best2 * D2_MARGIN;
   let d = Infinity;
-  for (let i = 0; i + 1 < v.points.length; i++) {
-    d = Math.min(d, segDist(p, v.points[i]!, v.points[i + 1]!));
+  for (let i = 0; i < c.n; i++) {
+    if (!(d2s[i]! <= lim)) continue;
+    const ax = c.ax[i]!;
+    const ay = c.ay[i]!;
+    const az = c.az[i]!;
+    const abx = c.abx[i]!;
+    const aby = c.aby[i]!;
+    const abz = c.abz[i]!;
+    const t = clamp(((px - ax) * abx + (py - ay) * aby + (pz - az) * abz) / c.denD[i]!, 0, 1);
+    d = Math.min(d, Math.hypot(px - (ax + abx * t), py - (ay + aby * t), pz - (az + abz * t)));
   }
   return d - v.radiusMm;
+}
+
+/**
+ * Cota inferior barata de `vesselDistance(v, p)` (esferas de bloque, con
+ * holgura ≥ 1e-6 ≫ redondeo): permite descartar un vaso sin cambiar qué vaso
+ * resulta el más cercano. +∞ fuera de la AABB; −∞ (sin cota) con estenosis.
+ */
+export function vesselLowerBound(v: Vessel, p: Vec3): number {
+  const { min, max } = v.aabb;
+  if (p[0] < min[0] || p[0] > max[0] || p[1] < min[1] || p[1] > max[1] || p[2] < min[2] || p[2] > max[2]) {
+    return Infinity;
+  }
+  if (v.stenosis) return -Infinity;
+  const c = segCache(v);
+  let lb = Infinity;
+  for (let b = 0; b < c.nb; b++) {
+    const dx = p[0] - c.bcx[b]!;
+    const dy = p[1] - c.bcy[b]!;
+    const dz = p[2] - c.bcz[b]!;
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz) - c.brad[b]!;
+    if (d < lb) lb = d;
+  }
+  return Math.max(0, lb - 1e-6) - v.radiusMm;
+}
+
+/**
+ * `vesselDistance(v, p) < 0` con salida temprana (clasificación): basta un
+ * segmento dentro del tubo. Mismo resultado booleano, sin recorrer el resto.
+ */
+export function vesselContains(v: Vessel, p: Vec3): boolean {
+  const { min, max } = v.aabb;
+  if (p[0] < min[0] || p[0] > max[0] || p[1] < min[1] || p[1] > max[1] || p[2] < min[2] || p[2] > max[2]) {
+    return false;
+  }
+  if (v.stenosis) return vesselDistance(v, p) < 0;
+  const c = segCache(v);
+  const r = v.radiusMm;
+  const r2lim = r * r + r * r * D2_MARGIN;
+  const px = p[0];
+  const py = p[1];
+  const pz = p[2];
+  for (let i = 0; i < c.n; i++) {
+    if (i % SEG_BLOCK === 0) {
+      // Bloque entero fuera del tubo: su esfera queda a más de r (con holgura).
+      const b = i / SEG_BLOCK;
+      const bx = px - c.bcx[b]!;
+      const by = py - c.bcy[b]!;
+      const bz = pz - c.bcz[b]!;
+      if (Math.sqrt(bx * bx + by * by + bz * bz) - c.brad[b]! - 1e-6 > r) {
+        i += SEG_BLOCK - 1;
+        continue;
+      }
+    }
+    const ax = c.ax[i]!;
+    const ay = c.ay[i]!;
+    const az = c.az[i]!;
+    const abx = c.abx[i]!;
+    const aby = c.aby[i]!;
+    const abz = c.abz[i]!;
+    const t = clamp(((px - ax) * abx + (py - ay) * aby + (pz - az) * abz) / c.denD[i]!, 0, 1);
+    const dx = px - (ax + abx * t);
+    const dy = py - (ay + aby * t);
+    const dz = pz - (az + abz * t);
+    if (dx * dx + dy * dy + dz * dz > r2lim) continue;
+    if (Math.hypot(dx, dy, dz) - r < 0) return true;
+  }
+  return false;
 }
 
 /**
@@ -189,24 +448,30 @@ export function vesselClosest(v: Vessel, p: Vec3): { point: Vec3; tangent: Vec3;
       bestTz = abz / l;
     }
   }
+  // Prefiltro d² (ver D2_MARGIN) y evaluación exacta, en orden, de los
+  // candidatos: se conserva el primer mínimo estricto como antes.
+  const c = segCache(v);
+  const d2s = scratch(c.n);
+  const px = p[0];
+  const py = p[1];
+  const pz = p[2];
+  const best2 = segD2Pass(c, c.denC, px, py, pz, d2s);
+  const lim = best2 + best2 * D2_MARGIN;
   let bestD = Infinity;
-  let sAcc = 0;
-  for (let i = 0; i + 1 < v.points.length; i++) {
-    const a = v.points[i]!;
-    const b = v.points[i + 1]!;
-    const abx = b[0] - a[0];
-    const aby = b[1] - a[1];
-    const abz = b[2] - a[2];
-    const len = Math.hypot(abx, aby, abz);
-    const t = clamp(
-      ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby + (p[2] - a[2]) * abz) / Math.max(1e-9, len * len),
-      0,
-      1,
-    );
-    const qx = a[0] + abx * t;
-    const qy = a[1] + aby * t;
-    const qz = a[2] + abz * t;
-    const d = Math.hypot(p[0] - qx, p[1] - qy, p[2] - qz);
+  for (let i = 0; i < c.n; i++) {
+    if (!(d2s[i]! <= lim)) continue;
+    const ax = c.ax[i]!;
+    const ay = c.ay[i]!;
+    const az = c.az[i]!;
+    const abx = c.abx[i]!;
+    const aby = c.aby[i]!;
+    const abz = c.abz[i]!;
+    const len = c.len[i]!;
+    const t = clamp(((px - ax) * abx + (py - ay) * aby + (pz - az) * abz) / c.denC[i]!, 0, 1);
+    const qx = ax + abx * t;
+    const qy = ay + aby * t;
+    const qz = az + abz * t;
+    const d = Math.hypot(px - qx, py - qy, pz - qz);
     if (d < bestD) {
       bestD = d;
       bestX = qx;
@@ -221,9 +486,8 @@ export function vesselClosest(v: Vessel, p: Vec3): { point: Vec3; tangent: Vec3;
         bestTy = 0;
         bestTz = 0;
       }
-      bestS = sAcc + t * len;
+      bestS = c.sAcc[i]! + t * len;
     }
-    sAcc += len;
   }
   return { point: [bestX, bestY, bestZ], tangent: [bestTx, bestTy, bestTz], sMm: bestS };
 }
@@ -443,7 +707,7 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
 
   // Vasos intracraneales (antes que el tejido cerebral de fondo).
   for (const v of h.vessels) {
-    if (vesselDistance(v, p) < 0) return 'vaso';
+    if (vesselContains(v, p)) return 'vaso';
   }
 
   const diencephalon = classifyDiencephalon(h, p);
@@ -774,7 +1038,7 @@ export function materialAtHead(h: HeadGeometry, p: Vec3) {
 /** Vaso dominante en un punto (el más cercano cuyo tubo lo contiene). */
 export function vesselAt(scene: VesselScene, p: Vec3): Vessel | null {
   for (const v of scene.vessels) {
-    if (vesselDistance(v, p) < 0) return v;
+    if (vesselContains(v, p)) return v;
   }
   return null;
 }

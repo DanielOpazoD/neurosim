@@ -10,6 +10,9 @@
   `page.click('#pw')` la página se desplaza y el canvas `#bmode` queda fuera de
   la ventana; llamar a `locator('#bmode').scrollIntoViewIfNeeded()` antes de
   usar `page.mouse.click` sobre el B-mode, si no los clics no llegan.
+  El Doppler color es un modo explícito apagado por defecto (DEC-54): pulsar
+  `#color` (o la tecla F) antes de buscar píxeles rojos/azules o de colocar
+  la puerta PW sobre el color.
 - Capas: `src/anatomy` no puede importar `src/ultrasound` (`tests/layers.test.ts`);
   los hooks de escena (`eyeScene`, `headScene`) viven en `src/app/renderRequest.ts`.
 - Pruebas e2e deterministas: `?clock=fixed&t=0.4` pausa el `SimulationClock` en

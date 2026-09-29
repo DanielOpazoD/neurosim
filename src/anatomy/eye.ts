@@ -23,7 +23,7 @@ import type { SeededRandom } from '../core/random';
 import type { Side } from '../domain/contracts';
 import { ANATOMIA_OJO } from './params';
 import type { Vessel } from './head';
-import { vesselDistance } from './head';
+import { vesselContains } from './head';
 import { buildOcularVessels } from './ocularVessels';
 
 const EYE = ANATOMIA_OJO.params;
@@ -246,7 +246,10 @@ export function nerveSection(
 }
 
 /** Radios efectivos de la vaina a distancia s retroglobo (mm). */
-export function sheathRadiiAt(g: EyeGeometry, sMm: number): { minor: number; major: number; nerve: number } {
+export function sheathRadiiAt(
+  g: Pick<EyeGeometry, 'sheathRadiusExtMm' | 'sheathEcc' | 'nerveRadiusMm'>,
+  sMm: number,
+): { minor: number; major: number; nerve: number } {
   // La vaina se adelgaza ligeramente hacia el ápex; el nervio es ~constante.
   const taperAt = (s: number) => 1 - EYE.sheathTaper.value * smoothstep(0, 40, s);
   const taper = taperAt(sMm) / taperAt(3);
@@ -331,7 +334,7 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
   // tubo ACR cableado en la sección del nervio.
   const pp = fromEyeLocal(g, p);
   for (const v of g.vessels) {
-    if (vesselDistance(v, pp) < 0) return 'vaso';
+    if (vesselContains(v, pp)) return 'vaso';
   }
 
   // Fuera de toda región orbitaria → aire muy anterior o tejido facial.

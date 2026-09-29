@@ -5,7 +5,7 @@
 import { SeededRandom, hash3 } from '../core/random';
 import type { AcquisitionSettings, ColorBox, ProbePose } from '../domain/contracts';
 import type { HeadGeometry, Vessel, VesselScene } from '../anatomy/head';
-import { vesselClosest, vesselDistance } from '../anatomy/head';
+import { vesselClosest, vesselDistance, vesselLowerBound } from '../anatomy/head';
 import type { CerebralFlow } from '../physiology/flow';
 import { elevationFwhmMm, probeBeamSpec } from '../ultrasound/beam';
 import { beamDirAt, imageToPatient, type ScanGeometry } from '../ultrasound/probe';
@@ -162,6 +162,9 @@ export function renderColorDoppler(
       let bestExtra = Infinity;
       let primaryVessel: Vessel | null = null;
       for (const vessel of scene.vessels) {
+        // Descarte exacto (DEC-54): un vaso cuya cota inferior no baja del
+        // mejor ni del semigrosor de corte no puede ser el vaso primario.
+        if (vesselLowerBound(vessel, center) >= Math.min(bestExtra, sliceHalfMm)) continue;
         const distance = vesselDistance(vessel, center);
         if (distance < bestExtra) {
           bestExtra = distance;

@@ -4,12 +4,12 @@
  */
 import type { ReferenceCase } from '../domain/referenceCase';
 import { errors } from '../core/errorLog';
-import type { AppState } from './state';
+import { imagingMode, type AppState } from './state';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport } from '../domain/onsdProtocol';
 
 export function exportPayload(sim: ReferenceCase, s: AppState): object {
-  const mode = s.pwOn ? 'pw' : s.station === 'temporal' ? 'color' : 'bmode';
+  const mode = imagingMode(s);
   return {
     case: sim.patient.label,
     clinicalCase: sim.clinicalCase.id,
@@ -30,6 +30,7 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
     measurements: s.measurements,
     onsdReport: buildReport(s.onsd),
     settings: s.settings,
+    colorOn: s.colorOn,
     probe: {
       offsetMm: s.offsetMm,
       offsetVMm: s.offsetVMm,

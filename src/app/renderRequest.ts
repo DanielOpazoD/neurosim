@@ -127,16 +127,31 @@ export function eyeScene(
         return fromEyeLocal(eye, q);
       }
     : undefined;
+  // renderBMode llama classify y scatterScale sobre el mismo punto por
+  // muestra: memoizar la última clasificación evita una pasada doble
+  // (como en `headScene`; mismo resultado).
+  let lx = Number.NaN;
+  let ly = Number.NaN;
+  let lz = Number.NaN;
+  let lastId: MaterialId = 'aire';
+  const classifyCached = (p: Vec3): MaterialId => {
+    if (p[0] === lx && p[1] === ly && p[2] === lz) return lastId;
+    lx = p[0];
+    ly = p[1];
+    lz = p[2];
+    lastId = classifyEye(eye, p);
+    return lastId;
+  };
   return {
     warp,
     classify: (p: Vec3): MaterialId => {
-      const id = classifyEye(eye, p);
+      const id = classifyCached(p);
       return id === 'grasaOrbitaria' && scatterNoise(`${seedLabel}:septa2`, p, 3) > 0.72
         ? 'septoOrbitario'
         : id;
     },
     scatterScale: (p: Vec3): number =>
-      classifyEye(eye, p) === 'grasaOrbitaria'
+      classifyCached(p) === 'grasaOrbitaria'
         ? 0.75 + 0.5 * (0.5 + 0.5 * scatterNoise(`${seedLabel}:septa`, p, 2))
         : 1,
   };
@@ -296,8 +311,20 @@ export function renderCase(
   return sim;
 }
 
+/** ¿Misma fisiología basal? (todas las claves numéricas, en ambos sentidos). */
+function samePhysiology(a: BasalPhysiology, b: BasalPhysiology): boolean {
+  const ka = Object.keys(a) as (keyof BasalPhysiology)[];
+  const kb = Object.keys(b) as (keyof BasalPhysiology)[];
+  return ka.length === kb.length && ka.every((k) => Object.is(a[k], b[k]));
+}
+
 export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderResponse {
-  if (req.physiology) sim.setPhysiology(req.physiology);
+  // `setPhysiology` reconstruye ambos ojos (vasos, cachés del nervio): solo
+  // si la fisiología cambió, no en cada fotograma (DEC-54; es determinista,
+  // así que el resultado es el mismo).
+  if (req.physiology && !samePhysiology(req.physiology, sim.patient.physiology)) {
+    sim.setPhysiology(req.physiology);
+  }
   const poseInput: PoseInput = {
     side: req.side,
     station: req.station,

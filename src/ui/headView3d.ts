@@ -324,19 +324,26 @@ export class HeadView3D {
   }
 
   /** Abanico/rectángulo translúcido del plano de barrido bajo la sonda. */
+  /** Material del plano compartido: se crea una vez (DEC-54). */
+  private readonly planeMat = new THREE.MeshBasicMaterial({
+    color: '#4da3ff',
+    transparent: true,
+    opacity: 0.18,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+
   private updateScanPlane(s: AppState, pose: ProbePose, scan: ScanGeometry | null): void {
+    // Liberar las geometrías previas (antes se acumulaban en la GPU).
+    this.planeGroup.traverse((o) => {
+      if (o instanceof THREE.Mesh) o.geometry.dispose();
+    });
     this.planeGroup.clear();
     if (!scan) return;
     const depth = s.settings.depthMm;
     const basis = probeBasis(pose);
     const apex = v3(basis.origin);
-    const mat = new THREE.MeshBasicMaterial({
-      color: '#4da3ff',
-      transparent: true,
-      opacity: 0.18,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
+    const mat = this.planeMat;
     if (scan.kind === 'linear') {
       const a = scan.lines[0]!;
       const b = scan.lines[scan.lines.length - 1]!;

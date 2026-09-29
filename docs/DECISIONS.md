@@ -364,3 +364,89 @@
     etiqueta y valor en líneas distintas de `innerText`, que es lo que lee
     la prueba e2e (`PSV\n80`). Iconos: sprite `<svg class="sprite">` con
     `<symbol>` y `<use>`, sin fuentes ni CDN.
+53. **DEC-54** — Doppler color como modo explícito, arterias ciliares
+    posteriores pegadas a la vaina y rendimiento de extremo a extremo.
+    (a) **Color = modo**: `AppState.colorOn` (falso al cargar y en cada
+    `setStation`), botón `#color` (`.btn-mode`, icono `i-color`, atajo
+    **F**, sin conflicto con Espacio/P/C/D/flechas/Q/E/R/±). Apagado:
+    `RenderRequest.color = false` → el worker no llama a
+    `renderColorDoppler`; sin superposición, sin caja (tampoco en el
+    navegador 3D), sin arrastre de caja y con la persistencia de color
+    descartada. PW no fuerza el color (dúplex PW sobre escala de grises es
+    válido); la puerta PW se dibuja con o sin color. El modo acústico
+    (MI/TI, exportación) sale de `imagingMode(s)`: PW > color > B-mode — el
+    ojo sin color pasa a declarar `bmode`. El conmutador queda en el
+    debriefing (`settings color=on/off`) y la exportación incluye
+    `colorOn`. Las pruebas e2e que necesitan color pulsan `#color`
+    (`AGENTS.md`). (b) **Línea de color espuria del ojo** — diagnóstico con
+    la verdad del modelo (pose ojo D por defecto, caja 18–40 mm, corte
+    lineal 176 líneas; semigrosor de corte en elevación 1,0 mm): la línea
+    naranja vertical a la derecha era `acp-sup-der`, un tubo recto de dos
+    puntos (local x = +3→+4 mm, y = −1→−1,5 mm, de s = 10 mm a la pared)
+    que en imagen caía en u = +2…+4,9 mm, z = 26,2→38 mm, es decir
+    5,5–7,5 mm a la derecha del eje del nervio y 1–1,5 mm fuera del plano;
+    el temblor/deriva de la mano (±0,9 mm en elevación) lo metía en el
+    grosor de corte en 21 de 40 fotogramas (barrido 0–20 s). El par
+    azul+naranja «sobre la franja izquierda» era `acp-inf-der` (u = −1,9…
+    −4,6 mm, z = 25,6→37 mm, cruzando en diagonal el lado izquierdo del
+    nervio/LCR; 12/40 fotogramas) junto a la VCR azul. La ACR/VCR no
+    estaban mal: dentro del parénquima (vecinos a ±0,5 mm = `nervioOptico`
+    hasta s = 12 mm) y, en el B-mode renderizado a reloj fijo, centradas
+    entre los dos mínimos de LCR a ±0,1 mm (z = 28/33/38 mm: punto medio
+    de las franjas −1,81/−2,55/−3,92 mm frente a −1,9/−2,67/−3,9 mm del
+    par), así que su desplazamiento no se tocó. La AO no aparece en la caja
+    en ningún fotograma: cruza el nervio 6 mm por encima del plano a
+    s ≈ 15 mm (≈42 mm de profundidad) y solo entra en el plano a 48–67 mm,
+    fuera de la caja y de la profundidad por defecto; la VOS tampoco.
+    Corrección (`ocularVessels.ts`): las ciliares pasan a `acp-lat-*`
+    (supero-temporal) y `acp-med-*` (ínfero-nasal), nacen a s = 7 mm, van a
+    `major(s) + 1,0 mm` del eje con el desplazamiento aplicado en el marco
+    local de la sección del nervio (tangente, normal horizontal
+    `t × ŷ`, `h × t`) — siguen la curva nasal y la tortuosidad — con una
+    ondulación suave (±0,45 mm, 5 puntos de control Catmull-Rom) a 30° del
+    meridiano horizontal, y perforan la pared a 2,3 mm del centro de la
+    papila. En el corte transversal por defecto ya solo aparecen los
+    últimos milímetros junto a la vaina (celdas de color siempre a
+    ≤ 1,5 mm de la dura; prueba nueva en `ocularDoppler.test.ts`, que falla
+    con la geometría anterior). Dorado `colorAcrDer` regenerado por este
+    cambio (e22b4718 → 4b60e859); `eyeDerBmode` y los demás no cambian.
+    (c) **Rendimiento** — medido en el navegador (Chromium sin cabeza con
+    GPU Metal, 1440×900, 10 s por configuración). El perfil del hilo
+    principal mostraba que ~75 % del tiempo sin PW era
+    `getProgramInfoLog`/`getShaderInfoLog`: `Navigator3D.updatePlane`
+    creaba y liberaba sus materiales en cada rAF y Three.js recompilaba el
+    GLSL en cada fotograma. Cambios, por orden de ganancia: materiales
+    persistentes en el navegador (solo se liberan geometrías), plano
+    reconstruido solo cuando cambia su clave y pintado como mucho a 15 Hz
+    salvo que la cámara se mueva (`renderIfNeeded`); la vista de cabeza
+    reutiliza su material y libera las geometrías que antes se acumulaban.
+    LUT de conversión de barrido (`scanLut`: vecinos/pesos bilineales y
+    (z, u) por píxel, por tipo de sonda/ancho/profundidad/malla/canvas, sin
+    `atan2`/`hypot` por píxel) compartida por el B-mode y la superposición
+    de color, con el color compuesto sobre el mismo `ImageData` reutilizado
+    antes de un único `putImageData` (ruta CPU; la GPU sigue releyendo el
+    canvas). Paneles DOM a 4 Hz con `innerHTML` solo si cambia y sin
+    recalcular `<details>` cerrados (cualquier tecla/clic/entrada fuerza
+    el refresco). Espectrograma: percentil por selección en lugar de
+    ordenar ~80 k valores por rAF, sumas y vecinos de bin por fila (salida
+    bit a bit idéntica, comprobada contra la versión previa). Canalización
+    de render (`RenderPool`): 2 workers (`?workers=1..4`), cada uno con una
+    solicitud en vuelo, sin el tope fijo de 90 ms y como mucho a 30 fps;
+    una respuesta más antigua que la ya dibujada se descarta. En el
+    worker, solo cambios bit a bit idénticos: segmentos precalculados por
+    vaso, prefiltro por d² antes de `Math.hypot` (margen 1e-12), descarte
+    por esferas de bloques de 8 segmentos y cota inferior por vaso
+    (`vesselLowerBound`) en el vaso primario de cada celda de color, en la
+    base tisular del clutter y en `vesselAtBlood`; `vesselContains` con
+    salida temprana para clasificar; memo de la última clasificación en
+    `eyeScene` (como `headScene`); memo de la derivada de la forma arterial
+    por fase; y `setPhysiology` solo si la fisiología cambió (antes
+    reconstruía ambos ojos en cada solicitud). Todos los dorados salvo
+    `colorAcrDer` (por (b)) se mantienen. Se descartó mover la conversión
+    de barrido al worker: con la LUT cuesta 3–11 ms en el hilo principal y
+    el worker es el cuello de botella de los fps, así que añadirle trabajo
+    los bajaría; la persistencia de color sigue por celda en el hilo
+    principal (comportamiento idéntico). Pendiente: la cadena PW (física
+    del volumen de muestra a la PRF, `SampleVolume.generate`) sigue en el
+    hilo principal y domina con PW activo (~40 % del perfil, 33–70 ms por
+    rAF); moverla a un worker es el siguiente paso.

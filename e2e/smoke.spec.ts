@@ -13,6 +13,22 @@ async function nonEmptyBModePixels(page: import('@playwright/test').Page): Promi
   });
 }
 
+/** Píxeles claramente coloreados (Doppler color) en el B-mode. */
+async function colorPixels(page: import('@playwright/test').Page): Promise<number> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('#bmode') as HTMLCanvasElement;
+    const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+    let colored = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i]!;
+      const g = pixels[i + 1]!;
+      const b = pixels[i + 2]!;
+      if (Math.abs(r - b) > 60 || Math.abs(r - g) > 60) colored++;
+    }
+    return colored;
+  });
+}
+
 async function placeM1Gate(page: import('@playwright/test').Page): Promise<void> {
   await page.evaluate(() => {
     const canvas = document.querySelector('#bmode') as HTMLCanvasElement;
@@ -47,6 +63,9 @@ test('flujo docente completo sin errores', async ({ page }) => {
   expect(hvBox && hvBox.width > 40 && hvBox.height > 40).toBe(true);
   await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
   await expect(page.locator('#errores')).toBeHidden();
+  // Doppler color: modo explícito, apagado al cargar (DEC-54).
+  await expect(page.locator('#color')).not.toHaveClass(/on/);
+  await expect(page.locator('body')).toHaveAttribute('data-color', 'false');
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 
@@ -60,7 +79,12 @@ test('flujo docente completo sin errores', async ({ page }) => {
 
   await page.locator('[data-station="temporal"][data-side="der"]').click();
   await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
+  // Color antes del PW, como en el flujo clínico (F = atajo de #color).
+  await page.keyboard.press('f');
+  await expect(page.locator('#color')).toHaveClass(/on/);
+  await expect.poll(() => colorPixels(page), { timeout: 20_000 }).toBeGreaterThan(20);
   await page.locator('#pw').click();
+  await expect(page.locator('#color')).toHaveClass(/on/);
   await placeM1Gate(page);
   await expect
     .poll(async () => readoutValue(await page.locator('#readouts').innerText(), 'PSV'), { timeout: 15_000 })
@@ -78,12 +102,14 @@ test('flujo docente completo sin errores', async ({ page }) => {
   const jsonPath = await jsonDownload!.path();
   expect(jsonPath).not.toBeNull();
   const payload = JSON.parse(await readFile(jsonPath!, 'utf8')) as {
+    colorOn: boolean;
     frame: unknown;
     measurements: unknown[];
     settings: { lineDensity: string };
     errores: unknown[];
   };
   expect(payload.frame).not.toBeNull();
+  expect(payload.colorOn).toBe(true);
   expect(payload.measurements).toEqual(expect.any(Array));
   expect(payload.settings.lineDensity).toBe('media');
   expect(payload.errores).toEqual([]);
