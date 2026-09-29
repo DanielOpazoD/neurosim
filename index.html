@@ -109,11 +109,39 @@
         <div class="exam" data-exam="temporal">
           <svg class="ic examIcon"><use href="#i-brain" /></svg>
           <span class="examName">Doppler transcraneal</span>
-          <div class="sides tabs" role="group" aria-label="Lado (Doppler transcraneal)">
+          <div class="windows" role="group" aria-label="Ventana (Doppler transcraneal)">
+            <button class="win" data-window="temporal" title="Ventana temporal: ACM (M1)">Temporal</button>
+            <button
+              class="win"
+              data-window="submandibular"
+              title="Ventana submandibular: ACI extracraneal distal (Lindegaard)"
+            >
+              Submandibular
+            </button>
+          </div>
+          <div class="sides tabs tcdTemporal" role="group" aria-label="Lado (Doppler transcraneal)">
             <button class="tab" data-station="temporal" data-side="der" title="Ventana temporal derecha">
               D
             </button>
             <button class="tab" data-station="temporal" data-side="izq" title="Ventana temporal izquierda">
+              I
+            </button>
+          </div>
+          <div class="sides tabs tcdSubmand" role="group" aria-label="Lado (ventana submandibular)">
+            <button
+              class="tab"
+              data-station="submandibular"
+              data-side="der"
+              title="Ventana submandibular derecha"
+            >
+              D
+            </button>
+            <button
+              class="tab"
+              data-station="submandibular"
+              data-side="izq"
+              title="Ventana submandibular izquierda"
+            >
               I
             </button>
           </div>

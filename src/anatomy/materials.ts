@@ -60,6 +60,10 @@ export type MaterialId =
   | 'pineal' // glándula pineal ecogénica
   | 'cisterna' // LCR basal
   | 'vaso' // sangre arterial dentro de un vaso
+  | 'grasaSubcutanea' // tejido celular subcutáneo cervical (DEC-58)
+  | 'glandulaSubmandibular' // parénquima glandular homogéneo, algo ecogénico
+  | 'musculoCervical' // digástrico / milohioideo: bandas hipoecoicas
+  | 'tejidoCervical' // tejido blando cervical profundo de fondo
   | 'aire'; // fuera del paciente
 
 const m = (
@@ -130,6 +134,13 @@ export const MATERIALS: Readonly<Record<MaterialId, Material>> = Object.freeze({
   // Líquidos craneales ajustados para conservar α(2 MHz) del modelo previo.
   cisterna: m('cisterna', 1500, 1007, 0.3 / 2, 2.0, 0.6, 0.55),
   vaso: m('vaso', 1570, 1060, 0.15 / 2, 2.0, 0.35, 0.25),
+  // Escena submandibular (DEC-58): grasa subcutánea hipoecoica, glándula
+  // homogénea algo más ecogénica que el músculo, músculo hipoecoico y un
+  // fondo de tejido blando intermedio (Duck 1990: blandos α₀≈0,6–0,8, n≈1,1).
+  grasaSubcutanea: m('grasaSubcutanea', 1478, 950, 0.6, 1.0, 0.6, 0.3),
+  glandulaSubmandibular: m('glandulaSubmandibular', 1560, 1050, 0.8, 1.1, 0.9, 0.8),
+  musculoCervical: m('musculoCervical', 1590, 1070, 0.8, 1.1, 0.45, 0.16),
+  tejidoCervical: m('tejidoCervical', 1560, 1040, 0.7, 1.1, 0.6, 0.32),
   aire: m('aire', 343, 1.2, 10.0, 1.1, 0.0, 0.0),
 });
 

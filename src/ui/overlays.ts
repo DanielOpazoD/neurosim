@@ -18,7 +18,7 @@ import { buildReport } from '../domain/onsdProtocol';
 import type { PwController } from '../app/pwController';
 import { angleCorrectionErrorFactor } from '../doppler/insonation';
 import { acousticOutput } from '../ultrasound/acousticOutput';
-import { lindegaardRatio, observedTrace } from '../doppler/measureMca';
+import { lindegaardInterpretation, observedTrace } from '../doppler/measureMca';
 import { DOPPLER } from '../doppler/params';
 
 export { canvasToImagePoint, imagePointToCanvas };
@@ -401,14 +401,7 @@ export function updateReadouts(
         row('Latidos', `${summary.beats}`),
         row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}`, { unit: '%' }),
         wide('Vaso dominante', comp?.dominantVesselId ?? '—'),
-        ...(comp?.dominantVesselId?.startsWith('m1-')
-          ? [
-              wide(
-                'Lindegaard',
-                `TAMax ${Math.abs(summary.taMaxCms).toFixed(0)} / ACI ${sim.clinicalCase.icaExtracranialTamaxCms.toFixed(0)} = ${lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms).toFixed(1)}`,
-              ),
-            ]
-          : []),
+        ...lindegaardRows(s, controller),
         ...angleRows,
         ...hemoRows,
         ...alaraRows,
@@ -435,6 +428,32 @@ export function updateReadouts(
   } else {
     setHtml(el, [...angleRows, ...hemoRows, ...alaraRows, ...reportRows, row('Sin medidas', '—')].join(''));
   }
+}
+
+/**
+ * Filas del Lindegaard (DEC-58). Temporal con la puerta en M1: índice con la
+ * ACI medida del mismo lado («ACI medida») o, si falta, con la de referencia
+ * del caso. Submandibular con la puerta en la ACI: TAMax guardada para el
+ * índice de ese lado.
+ */
+function lindegaardRows(s: AppState, controller: PwController): string[] {
+  const li = controller.lindegaard();
+  if (li) {
+    const label = li.icaSource === 'medida' ? 'ACI medida' : 'ACI de referencia';
+    return [
+      row(
+        `Lindegaard · ${label}`,
+        `TAMax ACM ${li.mcaTaMaxCms.toFixed(0)} / ACI ${li.icaTaMaxCms.toFixed(0)} = ${li.ratio.toFixed(1)}`,
+        { wide: true, warn: li.ratio >= 3 },
+      ),
+      wide('Interpretación', lindegaardInterpretation(li.ratio)),
+    ];
+  }
+  const ica = s.station === 'submandibular' ? controller.measuredIca(s.side) : null;
+  if (ica && controller.composition()?.dominantVesselId?.startsWith('aci-')) {
+    return [wide('ACI medida', `TAMax ${ica.taMaxCms.toFixed(0)} cm/s → Lindegaard ${s.side}`)];
+  }
+  return [];
 }
 
 function planeForLabel(rotDeg: number): string {

@@ -14,7 +14,7 @@ import type { ReferenceCase } from '../domain/referenceCase';
 import type { AppState } from '../app/state';
 import type { Side, Station } from '../domain/contracts';
 import { surfacePoint } from '../anatomy/head';
-import { eyePose, temporalPose } from '../app/poses';
+import { stationPose } from '../app/poses';
 import { buildProbeGroup, probeBasis, updateProbePose } from './probeMesh';
 import type { ProbePose } from '../domain/contracts';
 import type { ScanGeometry } from '../ultrasound/probe';
@@ -52,8 +52,16 @@ export interface HotspotHit {
   readonly side: Side;
 }
 
-/** ¿El punto cae cerca de una ventana temporal o de un globo ocular? */
+/** Radio del hotspot submandibular (anillo bajo el ángulo mandibular), mm. */
+const SUBMANDIBULAR_HOTSPOT_MM = 12;
+
+/** ¿El punto cae cerca de una ventana temporal, submandibular o de un globo ocular? */
 export function hotspotAt(point: Vec3, sim: ReferenceCase): HotspotHit | null {
+  for (const side of ['der', 'izq'] as const) {
+    if (Math.hypot(...sub(point, sim.neck[side].frame.origin)) <= SUBMANDIBULAR_HOTSPOT_MM + 4) {
+      return { station: 'submandibular', side };
+    }
+  }
   for (const side of ['der', 'izq'] as const) {
     if (Math.hypot(...sub(point, sim.head.windowCenter[side])) <= sim.head.windowRadiusMm + 6) {
       return { station: 'temporal', side };
@@ -79,7 +87,7 @@ export function stationBase(sim: ReferenceCase, s: AppState): PoseBase {
     rotDeg: 0,
     press: s.press,
   };
-  const pose = s.station === 'ojo' ? eyePose(sim, input) : temporalPose(sim, input);
+  const pose = stationPose(sim, input);
   const fwd = normalize(pose.forward);
   return {
     origin: pose.origin,
@@ -164,9 +172,10 @@ export class HeadView3D {
     // cabeza completa (la cabeza ocupa ~75 % de la altura del canvas).
     const sign = side === 'der' ? -1 : 1;
     const az = ((station === 'ojo' ? 30 : 55) * Math.PI) / 180;
-    const el = ((station === 'ojo' ? 8 : 12) * Math.PI) / 180;
+    // Submandibular: cámara algo por debajo para ver el ángulo mandibular.
+    const el = ((station === 'ojo' ? 8 : station === 'submandibular' ? -14 : 12) * Math.PI) / 180;
     const dist = Math.min(500, 4.8 * Math.max(...this.sim.head.skullRadii));
-    this.controls.target.set(c[0], c[1], c[2] + 12);
+    this.controls.target.set(c[0], c[1] - (station === 'submandibular' ? 30 : 0), c[2] + 12);
     this.camera.position.set(
       c[0] + sign * dist * Math.sin(az) * Math.cos(el),
       c[1] + dist * Math.sin(el),
@@ -239,6 +248,29 @@ export class HeadView3D {
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(34, 38, 70, 24), skin);
     neck.position.set(c[0], c[1] - r[1] - 24, c[2] - 8);
     this.scene.add(neck);
+    // Mandíbula estilizada: el punto submandibular queda en su cara inferior.
+    const jaw = new THREE.Mesh(new THREE.SphereGeometry(1, 36, 24), skin);
+    jaw.position.set(c[0], -56, 12);
+    jaw.scale.set(50, 24, 52);
+    this.scene.add(jaw);
+    // Hotspots submandibulares (DEC-58): anillos bajo el ángulo mandibular,
+    // perpendiculares al haz craneal por defecto.
+    for (const side of ['der', 'izq'] as const) {
+      const f = this.sim.neck[side].frame;
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(SUBMANDIBULAR_HOTSPOT_MM, 1.0, 8, 36),
+        new THREE.MeshBasicMaterial({
+          color: '#4da3ff',
+          transparent: true,
+          opacity: 0.35,
+          depthWrite: false,
+        }),
+      );
+      ring.position.copy(v3(add(f.origin, scale(f.beam, -1))));
+      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), v3(scale(f.beam, -1)));
+      this.scene.add(ring);
+      this.hotspots.push({ mesh: ring, station: 'submandibular', side });
+    }
     // Ojos: globo blanco que abomba de la cara + iris, pupila, párpados y ceja.
     const eyeWhite = new THREE.MeshStandardMaterial({ color: '#f2f4f6', roughness: 0.35 });
     const irisMat = new THREE.MeshStandardMaterial({ color: '#2a3550', roughness: 0.4 });

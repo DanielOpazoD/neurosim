@@ -82,6 +82,7 @@ export function buildGuideContext(
     const angle = pw.insonation();
     if (angle?.vesselId && Number.isFinite(angle.realDeg)) insonationRealDeg = angle.realDeg;
   }
+  const lindegaard = s.pwOn ? pw.lindegaard() : null;
   const measurements: GuideMeasurement[] = s.measurements.map((m) => {
     const info = meta.get(m);
     return {
@@ -125,5 +126,10 @@ export function buildGuideContext(
     measurements,
     onsdSlots,
     nerveImageUMm: eyeNerveImageU(sim, s),
+    icaMeasuredCms: {
+      der: s.icaMeasured.der?.taMaxCms ?? null,
+      izq: s.icaMeasured.izq?.taMaxCms ?? null,
+    },
+    lindegaard: lindegaard ? { side: s.side, ...lindegaard } : null,
   };
 }

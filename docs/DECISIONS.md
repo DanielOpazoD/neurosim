@@ -662,3 +662,60 @@ variante, caso)` que el worker de render. El protocolo vive en
     `colorAcrDer` (4b60e859 → 96f86b1b; ACR/VCR desplazadas en (u, v) y
     ciliares con el marco nuevo) cambian; `temporalDerBmode`, `pwM1Point2`
     y `colorM1Der` no.
+57. **DEC-58** — Ventana submandibular y Lindegaard medido.
+    El índice de Lindegaard dividía la TAMax de la ACM por una constante del
+    caso (LIM-02). (a) **Anatomía** `src/anatomy/neck.ts` (pura): marco local por
+    lado anclado en el punto cutáneo submandibular (x = ±36, y = −74,
+    z = 12 mm, marco de la cabeza) con haz por defecto craneal ~30° desde la
+    vertical hacia la base del cráneo; piel 1,5 mm + subcutáneo hasta 4 mm,
+    glándula submandibular (elipsoide homogéneo, algo ecogénico), digástrico
+    y milohioideo (hipoecoicos), rama mandibular (hueso, sombra lateral),
+    ACI distal (radio 2,2 mm, cruza el haz central a ~45 mm, ángulo de
+    insonación ~7°, continúa hasta ≤ 6 mm del sifón `ica-*`), ACE medial y
+    anterior con ramas facial y lingual, y yugular interna lateral
+    (radio 4,5 mm, venosa, hacia la sonda). Materiales nuevos:
+    `grasaSubcutanea`, `glandulaSubmandibular`, `musculoCervical`,
+    `tejidoCervical`. (b) **Caudal**: `neckIcaFlowMlMin` = M1 + A1 + AComP
+    ipsilaterales (= sifón de `buildWillisVessels`) con la misma relación
+    Q = v̄·πr²·0,6; la hemodinámica del caso (`flowFactor`, onda) modula la
+    ACI igual que la ACM, así que la hiperemia sube ambas y el vasoespasmo
+    (radio de M1 reducido, caudal igual) solo la ACM. Radio 2,2 mm en vez de
+    2,6: con el caudal de Willis (≈ 326 ml/min) 2,6 mm daría TAMax ≈ 26 cm/s
+    y un Lindegaard normal > 2; 2,2 mm da TAMax 35,7, PSV/EDV 58/22 cm/s.
+    (c) **Onda de alta resistencia**: `Vessel.waveform?: 'baja' | 'alta'`;
+    `'alta'` usa `highResistanceShape` (pico φ≈0,12, incisura φ≈0,24,
+    rebote φ≈0,34, cola baja; media 0,157) entre EDV y PSV, sin
+    hemodinámica cerebral. (d) **Estación** `Station` += `'submandibular'`
+    (mismo examen DTC, sonda sectorial 2 MHz): `submandibularPose` (mismos
+    controles; derecha de la imagen = lateral), ajustes de fábrica 70 mm,
+    foco 45, ganancia −2 dB (sin cráneo el eco llega ~16 dB más fuerte),
+    caja color 25–60 mm y puerta a 45 mm; `neckScene`/`neckDopplerScene` y
+    `dopplerSceneFor` en `renderRequest.ts` alimentan B-mode, color, PW e
+    insonación como la escena ocular. TIS (no TIC) en el rótulo acústico.
+    (e) **Resiembra PW**: en vasos largos casi paralelos al haz la caja de
+    la puerta cubre < 10 % de la línea central y los 40 intentos de
+    reentrada fallaban (~5 %), convirtiendo la sangre en tejido: la puerta
+    en la ACI se vaciaba en ~1 s. `pointOnVesselInBoxFallback` elige, sin
+    consumir el RNG, un segmento cuyo punto medio cae en la caja; los vasos
+    cortos casi nunca llegan ahí y los dorados existentes no cambian.
+    (f) **Lindegaard**: `PwController` guarda en `AppState.icaMeasured` la
+    última TAMax por lado con puerta en `aci-*` (≥ 20 % de sangre, ≥ 2
+    latidos) y su tiempo; en temporal con puerta en M1, `lindegaard()` usa
+    la ACI medida del MISMO lado («ACI medida») o la de referencia del caso
+    («ACI de referencia»), con interpretación < 3 hiperemia/normal, 3–6
+    vasoespasmo leve-moderado, > 6 grave. El debrief de vasoespasmo usa los
+    índices medidos si existen; la exportación incluye el índice, el medido,
+    el de referencia y las ACI medidas. La guía DTC añade dos pasos
+    opcionales (ACI submandibular con ángulo ≤ 30°; Lindegaard con ACI
+    medida) y el resumen rotula el origen del denominador. (g) **UI**:
+    sub-conmutador «Ventana: Temporal | Submandibular» (`.win`) dentro de la
+    píldora DTC; D/I de la ventana activa (`.tab[data-station=…]`, los
+    selectores temporales no cambian), hotspot bajo el ángulo mandibular y
+    mandíbula estilizada en la vista de cabeza, vasos cervicales en el
+    navegador. Medido (lado izq, PW 3 s con la puerta de fábrica de cada
+    ventana; M1 con PRF 16 kHz; TAMax ACM / ACI → índice): normal
+    48,9 / 33,3 → 1,47; vasoespasmo 119,5 / 31,9 → 3,75 (con la ACI de
+    referencia del caso, 45 cm/s, sería 2,66 < 3); hipercapnia 88,4 / 58,4 →
+    1,51. Modelo (TAMax verdadera): 55,0 / 35,7 → 1,54; 147,2 / 34,4 → 4,28;
+    100,3 / 65,2 → 1,54. **Dorados**: se añaden `submandibularDerBmode` y
+    `colorAciDer`; los existentes no cambian.

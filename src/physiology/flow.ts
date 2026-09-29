@@ -103,10 +103,28 @@ export function arterialShape(phase: number): number {
   return arterialShapeTable[left]! * (1 - fraction) + arterialShapeTable[right]! * fraction;
 }
 
+/**
+ * Onda de alta resistencia sin dimensiones h(φ) ∈ [0,1] (ACE y ramas,
+ * DEC-58): ascenso sistólico rápido con pico en φ≈0,12, caída a una incisura
+ * dicrota profunda (φ≈0,24), rebote corto (φ≈0,34) y cola diastólica baja.
+ * v(φ) = EDV + (PSV − EDV)·h(φ); la media de h es ≈0,15.
+ */
+export function highResistanceShape(phase: number): number {
+  const p = ((phase % 1) + 1) % 1;
+  const systolic = Math.exp(-(((p - 0.12) / 0.05) ** 2));
+  const rebound = 0.3 * Math.exp(-(((p - 0.34) / 0.05) ** 2));
+  const ramp = Math.min(1, Math.max(0, (p - 0.3) / 0.12));
+  const tail = 0.12 * ramp * ramp * (3 - 2 * ramp) * Math.exp(-(p - 0.42) / 0.35);
+  return Math.min(1, systolic + rebound + tail);
+}
+
 /** Velocidad espacial media del vaso en la fase dada, cm/s. */
 export function vesselVelocityCms(v: Vessel, phase: number, modulation = 1, hemo?: HemodynamicState): number {
   // Venoso: flujo cuasi estacionario — ignora la forma arterial y la onda hemodinámica.
   if (v.venous) return v.meanCms * modulation;
+  // Alta resistencia (ACE): onda propia, sin reactividad cerebral.
+  if (v.waveform === 'alta')
+    return (v.edvCms + (v.psvCms - v.edvCms) * highResistanceShape(phase)) * modulation;
   if (hemo) return v.meanCms * hemo.flowFactor * hemo.waveform(phase) * modulation;
   return (v.edvCms + (v.psvCms - v.edvCms) * arterialShape(phase)) * modulation;
 }

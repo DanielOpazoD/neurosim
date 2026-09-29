@@ -272,15 +272,27 @@ export function buildDebrief(
   // dilatada en hipertensión intracraneal.
   const caseId = sim.clinicalCase.id;
   if (caseId === 'vasoespasmo' || caseId === 'estenosisM1') {
-    const lindegaard = events
-      .map((event) => numberData(event, 'lindegaard'))
-      .filter((value): value is number => Number.isFinite(value))
-      .reduce((max, value) => Math.max(max, value), -Infinity);
+    // DEC-58: si hay algún Lindegaard con ACI medida (ventana submandibular),
+    // la regla usa solo esos; si no, los calculados con la ACI de referencia.
+    const maxOf = (key: string) =>
+      events
+        .map((event) => numberData(event, key))
+        .filter((value): value is number => Number.isFinite(value))
+        .reduce((max, value) => Math.max(max, value), -Infinity);
+    const measured = maxOf('lindegaardMedido');
+    const useMeasured = Number.isFinite(measured);
+    const lindegaard = useMeasured ? measured : maxOf('lindegaard');
     if (lindegaard >= DOPPLER.params.debriefLindegaardVasospasmMin.value) {
-      add('vasoespasmo-probable', 'aviso', `Lindegaard ${lindegaard.toFixed(1)} ≥ 3: vasoespasmo probable.`, {
-        lindegaard,
-        threshold: DOPPLER.params.debriefLindegaardVasospasmMin.value,
-      });
+      add(
+        'vasoespasmo-probable',
+        'aviso',
+        `Lindegaard ${lindegaard.toFixed(1)} ≥ 3 (ACI ${useMeasured ? 'medida' : 'de referencia'}): vasoespasmo probable.`,
+        {
+          lindegaard,
+          icaSource: useMeasured ? 'medida' : 'referencia',
+          threshold: DOPPLER.params.debriefLindegaardVasospasmMin.value,
+        },
+      );
     }
   }
   if (caseId === 'hic') {

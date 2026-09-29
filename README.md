@@ -71,8 +71,15 @@ exacta; una señal ausente no acredita cese circulatorio.
   real del simulador), resaltan el control a usar, dan pistas a los 20 s y
   cierran con un resumen interpretado (DVNO frente al modelo; asimetría, IP
   y Lindegaard) exportable; los tiempos por paso pasan al debriefing.
-- Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:
-  bloques posteriores (ver `docs/LIMITATIONS.md`).
+- Ventana submandibular (DEC-58): dentro del examen Doppler transcraneal,
+  «Ventana: Temporal | Submandibular» insona la ACI extracraneal distal
+  (ACE con ramas y onda de alta resistencia, yugular interna, glándula y
+  mandíbula con sombra); la TAMax de ACI medida es el denominador del índice
+  de Lindegaard del mismo lado («ACI medida»; sin medida, «ACI de
+  referencia» del caso), así la hiperemia (< 3) se distingue del
+  vasoespasmo (≥ 3).
+- Sin dinámica de PIC ni evolución temporal de la patología: bloques
+  posteriores (ver `docs/LIMITATIONS.md`).
 
 ## Evidencia N1
 

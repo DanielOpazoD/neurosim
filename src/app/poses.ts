@@ -95,6 +95,48 @@ export function temporalPose(sim: ReferenceCase, s: PoseInput, side = s.side): P
 }
 
 /**
+ * Ventana submandibular (DEC-58): sonda sectorial bajo el ángulo mandibular,
+ * haz craneal ~30° hacia la base del cráneo. El plano de imagen por defecto
+ * contiene el haz y el lateral del paciente (derecha de la imagen = lateral
+ * en ambos lados). Mismos controles que la temporal: inclinación alrededor
+ * del lateral, angulación en elevación, deslizamientos sobre el plano
+ * cutáneo y giro del marcador. La cara queda 0,3 mm dentro de la piel.
+ */
+export function submandibularPose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbePose {
+  const frame = sim.neck[side].frame;
+  const lateral = frame.lateral;
+  const tilt = (s.tiltDeg * Math.PI) / 180;
+  const rot = ((s.rotDeg ?? 0) * Math.PI) / 180;
+  let fwd = normalize(rotateAround(frame.beam, lateral, tilt));
+  const elev = normalize(cross(lateral, fwd));
+  // Deslizamiento sobre el plano cutáneo (⟂ al haz por defecto).
+  const skinElev = normalize(cross(lateral, frame.beam));
+  const origin = add(
+    add(frame.origin, scale(frame.beam, 0.3)),
+    add(scale(lateral, s.offsetMm), scale(skinElev, s.offsetVMm ?? 0)),
+  );
+  const tiltV = ((s.tiltVDeg ?? 0) * Math.PI) / 180;
+  if (tiltV !== 0) fwd = normalize(rotateAround(fwd, elev, tiltV));
+  const lat = rotateAround(lateral, fwd, rot);
+  return {
+    origin,
+    forward: fwd,
+    lateral: normalize(lat),
+    markerAngleRad: rot,
+    contactPressure: s.press ?? 0.3,
+  };
+}
+
+/** Pose nominal de la estación (sin micro-movimiento de mano). */
+export function stationPose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbePose {
+  return s.station === 'ojo'
+    ? eyePose(sim, s, side)
+    : s.station === 'submandibular'
+      ? submandibularPose(sim, s, side)
+      : temporalPose(sim, s, side);
+}
+
+/**
  * Desplazamiento bruto (mm, marco paciente) del micro-movimiento de mano:
  * temblor + derivas, antes de la cota de contacto de `currentPose`.
  */
@@ -121,7 +163,7 @@ export function handMotionDisplacementMm(t: number, seed: number): Vec3 {
 }
 
 export function currentPose(sim: ReferenceCase, s: PoseInput): ProbePose {
-  const pose = s.station === 'ojo' ? eyePose(sim, s) : temporalPose(sim, s);
+  const pose = stationPose(sim, s);
   if (!s.handMotion || s.tSec === undefined) return pose;
   const seed = sim.patient.seed;
   const t = s.tSec;
@@ -143,7 +185,7 @@ export function currentPose(sim: ReferenceCase, s: PoseInput): ProbePose {
 }
 
 export function poseForSide(sim: ReferenceCase, s: PoseInput, side: Side): ProbePose {
-  return s.station === 'ojo' ? eyePose(sim, s, side) : temporalPose(sim, s, side);
+  return stationPose(sim, s, side);
 }
 
 /**

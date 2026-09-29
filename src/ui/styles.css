@@ -168,14 +168,16 @@ header .sub {
   white-space: nowrap;
 }
 body[data-station='ojo'] .exam[data-exam='ojo'],
-body[data-station='temporal'] .exam[data-exam='temporal'] {
+body[data-station='temporal'] .exam[data-exam='temporal'],
+body[data-station='submandibular'] .exam[data-exam='temporal'] {
   border-color: rgba(77, 163, 255, 0.55);
   background: var(--accent-soft);
   color: var(--text);
   box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.12);
 }
 body[data-station='ojo'] .exam[data-exam='ojo'] .examIcon,
-body[data-station='temporal'] .exam[data-exam='temporal'] .examIcon {
+body[data-station='temporal'] .exam[data-exam='temporal'] .examIcon,
+body[data-station='submandibular'] .exam[data-exam='temporal'] .examIcon {
   color: var(--accent-2);
 }
 .sides {
@@ -204,6 +206,41 @@ body[data-station='temporal'] .exam[data-exam='temporal'] .examIcon {
 .sides .tab.on {
   background: var(--accent);
   color: #06111f;
+}
+/* Sub-conmutador «Ventana» del examen DTC (DEC-58): mismo estilo que D/I. */
+.windows {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.windows .win {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.windows .win:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+.windows .win.on {
+  background: var(--accent);
+  color: #06111f;
+}
+/* D/I de la ventana activa: temporal por defecto, submandibular si procede. */
+.sides.tcdSubmand,
+body[data-station='submandibular'] .sides.tcdTemporal {
+  display: none;
+}
+body[data-station='submandibular'] .sides.tcdSubmand {
+  display: flex;
 }
 .headerRight {
   display: flex;
@@ -654,7 +691,13 @@ body[data-station='ojo'] #planoDiencefalico,
 body[data-station='temporal'] #dvno,
 body[data-station='temporal'] #dte,
 body[data-station='temporal'] #onsdProtocol,
-body[data-station='temporal'] #exportOnsd {
+body[data-station='temporal'] #exportOnsd,
+body[data-station='submandibular'] #planoMesencefalico,
+body[data-station='submandibular'] #planoDiencefalico,
+body[data-station='submandibular'] #dvno,
+body[data-station='submandibular'] #dte,
+body[data-station='submandibular'] #onsdProtocol,
+body[data-station='submandibular'] #exportOnsd {
   display: none;
 }
 .keyHint {
@@ -941,6 +984,7 @@ details.nested summary:hover {
   display: none;
 }
 body[data-station='temporal'] .grpDoppler,
+body[data-station='submandibular'] .grpDoppler,
 body[data-pw='true'] .grpDoppler {
   display: block;
 }
@@ -1302,7 +1346,8 @@ body[data-guide='open'] main {
   outline-offset: 3px;
   animation: guidePulse 1.6s ease-in-out infinite;
 }
-.sides .tab.guide-target {
+.sides .tab.guide-target,
+.windows .win.guide-target {
   border-radius: 999px;
 }
 @keyframes guidePulse {

@@ -47,7 +47,8 @@ export function acousticOutput(inp: AcousticOutputInput): AcousticOutput {
   const prDeratedMPa = pressure * 10 ** (-(0.3 * inp.frequencyMhz * focusCm) / 20);
   const mi = prDeratedMPa / Math.sqrt(Math.max(Number.EPSILON, inp.frequencyMhz));
   const powerMw = modePowerMw(inp.mode) * 10 ** (outputDb / 10) * dutyFactor(inp);
-  const tiKind = inp.station === 'ojo' ? 'TIS' : 'TIC';
+  // TIC solo con hueso en el foco (ventana temporal); ojo y cuello → TIS.
+  const tiKind = inp.station === 'temporal' ? 'TIC' : 'TIS';
   const ti =
     tiKind === 'TIS'
       ? (powerMw * inp.frequencyMhz) / 210

@@ -1,9 +1,20 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { eyeDopplerScene, eyeScene, headScene } from '../../src/app/renderRequest';
+import {
+  eyeDopplerScene,
+  eyeScene,
+  headScene,
+  neckDopplerScene,
+  neckScene,
+} from '../../src/app/renderRequest';
+import { submandibularPose } from '../../src/app/poses';
 import { buildReferenceCase, REFERENCE_SEED } from '../../src/domain/referenceCase';
-import { defaultEyeSettings, defaultTemporalSettings } from '../../src/domain/settings';
+import {
+  defaultEyeSettings,
+  defaultSubmandibularSettings,
+  defaultTemporalSettings,
+} from '../../src/domain/settings';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
 import { CerebralFlow } from '../../src/physiology/flow';
 import { renderBMode } from '../../src/ultrasound/bmode';
@@ -19,6 +30,8 @@ type Goldens = {
   pwM1Point2: string;
   colorM1Der: string;
   colorAcrDer: string;
+  submandibularDerBmode: string;
+  colorAciDer: string;
 };
 
 function eyeHash(seed: number): string {
@@ -102,6 +115,41 @@ function colorAcrHash(): string {
   return hashColor(vel, pow);
 }
 
+/** Pose submandibular derecha por defecto (DEC-58). */
+function submandibularDerPose(sim: ReturnType<typeof buildReferenceCase>) {
+  return submandibularPose(sim, { side: 'der', station: 'submandibular', tiltDeg: 0, offsetMm: 0 });
+}
+
+function submandibularHash(): string {
+  const sim = buildReferenceCase();
+  const settings = defaultSubmandibularSettings();
+  const frame = renderBMode(
+    neckScene(sim.neck.der, `seed-${sim.patient.seed}-der`),
+    buildScan(submandibularDerPose(sim), 'sector', 64),
+    settings,
+    `seed-${sim.patient.seed}-der`,
+  );
+  return hashBMode(frame);
+}
+
+function colorAciHash(): string {
+  const sim = buildReferenceCase();
+  const settings = defaultSubmandibularSettings();
+  const pose = submandibularDerPose(sim);
+  const scene = neckDopplerScene(sim.neck.der);
+  const { vel, pow } = renderColorDoppler(
+    scene,
+    new CerebralFlow(scene, sim.patient.physiology),
+    buildScan(pose, 'sector', 64),
+    pose,
+    settings,
+    sim.patient.seed,
+    0.2,
+    settings.colorBox,
+  );
+  return hashColor(vel, pow);
+}
+
 describe('goldens deterministas', () => {
   it('mantiene los hashes de referencia', () => {
     const values: Goldens = {
@@ -110,6 +158,8 @@ describe('goldens deterministas', () => {
       pwM1Point2: pwHash(),
       colorM1Der: colorHash(),
       colorAcrDer: colorAcrHash(),
+      submandibularDerBmode: submandibularHash(),
+      colorAciDer: colorAciHash(),
     };
     if (process.env.GOLDEN_UPDATE === '1') {
       writeFileSync(goldenPath, `${JSON.stringify(values, null, 2)}\n`);

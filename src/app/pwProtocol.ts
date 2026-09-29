@@ -10,7 +10,7 @@ import type { VesselScene } from '../anatomy/head';
 import { PwDopplerChain, type AudioSink } from '../doppler/pwChain';
 import type { GateComposition, GateGeometry } from '../doppler/sampleVolume';
 import type { SpectralColumn } from '../doppler/spectral';
-import { eyeDopplerScene, renderCase, samePhysiology } from './renderRequest';
+import { dopplerSceneFor, renderCase, samePhysiology } from './renderRequest';
 import { handMotionVelocityMmS } from './poses';
 
 /** Equipo PW que reconfigura la cadena (`PwDopplerChain.begin`). */
@@ -137,7 +137,7 @@ function sameEquipment(a: PwEquipment | null, b: PwEquipment): boolean {
 
 /** Escena vascular del Doppler para una estación (igual que la app). */
 export function pwDopplerScene(sim: ReferenceCase, station: Station, side: Side): VesselScene {
-  return station === 'ojo' ? eyeDopplerScene(sim.eyes[side]) : sim.head;
+  return dopplerSceneFor(sim, station, side);
 }
 
 /** Empaqueta columnas en buffers planos (se transfieren sin copia). */

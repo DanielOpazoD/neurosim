@@ -8,6 +8,7 @@
  * histéresis: la comprobación debe mantenerse `GUIDE_HOLD_MS` seguidos.
  */
 import type { Side, Station } from './contracts';
+import { lindegaardInterpretation } from '../doppler/measureMca';
 import type { OnsdKey, OnsdPlane } from './onsdProtocol';
 import { DOPPLER } from '../doppler/params';
 
@@ -65,6 +66,19 @@ export interface GuideContext {
    * retroglobo del ojo explorado; null fuera de la estación ocular.
    */
   readonly nerveImageUMm: number | null;
+  /** TAMax de ACI medida por lado en la ventana submandibular (DEC-58), cm/s. */
+  readonly icaMeasuredCms?: Readonly<Record<Side, number | null>>;
+  /** Lindegaard del lado actual (temporal, puerta en M1 con medida). */
+  readonly lindegaard?: GuideLindegaard | null;
+}
+
+/** Lindegaard tal como lo ve la guía. */
+export interface GuideLindegaard {
+  readonly side: Side;
+  readonly ratio: number;
+  readonly mcaTaMaxCms: number;
+  readonly icaTaMaxCms: number;
+  readonly icaSource: 'medida' | 'referencia';
 }
 
 export type GuideCapture = Readonly<Record<string, number | string>>;
@@ -140,6 +154,16 @@ const inM1 = (ctx: GuideContext): boolean =>
   ctx.pwOn && (ctx.gate.dominantVesselId?.startsWith('m1-') ?? false) && ctx.gate.bloodFraction >= 0.2;
 
 const hasMeasure = (ctx: GuideContext): boolean => ctx.mca !== null && ctx.mca.beats >= 2;
+
+/** Puerta PW en la ACI distal (ventana submandibular) con ≥ 20 % de sangre. */
+const inIca = (ctx: GuideContext): boolean =>
+  ctx.station === 'submandibular' &&
+  ctx.pwOn &&
+  (ctx.gate.dominantVesselId?.startsWith('aci-') ?? false) &&
+  ctx.gate.bloodFraction >= 0.2;
+
+/** Ángulo de insonación máximo aceptado para la ACI submandibular, grados. */
+export const GUIDE_ICA_MAX_ANGLE_DEG = 30;
 
 const captureMca = (ctx: GuideContext): GuideCapture | null =>
   ctx.mca
@@ -293,6 +317,50 @@ export const TCD_GUIDE: Guide = {
       hint: 'Al cambiar de lado el PW y el color se apagan: vuelve a activarlos.',
       target: '.tab[data-station="temporal"][data-side="izq"]',
     },
+    {
+      id: 'submandibular-aci',
+      title: 'Ventana submandibular: ACI distal (opcional)',
+      instruction:
+        'Cambia a Ventana: Submandibular y pon la puerta PW en la ACI distal (flujo alejándose, 30–55 mm) con ángulo ≤ 30°. Mantén al menos dos latidos: su TAMax es el denominador del Lindegaard.',
+      check: (c) =>
+        inIca(c) &&
+        hasMeasure(c) &&
+        c.insonationRealDeg !== null &&
+        c.insonationRealDeg <= GUIDE_ICA_MAX_ANGLE_DEG,
+      capture: (c) =>
+        c.mca
+          ? {
+              side: c.side,
+              vessel: c.gate.dominantVesselId ?? '',
+              icaTaMaxCms: Math.abs(c.mca.taMaxCms),
+              psvCms: Math.abs(c.mca.psvCms),
+              edvCms: Math.abs(c.mca.edvCms),
+              realDeg: c.insonationRealDeg ?? Number.NaN,
+            }
+          : null,
+      hint: 'La ACI corre casi a lo largo del haz, lateral a la ACE (con ramas, onda de alta resistencia) y medial a la yugular (venosa, hacia la sonda).',
+      target: '.win[data-window="submandibular"]',
+    },
+    {
+      id: 'lindegaard',
+      title: 'Calcular Lindegaard (opcional)',
+      instruction:
+        'Vuelve a la ventana temporal del mismo lado con la puerta en la M1: Medidas muestra TAMax ACM / ACI medida.',
+      check: (c) =>
+        c.lindegaard !== null && c.lindegaard !== undefined && c.lindegaard.icaSource === 'medida',
+      capture: (c) =>
+        c.lindegaard
+          ? {
+              side: c.lindegaard.side,
+              lindegaard: c.lindegaard.ratio,
+              mcaTaMaxCms: c.lindegaard.mcaTaMaxCms,
+              icaTaMaxCms: c.lindegaard.icaTaMaxCms,
+              icaSource: c.lindegaard.icaSource,
+            }
+          : null,
+      hint: 'El índice usa la ACI del MISMO lado: mide la ACI y la M1 del lado explorado.',
+      target: '#readouts',
+    },
   ],
 };
 
@@ -302,7 +370,7 @@ export function guideById(id: string): Guide {
   return GUIDES.find((g) => g.id === id) ?? ONSD_GUIDE;
 }
 
-/** Guía del examen actual: ocular → vaina, temporal → DTC. */
+/** Guía del examen actual: ocular → vaina, temporal/submandibular → DTC. */
 export function guideForStation(station: Station): Guide {
   return station === 'ojo' ? ONSD_GUIDE : TCD_GUIDE;
 }
@@ -639,26 +707,42 @@ function tcdSummary(progress: GuideProgress, truth: GuideTruth): GuideSummary {
     piIzq: num(izq, 'pi'),
     asimetriaPsv: asym,
   };
-  if (truth.icaTamaxCms && truth.icaTamaxCms > 0) {
-    for (const [side, c] of [
-      ['D', der],
-      ['I', izq],
-    ] as const) {
-      const ta = num(c, 'taMaxCms');
-      if (ta === null) continue;
-      const li = ta / truth.icaTamaxCms;
-      values[`lindegaard${side}`] = li;
-      rows.push({
-        label: `Lindegaard ${side}`,
-        value: fmt(li, 1),
-        flag: li >= 3 ? 'warn' : 'ok',
-      });
-      interpretation.push(
-        li >= 3
-          ? `Lindegaard ${side} ${fmt(li, 1)} ≥ 3: velocidad alta por vasoespasmo más que por hiperemia.`
-          : `Lindegaard ${side} ${fmt(li, 1)} < 3: sin patrón de vasoespasmo${ta > 120 ? ' (velocidad alta → hiperemia)' : ''}.`,
-      );
+  // Lindegaard (DEC-58): con la ACI medida del mismo lado (paso submandibular
+  // o paso «Calcular Lindegaard») si existe; si no, con la de referencia.
+  const icaCapture = progress.captures['submandibular-aci'];
+  const liCapture = progress.captures['lindegaard'];
+  const measuredIca = (side: Side): number | null => {
+    if (liCapture && liCapture.side === side && liCapture.icaSource === 'medida') {
+      return num(liCapture, 'icaTaMaxCms');
     }
+    return icaCapture && icaCapture.side === side ? num(icaCapture, 'icaTaMaxCms') : null;
+  };
+  for (const [label, side, c] of [
+    ['D', 'der', der],
+    ['I', 'izq', izq],
+  ] as const) {
+    const fromStep = liCapture && liCapture.side === side ? num(liCapture, 'mcaTaMaxCms') : null;
+    const ta = num(c, 'taMaxCms') ?? fromStep;
+    const ica = measuredIca(side);
+    const reference = truth.icaTamaxCms && truth.icaTamaxCms > 0 ? truth.icaTamaxCms : null;
+    const denominator = ica ?? reference;
+    if (ta === null || denominator === null) continue;
+    const li = ta / denominator;
+    const source = ica !== null ? 'ACI medida' : 'ACI de referencia';
+    values[`lindegaard${label}`] = li;
+    values[`lindegaard${label}Fuente`] = ica !== null ? 'medida' : 'referencia';
+    if (ica !== null) values[`aci${label}TaMaxCms`] = ica;
+    rows.push({
+      label: `Lindegaard ${label}`,
+      value: `${fmt(li, 1)} (${source})`,
+      flag: li >= 3 ? 'warn' : 'ok',
+    });
+    const meaning = lindegaardInterpretation(li);
+    interpretation.push(
+      li >= 3
+        ? `Lindegaard ${label} ${fmt(li, 1)} ≥ 3 (${source}): ${meaning}; velocidad alta por vasoespasmo más que por hiperemia.`
+        : `Lindegaard ${label} ${fmt(li, 1)} < 3 (${source}): ${meaning}, sin patrón de vasoespasmo${ta > 120 ? ' (velocidad alta → hiperemia)' : ''}.`,
+    );
   }
   if (!der || !izq) interpretation.push('Falta la medida de algún lado: completa ambos M1 para comparar.');
   return { guideId: TCD_GUIDE.id, title: TCD_GUIDE.title, rows, interpretation, values };

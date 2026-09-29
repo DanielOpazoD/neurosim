@@ -14,7 +14,12 @@ import type {
   Station,
   WillisVariant,
 } from '../domain/contracts';
-import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
+import {
+  defaultEyeSettings,
+  defaultSubmandibularSettings,
+  defaultTemporalSettings,
+} from '../domain/settings';
+import { isTcdStation } from '../domain/contracts';
 import { drawBMode, drawColorOverlay, type ColorOverlayGrid } from './canvasDraw';
 import { createInitialState, imagingMode, type AppState } from '../app/state';
 import { PwController, SyncPwTransport, WorkerPwTransport, type PwTransport } from '../app/pwController';
@@ -351,10 +356,27 @@ function setTiltPreset(value: number): void {
 }
 
 /** Rango del deslizador de profundidad por estación (DEC-52): ocular 30–60 mm,
- * temporal 30–160 mm (alcance del cráneo contralateral y vertebrobasilar). */
+ * temporal 30–160 mm (alcance del cráneo contralateral y vertebrobasilar),
+ * submandibular 30–120 mm (ACI distal hasta la base del cráneo, DEC-58). */
 const DEPTH_RANGE_MM: Record<Station, { min: number; max: number }> = {
   ojo: { min: 30, max: 60 },
   temporal: { min: 30, max: 160 },
+  submandibular: { min: 30, max: 120 },
+};
+
+/** Ajustes de fábrica por estación. */
+function defaultSettingsFor(station: Station): AcquisitionSettings {
+  if (station === 'ojo') return defaultEyeSettings();
+  return station === 'submandibular' ? defaultSubmandibularSettings() : defaultTemporalSettings();
+}
+
+/** Puerta PW por defecto de las estaciones DTC: M1 (52 mm) o ACI distal (45 mm). */
+const DEFAULT_GATE_DEPTH_MM: Partial<Record<Station, number>> = { temporal: 52, submandibular: 45 };
+
+const STATION_TITLE: Record<Station, string> = {
+  ojo: 'Ojo',
+  temporal: 'Temporal',
+  submandibular: 'Submandibular',
 };
 
 /** Etiqueta del botón primario sin destruir icono/atajo (`toHaveText` e2e). */
@@ -364,12 +386,18 @@ function setFreezeLabel(frozen: boolean): void {
 }
 
 function setStation(station: Station, side: Side): void {
+  const previousStation = s.station;
   s.station = station;
   s.side = side;
   document.body.dataset.station = station;
   navigator3d?.resetCamera(station, side);
   headView?.resetCamera(station, side);
-  s.settings = station === 'ojo' ? defaultEyeSettings() : defaultTemporalSettings();
+  s.settings = defaultSettingsFor(station);
+  const gateDepth = DEFAULT_GATE_DEPTH_MM[station];
+  if (gateDepth !== undefined && station !== previousStation) {
+    s.gateDepthMm = gateDepth;
+    s.gateUMm = 0;
+  }
   const depthInput = $<HTMLInputElement>('depth');
   const depthRange = DEPTH_RANGE_MM[station];
   depthInput.min = String(depthRange.min);
@@ -404,9 +432,10 @@ function setStation(station: Station, side: Side): void {
     const t = el as HTMLElement;
     t.classList.toggle('on', t.dataset.station === station && t.dataset.side === side);
   });
+  syncWindowSwitch();
   document.querySelectorAll('.pwonly').forEach((e) => ((e as HTMLElement).style.opacity = '1'));
-  $('navigatorLegend').hidden = station !== 'temporal';
-  $('navigatorTitle').textContent = station === 'ojo' ? `Ojo ${side}` : `Temporal ${side}`;
+  $('navigatorLegend').hidden = station === 'ojo';
+  $('navigatorTitle').textContent = `${STATION_TITLE[station]} ${side}`;
   setPwOn(false);
   setColorOn(false);
   ($('cine') as HTMLButtonElement).disabled = true;
@@ -421,9 +450,21 @@ function setStation(station: Station, side: Side): void {
   $('hint').textContent =
     station === 'ojo'
       ? 'DVNO: activa «DVNO 3 mm» y marca los dos bordes de la vaina a 3 mm retroglobo.'
-      : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
+      : station === 'submandibular'
+        ? 'Submandibular: puerta PW en la ACI distal (flujo alejándose, 30–55 mm, ángulo ≤ 30°); su TAMax es el denominador del Lindegaard.'
+        : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
   s.debrief.setTime(clock.t);
   s.debrief.record('station', `${station} ${side}`, { station, side });
+}
+
+/** Sub-conmutador «Ventana» del examen DTC (DEC-58) ← estación actual. */
+function syncWindowSwitch(): void {
+  const tcdWindow = s.station === 'submandibular' ? 'submandibular' : 'temporal';
+  document.querySelectorAll<HTMLElement>('.win').forEach((b) => {
+    const on = b.dataset.window === tcdWindow && isTcdStation(s.station);
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
 }
 
 /** Parámetros fisiológicos/de tiempo de una solicitud de render. */
@@ -489,15 +530,25 @@ function toggleFreeze(): void {
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
   const composition = pw.composition();
   const summary = pw.latestMcaMeasure();
+  // Lindegaard (DEC-58): el índice registrado usa la ACI medida del mismo
+  // lado si existe; se guardan también el medido y el de referencia.
+  const li = pw.lindegaard();
+  const reference =
+    li !== null ? lindegaardRatio(li.mcaTaMaxCms, sim.clinicalCase.icaExtracranialTamaxCms) : Number.NaN;
+  const icaHere = s.station === 'submandibular' ? pw.measuredIca(s.side) : null;
   s.debrief.setTime(clock.t);
   s.debrief.record('freeze', s.frozen ? 'congelar' : 'reanudar', {
     frozen: s.frozen,
+    station: s.station,
+    side: s.side,
     bloodFraction: composition?.bloodFraction ?? 0,
     pi: summary?.pi ?? Number.NaN,
-    lindegaard:
-      summary && composition?.dominantVesselId?.startsWith('m1-')
-        ? lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms)
-        : Number.NaN,
+    lindegaard: li?.ratio ?? Number.NaN,
+    lindegaardSource: li?.icaSource ?? '',
+    lindegaardMedido: li?.icaSource === 'medida' ? li.ratio : Number.NaN,
+    lindegaardReferencia: reference,
+    mcaTaMaxCms: li?.mcaTaMaxCms ?? Number.NaN,
+    icaTaMaxCms: li?.icaTaMaxCms ?? icaHere?.taMaxCms ?? Number.NaN,
   });
 }
 
@@ -765,6 +816,7 @@ function syncProtocolControls(): void {
     const t = el as HTMLElement;
     t.classList.toggle('on', t.dataset.station === s.station && t.dataset.side === s.side);
   });
+  syncWindowSwitch();
   const slot = nextSlot(s.onsd);
   $('hint').textContent =
     s.onsdActive && s.station === 'ojo'
@@ -989,7 +1041,7 @@ function frameLoop(now: number): void {
         currentScan,
         navPose,
         gateCenter,
-        s.colorOn && s.station === 'temporal' ? s.settings.colorBox : null,
+        s.colorOn && isTcdStation(s.station) ? s.settings.colorBox : null,
       );
       navigator3d.renderIfNeeded(now);
     }
@@ -1153,8 +1205,17 @@ document.querySelectorAll('.tab').forEach((el) =>
 // conservando el lado actual; los botones D/I siguen siendo las `.tab`.
 document.querySelectorAll<HTMLElement>('.exam').forEach((pill) =>
   pill.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).closest('.tab')) return;
+    if ((e.target as HTMLElement).closest('.tab, .win')) return;
     const station = pill.dataset.exam as Station;
+    // El examen DTC abarca las ventanas temporal y submandibular.
+    if (station === s.station || (station === 'temporal' && isTcdStation(s.station))) return;
+    setStation(station, s.side);
+  }),
+);
+// Sub-conmutador «Ventana: Temporal | Submandibular» dentro del examen DTC.
+document.querySelectorAll<HTMLElement>('.win').forEach((b) =>
+  b.addEventListener('click', () => {
+    const station = b.dataset.window as Station;
     if (station === s.station) return;
     setStation(station, s.side);
   }),

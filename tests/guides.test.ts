@@ -72,10 +72,12 @@ describe('guías: selección', () => {
   it('elige la guía por examen', () => {
     expect(guideForStation('ojo').id).toBe('vaina');
     expect(guideForStation('temporal').id).toBe('dtc');
+    expect(guideForStation('submandibular').id).toBe('dtc');
     expect(ONSD_GUIDE.exam).toBe('vaina');
     expect(TCD_GUIDE.exam).toBe('dtc');
     expect(ONSD_GUIDE.steps).toHaveLength(7);
-    expect(TCD_GUIDE.steps).toHaveLength(7);
+    // 7 pasos + 2 opcionales de Lindegaard medido (DEC-58).
+    expect(TCD_GUIDE.steps).toHaveLength(9);
   });
 
   it('cada paso tiene instrucción breve en español e id único', () => {
@@ -217,6 +219,45 @@ describe('guía DTC: comprobaciones', () => {
     expect(check(t({ pwOn: true, gate: { ...M1, bloodFraction: 0 }, mca: MCA }))).toBe(false);
   });
 
+  it('8) ACI submandibular: puerta en ACI, ≥ 2 latidos y ángulo ≤ 30°', () => {
+    const check = step(TCD_GUIDE, 'submandibular-aci').check;
+    const ica = { depthMm: 45, uMm: 0, dominantVesselId: 'aci-izq', bloodFraction: 0.5 };
+    const sub = (o: Partial<GuideContext> = {}) =>
+      ctx({
+        station: 'submandibular',
+        side: 'izq',
+        pwOn: true,
+        gate: ica,
+        mca: MCA,
+        insonationRealDeg: 8,
+        ...o,
+      });
+    expect(check(sub())).toBe(true);
+    expect(check(sub({ insonationRealDeg: 35 }))).toBe(false);
+    expect(check(sub({ gate: { ...ica, dominantVesselId: 'ace-izq' } }))).toBe(false);
+    expect(check(sub({ station: 'temporal' }))).toBe(false);
+    expect(check(sub({ mca: null }))).toBe(false);
+    expect(step(TCD_GUIDE, 'submandibular-aci').capture!(sub())).toMatchObject({
+      side: 'izq',
+      icaTaMaxCms: 60,
+    });
+  });
+
+  it('9) Lindegaard: solo cuenta con la ACI medida', () => {
+    const check = step(TCD_GUIDE, 'lindegaard').check;
+    const li = {
+      side: 'izq' as const,
+      ratio: 4.2,
+      mcaTaMaxCms: 147,
+      icaTaMaxCms: 35,
+      icaSource: 'medida' as const,
+    };
+    expect(check(t({ lindegaard: li }))).toBe(true);
+    expect(check(t({ lindegaard: { ...li, icaSource: 'referencia' } }))).toBe(false);
+    expect(check(t({ lindegaard: null }))).toBe(false);
+    expect(check(t())).toBe(false);
+  });
+
   it('7) Temporal I con M1 medida', () => {
     const check = step(TCD_GUIDE, 'temporal-i').check;
     const gate = { ...M1, dominantVesselId: 'm1-izq' };
@@ -338,6 +379,10 @@ describe('reductor advance (histéresis)', () => {
     };
     g = advance(g, izq, now);
     g = advance(g, izq, now + GUIDE_HOLD_MS);
+    // Los pasos de Lindegaard medido son opcionales: «Siguiente» los omite.
+    expect(currentStep(g)!.id).toBe('submandibular-aci');
+    g = nextStep(g, now + 2000, izq);
+    g = nextStep(g, now + 3000, izq);
     expect(isGuideDone(g)).toBe(true);
     expect(currentStep(g)).toBeNull();
     expect(advance(g, izq, now + 5000)).toBe(g);
@@ -347,6 +392,32 @@ describe('reductor advance (histéresis)', () => {
     expect(summary.rows.find((r) => r.label === 'Asimetría PSV')!.flag).toBe('warn');
     expect(summary.interpretation.join(' ')).toContain('> 30 %');
     expect(summary.values.lindegaardD).toBeCloseTo(60 / 45, 6);
+    expect(summary.values.lindegaardDFuente).toBe('referencia');
+    expect(summary.rows.find((r) => r.label === 'Lindegaard D')!.value).toContain('ACI de referencia');
+  });
+
+  it('resumen DTC: Lindegaard con la ACI medida del mismo lado e interpretación', () => {
+    const progress: GuideProgress = {
+      ...startGuide('dtc', 0),
+      stepIndex: TCD_GUIDE.steps.length,
+      captures: {
+        'medir-der': { side: 'der', psvCms: 90, edvCms: 35, pi: 0.9, taMaxCms: 55 },
+        'temporal-i': { side: 'izq', psvCms: 250, edvCms: 100, pi: 0.9, taMaxCms: 147 },
+        'submandibular-aci': { side: 'izq', icaTaMaxCms: 35 },
+        lindegaard: { side: 'izq', lindegaard: 4.2, mcaTaMaxCms: 147, icaTaMaxCms: 35, icaSource: 'medida' },
+      },
+    };
+    const summary = guideSummary(progress, ctx({ station: 'temporal' }), TRUTH);
+    expect(summary.values.lindegaardI).toBeCloseTo(147 / 35, 6);
+    expect(summary.values.lindegaardIFuente).toBe('medida');
+    expect(summary.values.aciITaMaxCms).toBe(35);
+    // El lado derecho no tiene ACI medida: usa la de referencia del caso.
+    expect(summary.values.lindegaardD).toBeCloseTo(55 / 45, 6);
+    expect(summary.values.lindegaardDFuente).toBe('referencia');
+    const text = summary.interpretation.join(' ');
+    expect(text).toContain('vasoespasmo leve-moderado');
+    expect(text).toContain('hiperemia o normal');
+    expect(summary.rows.find((r) => r.label === 'Lindegaard I')!.flag).toBe('warn');
   });
 });
 

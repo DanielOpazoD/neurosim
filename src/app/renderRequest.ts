@@ -15,6 +15,7 @@ import {
   type Vessel,
   type VesselScene,
 } from '../anatomy/head';
+import { classifyNeck, type NeckGeometry } from '../anatomy/neck';
 import { DOPPLER } from '../doppler/params';
 import { pathAttenuationDb } from '../ultrasound/attenuation';
 import { FISIOLOGIA } from '../physiology/params';
@@ -169,6 +170,61 @@ export function eyeDopplerScene(eye: EyeGeometry): VesselScene {
     classify,
     attenuationDb: (from: Vec3, to: Vec3, f0Mhz: number) => pathAttenuationDb(classify, from, to, f0Mhz),
   };
+}
+
+/**
+ * Escena submandibular (DEC-58) para el B-mode: clasificación cervical +
+ * modulación del speckle — luz vascular más oscura (sangre casi anecoica a
+ * 2 MHz), fondo cervical y grasa subcutánea con heterogeneidad suave.
+ */
+export function neckScene(
+  neck: NeckGeometry,
+  seedLabel: string,
+): { classify: (p: Vec3) => MaterialId; scatterScale: (p: Vec3) => number } {
+  let lx = Number.NaN;
+  let ly = Number.NaN;
+  let lz = Number.NaN;
+  let lastId: MaterialId = 'aire';
+  const classifyCached = (p: Vec3): MaterialId => {
+    if (p[0] === lx && p[1] === ly && p[2] === lz) return lastId;
+    lx = p[0];
+    ly = p[1];
+    lz = p[2];
+    lastId = classifyNeck(neck, p);
+    return lastId;
+  };
+  return {
+    classify: classifyCached,
+    scatterScale: (p: Vec3): number => {
+      const id = classifyCached(p);
+      if (id === 'vaso') return 0.25;
+      if (id === 'tejidoCervical' || id === 'grasaSubcutanea') {
+        return 0.8 + 0.4 * (0.5 + 0.5 * scatterNoise(`${seedLabel}:cuello`, p, 3));
+      }
+      return 1;
+    },
+  };
+}
+
+/**
+ * Escena vascular submandibular para la cadena Doppler: ACI, ACE (+ramas) y
+ * yugular interna con clasificación cervical y atenuación por trayectoria
+ * (sin ventana ósea: el haz no cruza hueso en la posición por defecto).
+ */
+export function neckDopplerScene(neck: NeckGeometry): VesselScene {
+  const classify = (p: Vec3): MaterialId => classifyNeck(neck, p);
+  return {
+    vessels: neck.vessels,
+    classify,
+    attenuationDb: (from: Vec3, to: Vec3, f0Mhz: number) => pathAttenuationDb(classify, from, to, f0Mhz),
+  };
+}
+
+/** Escena vascular del Doppler de una estación (color, PW, insonación). */
+export function dopplerSceneFor(sim: ReferenceCase, station: Station, side: Side): VesselScene {
+  if (station === 'ojo') return eyeDopplerScene(sim.eyes[side]);
+  if (station === 'submandibular') return neckDopplerScene(sim.neck[side]);
+  return sim.head;
 }
 
 /**
@@ -346,15 +402,17 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
           press: req.press ?? 0,
           cardiacPhase: req.cardiacPhase,
         })
-      : headScene(
-          sim.head,
-          seedLabel,
-          {
-            cardiacPhase: req.cardiacPhase,
-            respiratoryPhase: req.respiratoryPhase,
-          },
-          sim.clinicalCase.snEchogenicity ?? 1,
-        );
+      : req.station === 'submandibular'
+        ? neckScene(sim.neck[req.side], seedLabel)
+        : headScene(
+            sim.head,
+            seedLabel,
+            {
+              cardiacPhase: req.cardiacPhase,
+              respiratoryPhase: req.respiratoryPhase,
+            },
+            sim.clinicalCase.snEchogenicity ?? 1,
+          );
   const bmode = renderBMode(scene, scan, req.settings, seedLabel);
   const frame: AcquiredFrame = {
     tSeconds: req.t,
@@ -373,28 +431,22 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
     caseId: sim.patient.label,
     seed: sim.patient.seed,
   };
-  const dopplerScene: VesselScene | null =
-    req.station === 'ojo'
-      ? eyeDopplerScene(sim.eyes[req.side])
-      : req.station === 'temporal'
-        ? sim.head
-        : null;
+  const dopplerScene: VesselScene = dopplerSceneFor(sim, req.station, req.side);
   const dopplerFlow =
-    req.station === 'ojo' && dopplerScene ? new CerebralFlow(dopplerScene, sim.patient.physiology) : sim.flow;
-  const color =
-    req.color && dopplerScene
-      ? renderColorDoppler(
-          dopplerScene,
-          dopplerFlow,
-          scan,
-          pose,
-          req.settings,
-          sim.patient.seed,
-          req.cardiacPhase,
-          req.settings.colorBox,
-          req.flowModulation,
-          sim.physStateAt(req.t).hemo,
-        )
-      : undefined;
+    req.station === 'temporal' ? sim.flow : new CerebralFlow(dopplerScene, sim.patient.physiology);
+  const color = req.color
+    ? renderColorDoppler(
+        dopplerScene,
+        dopplerFlow,
+        scan,
+        pose,
+        req.settings,
+        sim.patient.seed,
+        req.cardiacPhase,
+        req.settings.colorBox,
+        req.flowModulation,
+        sim.physStateAt(req.t).hemo,
+      )
+    : undefined;
   return { id: req.id, frame, bmode, scan, color };
 }

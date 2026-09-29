@@ -47,6 +47,9 @@ describe('vista de cabeza interactiva', () => {
     const eye = sim.eyes.der.center;
     expect(hotspotAt(eye, sim)).toEqual({ station: 'ojo', side: 'der' });
     expect(hotspotAt([0, 28, -120], sim)).toBeNull();
+    // Hotspot submandibular bajo el ángulo mandibular (DEC-58).
+    expect(hotspotAt(sim.neck.der.frame.origin, sim)).toEqual({ station: 'submandibular', side: 'der' });
+    expect(hotspotAt(sim.neck.izq.frame.origin, sim)).toEqual({ station: 'submandibular', side: 'izq' });
   });
 
   it('buildProbeGroup crea body/top/marker/cable con nombre', () => {

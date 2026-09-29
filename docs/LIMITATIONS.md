@@ -36,9 +36,15 @@ siguiente existe todavía por diseño del plan:
   hipocapnia) como conjuntos de parámetros; no hay evolución dinámica de la
   enfermedad. La señal ausente NO acredita cese circulatorio (ni en el
   simulador ni en la clínica).
-- **LIM-02 · Lindegaard**: el índice usa la TAMax de ACI extracraneal
-  declarada por el caso (`icaExtracranialTamaxCms`); la ACI no se insona ni
-  se modela — es un dato del escenario, no una medición.
+- **LIM-02 · Lindegaard**: el denominador es la TAMax de la ACI
+  extracraneal distal MEDIDA con PW en la ventana submandibular del mismo
+  lado (DEC-58); solo si aún no se midió se usa la TAMax de referencia del
+  caso (`icaExtracranialTamaxCms`), rotulada «ACI de referencia». La ACM del
+  numerador es la última medida en M1. No se corrige el ángulo por defecto
+  (práctica TCD): la ACI casi alineada con el haz (~7°) se subestima < 1 %.
+  La ACE y la yugular interna son simplificadas (LIM-29) y solo sirven para
+  distinguir la ACI; el índice no tiene historial temporal ni promedia
+  varias medidas.
 - **LIM-03 · DVNO y PIC**: sin mapeo DVNO→PIC ni PI→PIC; la PIC es un
   parámetro latente del paciente, nunca derivado de la imagen. La DVNO sigue
   `onsdForIcpMm` (lineal, saturada en `onsdMaxMm`).
@@ -129,3 +135,17 @@ a WebGL2 en bloques posteriores.
   ventrículo, tálamos, pineal, cuernos, hoz) y es estático — no modela
   compresión mesencefálica progresiva, herniación ni respuesta dinámica de la
   PIC; la forma del III ventrículo sigue siendo un prisma idealizado.
+
+- **LIM-29 · Escena submandibular simplificada**: el cuello es un marco
+  local plano bajo el ángulo mandibular (piel/subcutáneo de 4 mm como un
+  plano ⟂ al haz por defecto, sin curvatura ni compresión con `press`); la
+  glándula es un elipsoide homogéneo, el digástrico una cápsula y el
+  milohioideo una lámina; la rama mandibular es una lámina ósea de 8 mm sin
+  cóndilo ni cuerpo. La ACI, la ACE (con ramas facial y lingual) y la
+  yugular interna son tubos de radio constante: la ACI toma el caudal de
+  Willis ipsilateral (M1 + A1 + AComP) con radio 2,2 mm; la ACE usa una onda
+  de alta resistencia fija (PSV 75 / EDV 8 cm/s, incisura dicrota) sin
+  reactividad al CO₂; la yugular es venosa estacionaria (~20 cm/s) sin
+  modulación respiratoria, colapso ni compresibilidad. No hay bifurcación
+  carotídea, bulbo ni seno, ni placas o estenosis cervicales, ni el tramo
+  petroso intraóseo (el tubo continúa en tejido hasta el sifón).

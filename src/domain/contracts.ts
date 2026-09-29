@@ -11,8 +11,17 @@ export type Side = 'izq' | 'der';
 /** Variante anatómica del polígono de Willis para docencia. */
 export type WillisVariant = 'normal' | 'aplasiaA1Der' | 'aplasiaA1Izq' | 'pcaFetalDer' | 'pcaFetalIzq';
 
-/** Región de exploración: órbita ocular o ventana transtemporal. */
-export type Station = 'ojo' | 'temporal';
+/**
+ * Región de exploración: órbita ocular, ventana transtemporal o ventana
+ * submandibular (ACI extracraneal distal para el Lindegaard, DEC-58). Las dos
+ * últimas forman el examen «Doppler transcraneal».
+ */
+export type Station = 'ojo' | 'temporal' | 'submandibular';
+
+/** ¿La estación pertenece al examen Doppler transcraneal (sonda sectorial 2 MHz)? */
+export function isTcdStation(station: Station): station is 'temporal' | 'submandibular' {
+  return station !== 'ojo';
+}
 
 /** Identificador del paciente virtual: semilla + versión de activos. */
 export interface PatientState {
