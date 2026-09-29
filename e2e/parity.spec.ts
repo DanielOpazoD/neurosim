@@ -48,11 +48,7 @@ for (const station of ['ojo', 'temporal']) {
       return;
     }
     const cpuBefore = await pixels(cpu);
-    if (station === 'temporal') {
-      await cpu.locator('[data-station="temporal"][data-side="der"]').click();
-      // El color es un modo explícito apagado por defecto (DEC-54).
-      await cpu.locator('#color').click();
-    }
+    if (station === 'temporal') await cpu.locator('[data-station="temporal"][data-side="der"]').click();
     await waitForPaint(cpu, station === 'temporal' ? cpuBefore : undefined);
     await cpu.locator('#freeze').click();
     await waitForPaint(cpu);
@@ -62,10 +58,7 @@ for (const station of ['ojo', 'temporal']) {
     await gpu.goto(`${baseURL}/?renderer=gpu&clock=fixed&t=0.4`);
     await expect(gpu.locator('body')).toHaveAttribute('data-renderer', 'gpu');
     const gpuBefore = await pixels(gpu);
-    if (station === 'temporal') {
-      await gpu.locator('[data-station="temporal"][data-side="der"]').click();
-      await gpu.locator('#color').click();
-    }
+    if (station === 'temporal') await gpu.locator('[data-station="temporal"][data-side="der"]').click();
     await waitForPaint(gpu, station === 'temporal' ? gpuBefore : undefined);
     await gpu.locator('#freeze').click();
     await waitForPaint(gpu);
