@@ -69,9 +69,14 @@ siguiente existe todavía por diseño del plan:
   ≈1 mm (micro-transitorio espectral, aceptable a 5500 Hz de PRF).
 - **LIM-12 · Densidad de sangre sembrada**: hasta 32 dispersores por vaso por
   resiembra; en vasos muy tangentes la puerta puede leer fracción baja.
-- **LIM-13 · PW en hilo principal**: el procesamiento PW, el audio y las
-  mediciones espectrales todavía corren en el hilo principal; solo B-mode y
-  Doppler color se renderizan en Worker.
+- **LIM-13 · PW en hilo principal (resuelta/redirigida)**: la cadena PW
+  (volumen de muestra, filtro de pared, espectro) corre en su propio Worker
+  desde DEC-55 (`src/ui/pwWorker.ts`, protocolo en `src/app/pwProtocol.ts`).
+  En el hilo principal quedan, por diseño, el audio (Web Audio exige el hilo
+  del `AudioContext`: separación direccional y remuestreo), las medidas sobre
+  las columnas recibidas (a 4 Hz) y el rasterizado del espectrograma (solo
+  con columnas nuevas o cambios de presentación, ≤30 Hz). Sin Worker o con
+  `?pwworker=0` la cadena vuelve al hilo principal con el mismo manejador.
 - **LIM-14 · Artefactos 1D**: espejo y cola de cometa se aproximan copiando
   muestras sobre una línea de adquisición; no modelan propagación 2D/3D,
   aperturas múltiples ni trayectorias reverberantes completas.

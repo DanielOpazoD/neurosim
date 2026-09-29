@@ -38,7 +38,7 @@
 | LIM-10 | PSF analítica (resuelta/redirigida)          | —                                                                            |
 | LIM-11 | Advección en cuerda                          | `src/doppler/sampleVolume.ts`, `tests/validation/persistenciaSangre.test.ts` |
 | LIM-12 | Densidad de sangre sembrada                  | `src/doppler/sampleVolume.ts`                                                |
-| LIM-13 | PW en hilo principal                         | —                                                                            |
+| LIM-13 | PW en hilo principal (resuelta/redirigida)   | —                                                                            |
 | LIM-14 | Artefactos 1D                                | —                                                                            |
 | LIM-15 | Flujo vascular simplificado                  | —                                                                            |
 | LIM-22 | Debriefing por reglas                        | —                                                                            |
@@ -106,6 +106,7 @@
 | DEC-52 | Profundidad máxima transtemporal 160 mm: el deslizador                  | `src/ui/main.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | DEC-53 | Arquitectura de información por examen, dúplex y roles de               | `src/ui/main.ts`, `src/ui/overlays.ts`, `src/ui/styles.css`                                                                                                                                                                                                                                                                                                                                                                                                  |
 | DEC-54 | Doppler color como modo explícito, arterias ciliares                    | `src/anatomy/head.ts`, `src/anatomy/ocularVessels.ts`, `src/app/renderClient.ts`, `src/app/renderRequest.ts`, `src/app/state.ts`, `src/doppler/clutter.ts`, `src/doppler/color.ts`, `src/doppler/sampleVolume.ts`, `src/ui/headView3d.ts`, `src/ui/main.ts`, `src/ui/navigator3d.ts`, `src/ui/scanConvert.ts`, `src/ui/spectrogramRaster.ts`, `tests/ui/scanConvert.test.ts`, `tests/ui/spectrogramRaster.test.ts`, `tests/validation/ocularDoppler.test.ts` |
+| DEC-55 | Cadena PW en un worker dedicado y deriva de mano sin                    | `src/app/poses.ts`, `src/app/pwController.ts`, `src/app/pwProtocol.ts`, `src/doppler/pwChain.ts`, `src/ui/main.ts`, `src/ui/overlays.ts`, `src/ui/pwWorker.ts`, `tests/pwProtocol.test.ts`, `tests/validation/motion.test.ts`                                                                                                                                                                                                                                |
 
 ## Parámetros registrados
 

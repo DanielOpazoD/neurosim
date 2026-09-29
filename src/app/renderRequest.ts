@@ -312,7 +312,7 @@ export function renderCase(
 }
 
 /** ¿Misma fisiología basal? (todas las claves numéricas, en ambos sentidos). */
-function samePhysiology(a: BasalPhysiology, b: BasalPhysiology): boolean {
+export function samePhysiology(a: BasalPhysiology, b: BasalPhysiology): boolean {
   const ka = Object.keys(a) as (keyof BasalPhysiology)[];
   const kb = Object.keys(b) as (keyof BasalPhysiology)[];
   return ka.length === kb.length && ka.every((k) => Object.is(a[k], b[k]));

@@ -450,3 +450,95 @@
     del volumen de muestra a la PRF, `SampleVolume.generate`) sigue en el
     hilo principal y domina con PW activo (~40 % del perfil, 33–70 ms por
     rAF); moverla a un worker es el siguiente paso.
+54. **DEC-55** — Cadena PW en un worker dedicado y deriva de mano sin
+    despegar la sonda. (a) **Arquitectura**: `src/ui/pwWorker.ts` es dueño
+    de la `PwDopplerChain` (volumen de muestra → filtro de pared → espectro)
+    y obtiene el `ReferenceCase` con la misma caché `renderCase(seed,
+variante, caso)` que el worker de render. El protocolo vive en
+    `src/app/pwProtocol.ts` (tipos puros + `handlePwMessage`, sin DOM ni
+    Worker): `configure` (semilla, variante, caso, estación, lado,
+    fisiología; crea la cadena si cambia estación-lado), `setGate`
+    (`GateGeometry` + equipo: PRF, f0, ganancia dB, filtro de pared,
+    amplitud de emisión; `begin(…, tSync)` solo si el equipo cambió o se
+    pide `resync`), `step` (tStart, dt, micro-movimiento de mano →
+    `handMotionVelocityMmS(t, seed)`, ¿audio?) y `reset`. Cada `step`
+    responde con las columnas nuevas empaquetadas (`times`/`prfHz`
+    Float64Array + `power` Float32Array `count × fftSize`, transferidos),
+    el IQ filtrado del lote para el audio (transferido) y la composición de
+    la puerta (`bloodFraction`, vaso dominante). El orden de llamadas a la
+    cadena es el del antiguo `PwController.step` (begin → setGate → step →
+    flush): para una secuencia dada de (tStart, dt) la salida es idéntica
+    bit a bit a la de una `PwDopplerChain` directa (prueba nueva
+    `tests/pwProtocol.test.ts`, 3 s con pasos irregulares y mano activa:
+    columnas, IQ de audio y composición). Dorados y pruebas de validación
+    siguen llamando a la cadena directamente y no cambian. (b) **Proxy**:
+    `PwController` conserva su API (`step`, `latestMcaMeasure`,
+    `composition`, `insonation`, `gateGeometry`, `hemodynamics`,
+    `setVolume`, `setAudioEnabled`, `chainSceneKey`) y añade `columns`,
+    `fftSize`, `revision`, `gateCenter` (el navegador 3D ya no calcula la
+    atenuación por trayectoria en cada rAF) y `prewarm` (el worker
+    construye su caso al cargar). Agrupa el dt de los rAF y envía un `step`
+    como mucho cada 50 ms de tiempo real, con ≤2 en vuelo; la puerta se
+    calcula con la pose (y el temblor) del final del lote, como antes por
+    fotograma. Con el worker saturado el lote se acota a 0,5 s: el atraso
+    más antiguo se descarta (hueco en el espectro, no segundos de retraso)
+    y el siguiente `setGate` pide `resync`. Las columnas recibidas van a un
+    búfer por tiempo (7 s ≥ barrido máximo 6 s; tope 4096) y las medidas se
+    calculan ahí en el hilo principal (4 Hz). El audio sigue en el hilo
+    principal (el `AudioContext` lo exige): el IQ recibido alimenta
+    `DopplerAudio` sin cambios. `tSync` pasa a ser el `tStart` del lote
+    (antes `begin` tomaba `clock.t`, el final del fotograma, y las
+    columnas quedaban rotuladas un fotograma tarde; ahora coinciden con la
+    semántica de `pw.test.ts`). (c) **Guarda de respuestas obsoletas**:
+    `configVersion` monótono en todos los mensajes; sube al cambiar
+    estación/lado, equipo, posición o longitud de la puerta, o con `reset`
+    — no con el temblor de la mano. Un bloque con versión anterior (o de
+    otra estación) se descarta; el lote pendiente al cambiar la
+    configuración se adquiere con la anterior (sin huecos en el tiempo de
+    la cadena) y su respuesta se descarta. (d) **Fallback**: sin `Worker`,
+    con `?pwworker=0` o si el worker falla (`onerror`), `SyncPwTransport`
+    ejecuta el mismo `handlePwMessage` en el hilo principal (como
+    `SyncRenderClient`); las pruebas usan esta ruta. (e) **Espectrograma**:
+    `drawSpectral` solo rasteriza si llegaron columnas (`revision`) o
+    cambió algo del dibujo (barrido, mapa de color, ganancia espectral,
+    rango dinámico, línea de base, inversión, f0, corrección angular,
+    filtro de pared para la traza docente, tamaño del canvas) y como mucho a
+    30 Hz. (f) **Búfer IQ de la cadena**: `PwDopplerChain.step` solo
+    duplicaba el búfer una vez; un lote de >8192 muestras (p. ej. 1,6 s a
+    6 kHz con el worker saturado) escribía fuera del `Float32Array` y el
+    filtro de pared propagaba NaN para siempre (espectro vacío, PSV 0).
+    Ahora crece hasta que quepa; sin efecto para pasos ≤ 0,2 s (dorados
+    iguales). (g) **Deriva de mano**: `currentPose` descompone el
+    desplazamiento de la mano (`handMotionDisplacementMm`) sobre `forward`
+    y acota la componente que aleja la sonda del tejido a
+    `HAND_MAX_RETREAT_MM` = 0,05 mm (acoplamiento con gel); la deriva
+    lateral, elevacional, hacia el tejido y el jitter de inclinación se
+    conservan. Medido antes (Node, ojo D y temporal D, 200 muestras en
+    t ∈ [0, 60] s): el ojo retrocedía hasta 0,94 mm (t = 10,25 s) y la media
+    en dB del fotograma caía de −46,0 a −57,0 dB; el temporal también
+    oscurecía — 0,83 mm de retroceso (t ≈ 19 s, −37,7 → −42,7 dB) e incluso
+    en t = 0 la mano bajaba el fotograma −29,8 → −37,7 dB por 0,41 mm de
+    aire. Con la cota: ojo −46,0 dB en ambos instantes y temporal −30,4 /
+    −29,7 dB (frente a −29,8 sin mano). En el navegador (ojo D, 20 s) el
+    gris medio del B-mode bajaba a 11,5 (de 55) entre los 8 y 13 s y ahora
+    queda en 54,4–55,6. La velocidad de sonda del PW
+    (`handMotionVelocityMmS`) no se acota (aproximación: el Doppler del
+    micro-movimiento conserva su componente axial). Prueba nueva en
+    `motion.test.ts`. (h) **Medidas** (Chromium sin cabeza con GPU Metal,
+    1440×900, vista previa de producción, 10 s por configuración, A = main
+    y B = esta rama alternadas ABBA, carga 13–22; medias de 2 pasadas):
+    ojo D color: B-mode 7,1 → 7,8 fps, espectro 49 → 19 redibujos/s,
+    tareas largas 39 → 0 ms/s; ojo D sin color: 9,5 → 12,0 fps, 46 → 19/s,
+    52 → 0 ms/s; TCD D color: 5,6 → 6,4 fps, 24 → 18/s, 362 → 78 ms/s; TCD D
+    sin color: 6,3 → 11,1 fps, 20 → 15/s, 481 → 121 ms/s. PSV en
+    `#readouts` en < 1,1 s tras colocar la puerta en todos los casos. El
+    audio sigue funcionando (`AudioContext` «running», todos los bloques
+    con muestras); con la cadena en el hilo principal solo se programaban
+    24 de ~40 bloques de 0,2 s en 8 s, ahora 37. Pendiente: las medidas
+    (`latestMcaMeasure` → `observedTrace`, suavizado + suelo por columna
+    sobre 2,5 s) cuestan ~27 ms (ojo) a ~60 ms (TCD) por llamada en Node con
+    la máquina cargada y siguen en el hilo principal a 4 Hz; son el
+    siguiente candidato para el worker. Observado sin cambiar:
+    `frameLoop` evalúa `clock.requestSteps(elapsed)` en la condición del
+    `for`, así que el reloj de simulación avanza ~1,2× el tiempo real a
+    60 fps (anterior a este cambio).
