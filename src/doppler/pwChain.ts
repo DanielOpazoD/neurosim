@@ -82,11 +82,16 @@ export class PwDopplerChain {
     const n = Math.floor(this.pending);
     this.pending -= n;
     if (n === 0) return;
+    // Crece hasta que quepa el paso completo: con pasos agrupados (worker PW,
+    // DEC-55) n puede superar el doble del búfer; escribir fuera de un
+    // Float32Array se ignora y el filtro de pared propagaría NaN.
     if (this.cursor + n > this.iqRe.length) {
-      const re = new Float32Array(this.iqRe.length * 2);
+      let size = this.iqRe.length * 2;
+      while (this.cursor + n > size) size *= 2;
+      const re = new Float32Array(size);
       re.set(this.iqRe);
       this.iqRe = re;
-      const im = new Float32Array(this.iqIm.length * 2);
+      const im = new Float32Array(size);
       im.set(this.iqIm);
       this.iqIm = im;
     }

@@ -17,7 +17,7 @@ import type {
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
 import { drawBMode, drawColorOverlay, type ColorOverlayGrid } from './canvasDraw';
 import { createInitialState, imagingMode, type AppState } from '../app/state';
-import { PwController } from '../app/pwController';
+import { PwController, SyncPwTransport, WorkerPwTransport, type PwTransport } from '../app/pwController';
 import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
 import { exportOnsdReport, exportSession } from '../app/exporter';
@@ -67,7 +67,10 @@ const willisVariant: WillisVariant = WILLIS_VARIANTS.includes(requestedWillis as
 const sim = buildReferenceCase(undefined, willisVariant, clinicalCase);
 const clock = new SimulationClock();
 const s = createInitialState();
-const pw = new PwController(sim, s);
+const pwTransport = createPwTransport();
+const pw = new PwController(sim, s, pwTransport);
+// El worker construye su caso mientras no hay PW (primer espectro sin espera).
+if (pwTransport instanceof WorkerPwTransport) pw.prewarm();
 const scenarioValue = (key: 'map' | 'paco2' | 'icp', fallback: number, lo: number, hi: number): number => {
   const raw = urlParams.get(key);
   const value = raw === null ? Number.NaN : Number(raw);
@@ -232,6 +235,17 @@ function createRenderClient(): RenderClientLike {
   } catch (error) {
     logError('worker', error);
     return new SyncRenderClient();
+  }
+}
+
+/** Cadena PW en su worker (DEC-55); `?pwworker=0` o sin Worker → mismo hilo. */
+function createPwTransport(): PwTransport {
+  if (typeof Worker === 'undefined' || urlParams.get('pwworker') === '0') return new SyncPwTransport();
+  try {
+    return new WorkerPwTransport(new Worker(new URL('./pwWorker.ts', import.meta.url), { type: 'module' }));
+  } catch (error) {
+    logError('worker', error);
+    return new SyncPwTransport();
   }
 }
 
@@ -760,7 +774,8 @@ function frameLoop(now: number): void {
   const elapsed = Math.min(0.2, (now - lastT) / 1000);
   lastT = now;
   try {
-    for (let i = 0; i < clock.requestSteps(elapsed); i++) clock.advance();
+    const steps = clock.requestSteps(elapsed);
+    for (let i = 0; i < steps; i++) clock.advance();
     s.tSec = clock.t;
     pw.step(clock, elapsed);
     if (!s.frozen) {
@@ -781,7 +796,7 @@ function frameLoop(now: number): void {
       drawCineFrame();
     }
     const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
-    const gateCenter = s.pwOn ? pw.gateGeometry(navPose).center : null;
+    const gateCenter = s.pwOn ? pw.gateCenter(navPose) : null;
     navigator3d.update(
       s,
       currentScan,

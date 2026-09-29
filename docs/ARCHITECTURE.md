@@ -74,7 +74,10 @@ Responsables concretos:
 - La adquisición empaqueta el resultado en `src/app/acquisition.ts`.
 - `src/ui/renderWorker.ts` recibe solicitudes, `src/app/renderRequest.ts`
   ejecuta el render sin DOM y `src/app/renderClient.ts` aplica latest-wins o
-  fallback síncrono. PW y audio permanecen en `src/app/pwController.ts`.
+  fallback síncrono. La cadena PW corre en `src/ui/pwWorker.ts` con el
+  protocolo puro de `src/app/pwProtocol.ts` (fallback síncrono con el mismo
+  manejador); `src/app/pwController.ts` queda como proxy en el hilo
+  principal: puerta, búfer de columnas, medidas y audio Web Audio (DEC-55).
 - `src/domain/measure.ts` convierte puntos de imagen a paciente y registra
   mediciones; `src/doppler/measureMca.ts` mide la traza espectral.
 

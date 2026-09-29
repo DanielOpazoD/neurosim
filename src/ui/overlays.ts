@@ -223,14 +223,46 @@ export function drawTeachingLandmarks(
   }
 }
 
+/** Tope de redibujado del espectrograma (DEC-55): 30 Hz. */
+export const SPECTRAL_MIN_REDRAW_MS = 1000 / 30;
+const spectralDrawn = new WeakMap<CanvasRenderingContext2D, { key: string; at: number }>();
+
+/**
+ * Espectrograma: se rasteriza solo si llegaron columnas nuevas o cambió algo
+ * que afecta al dibujo (barrido, mapa, ganancia, línea de base, inversión…),
+ * y como mucho a 30 Hz. Devuelve si redibujó.
+ */
 export function drawSpectral(
   ctx: CanvasRenderingContext2D,
   sim: ReferenceCase,
   s: AppState,
   controller: PwController,
-): void {
-  const chain = controller.currentChain;
-  if (!s.pwOn || !chain || controller.chainSceneKey !== `${s.station}-${s.side}`) {
+  now = performance.now(),
+): boolean {
+  const live = s.pwOn && controller.chainSceneKey === `${s.station}-${s.side}`;
+  const key = live
+    ? [
+        'pw',
+        controller.revision,
+        ctx.canvas.width,
+        ctx.canvas.height,
+        s.settings.baseline,
+        s.settings.frequencyMhz,
+        s.settings.angleCorrectionDeg,
+        s.settings.invertColor,
+        s.settings.spectralGainDb,
+        s.settings.dynamicRangeDb,
+        s.settings.wallFilterHz,
+        s.sweepSeconds,
+        s.spectralColormap,
+        s.teachingMode,
+      ].join('|')
+    : `off|${s.pwOn}|${ctx.canvas.width}|${ctx.canvas.height}`;
+  const last = spectralDrawn.get(ctx);
+  if (last && last.key === key) return false;
+  if (last && now - last.at < SPECTRAL_MIN_REDRAW_MS && now >= last.at) return false;
+  spectralDrawn.set(ctx, { key, at: now });
+  if (!live) {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     if (!s.pwOn) {
@@ -238,10 +270,11 @@ export function drawSpectral(
       ctx.font = '12px sans-serif';
       ctx.fillText('Activa PW para el espectro', 16, 24);
     }
-    return;
+    return true;
   }
-  drawSpectrum(ctx, chain.spectral.columns, {
-    fftSize: chain.spectral.fftSize,
+  const columns = controller.columns;
+  drawSpectrum(ctx, columns, {
+    fftSize: controller.fftSize,
     baseline: s.settings.baseline,
     f0Mhz: s.settings.frequencyMhz,
     angleCorrectionDeg: s.settings.angleCorrectionDeg,
@@ -254,15 +287,16 @@ export function drawSpectral(
     floorPercentile: DOPPLER.params.spectralFloorPercentile.value,
     colormap: s.spectralColormap,
     teachingTrace: s.teachingMode
-      ? observedTrace(chain.spectral.columns.slice(-400), {
+      ? observedTrace(columns.slice(-400), {
           f0Hz: s.settings.frequencyMhz * 1e6,
           angleCorrectionRad: (s.settings.angleCorrectionDeg * Math.PI) / 180,
           invert: s.settings.invertColor,
-          fftSize: chain.spectral.fftSize,
+          fftSize: controller.fftSize,
           wallFilterHz: s.settings.wallFilterHz,
         })
       : undefined,
   });
+  return true;
 }
 
 /** Mosaico de medidas (DEC-53): `k` etiqueta, `v` valor grande, `unit` en
