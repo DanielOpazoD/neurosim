@@ -7,6 +7,7 @@ import { errors } from '../core/errorLog';
 import { imagingMode, type AppState } from './state';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport } from '../domain/onsdProtocol';
+import { guideById, type GuideProgress, type GuideSummary } from '../domain/guides';
 
 export function exportPayload(sim: ReferenceCase, s: AppState): object {
   const mode = imagingMode(s);
@@ -77,6 +78,51 @@ export function exportOnsdReport(
   );
   download(
     `neurosono-onsd-informe-${Date.now()}.json`,
+    URL.createObjectURL(new Blob([data], { type: 'application/json' })),
+    'application/json',
+  );
+}
+
+/**
+ * Informe del examen guiado (DEC-56): resumen, tiempos por paso y, para la
+ * vaina, el informe del protocolo DVNO; incluye la sesión (`exportPayload`).
+ */
+export function guideReportPayload(
+  sim: ReferenceCase,
+  s: AppState,
+  progress: GuideProgress,
+  summary: GuideSummary,
+): object {
+  const guide = guideById(progress.guideId);
+  return {
+    guide: {
+      id: guide.id,
+      exam: guide.exam,
+      title: guide.title,
+      steps: guide.steps.map((step) => ({
+        id: step.id,
+        title: step.title,
+        durationS: progress.records[step.id] ? progress.records[step.id]!.durationMs / 1000 : null,
+        manual: progress.records[step.id]?.manual ?? null,
+        capture: progress.captures[step.id] ?? null,
+      })),
+      summary,
+    },
+    ...(guide.exam === 'vaina' ? { onsdReport: buildReport(s.onsd) } : {}),
+    session: exportPayload(sim, s),
+  };
+}
+
+export function exportGuideReport(
+  sim: ReferenceCase,
+  s: AppState,
+  progress: GuideProgress,
+  summary: GuideSummary,
+  download: (name: string, href: string, type?: string) => void,
+): void {
+  const data = JSON.stringify(guideReportPayload(sim, s, progress, summary), null, 2);
+  download(
+    `neurosono-guia-${progress.guideId}-${Date.now()}.json`,
     URL.createObjectURL(new Blob([data], { type: 'application/json' })),
     'application/json',
   );

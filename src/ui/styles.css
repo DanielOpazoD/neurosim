@@ -1082,7 +1082,251 @@ footer {
   padding: 6px 18px 12px;
 }
 
+/* ── Vistas 3D diferidas (DEC-56): esqueleto hasta cargar Three.js ── */
+canvas.loading3d {
+  background:
+    linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.05) 50%, transparent 70%) 0 0 / 250% 100%,
+    #0d1117;
+  animation: skeleton 1.4s ease-in-out infinite;
+}
+@keyframes skeleton {
+  from {
+    background-position: 125% 0;
+  }
+  to {
+    background-position: -125% 0;
+  }
+}
+
+/* ── Modo guiado (DEC-56) ── */
+.btn-guide {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+body[data-guide='open'] main {
+  grid-template-columns: 260px minmax(0, 1fr) 320px;
+}
+.guideDrawer {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  padding: 12px 14px;
+  border-color: rgba(77, 163, 255, 0.35);
+  background: linear-gradient(180deg, rgba(77, 163, 255, 0.07), transparent 120px), var(--panel);
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px rgba(77, 163, 255, 0.08);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+.guideDrawer[hidden] {
+  display: none;
+}
+.guideDrawer .cardHead {
+  margin-bottom: 4px;
+}
+.guideProgress {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent-2);
+  font-variant-numeric: tabular-nums;
+}
+.guideClose {
+  padding: 0 6px;
+  font-size: 16px;
+  line-height: 20px;
+}
+.guideTitle {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.guideBar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.guideBar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 300ms ease;
+}
+.guideStep {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.guideStep[hidden],
+.guideSummary[hidden],
+.guideHint[hidden] {
+  display: none;
+}
+.guideStep h3,
+.guideSummary h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-2);
+}
+.guideStep p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.guideStep .guideHint {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  color: #ffe2a8;
+  background: rgba(245, 184, 74, 0.1);
+  border: 1px solid rgba(245, 184, 74, 0.25);
+}
+.guideSummary {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid rgba(62, 207, 142, 0.3);
+}
+.guideSummary p {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.guideSummary .guideDisclaimer {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.guideRows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 6px;
+}
+.guideRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.guideRow b {
+  color: var(--text);
+  font-weight: 550;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.guideRow.ok b {
+  color: var(--ok);
+}
+.guideRow.warn b {
+  color: var(--warn);
+}
+.guideChecklist {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.guideChecklist li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.guideChecklist .mark {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+}
+.guideChecklist .t {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.guideChecklist small {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.guideChecklist li.current {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.guideChecklist li.current .mark {
+  background: var(--accent);
+  color: #06111f;
+}
+.guideChecklist li.done {
+  color: var(--text);
+}
+.guideChecklist li.done .mark {
+  background: rgba(62, 207, 142, 0.18);
+  color: var(--ok);
+}
+.guideChecklist li.skipped .mark {
+  color: var(--warn);
+}
+.guideNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.guideNav button {
+  font-size: 11.5px;
+  padding: 4px 9px;
+}
+/* Foco del paso: anillo pulsante con el acento (sin mover la maquetación). */
+.guide-target {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  animation: guidePulse 1.6s ease-in-out infinite;
+}
+.sides .tab.guide-target {
+  border-radius: 999px;
+}
+@keyframes guidePulse {
+  0%,
+  100% {
+    outline-color: var(--accent);
+    box-shadow: 0 0 0 0 rgba(77, 163, 255, 0.45);
+  }
+  50% {
+    outline-color: var(--accent-2);
+    box-shadow: 0 0 14px 6px rgba(77, 163, 255, 0.28);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-target,
+  canvas.loading3d {
+    animation: none;
+  }
+}
+
 @media (max-width: 1200px) {
+  body[data-guide='open'] main {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
   main {
     grid-template-columns: minmax(0, 1fr) 300px;
     grid-template-areas:
@@ -1094,6 +1338,7 @@ footer {
   }
 }
 @media (max-width: 860px) {
+  body[data-guide='open'] main,
   main {
     grid-template-columns: 1fr;
     grid-template-areas:

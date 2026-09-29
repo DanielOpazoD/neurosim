@@ -224,6 +224,47 @@ describe('PwController como proxy (DEC-55)', () => {
     expect(cols.at(-1)!.t - cols[0]!.t).toBeLessThanOrEqual(7 + 1e-9);
   });
 
+  it('cachea la medida por revisión y la recalcula como mucho a 2 Hz (DEC-56)', () => {
+    const sim = buildReferenceCase();
+    const s = temporalM1State(sim);
+    const pw = new PwController(sim, s, new SyncPwTransport());
+    let nowMs = 0;
+    pw.nowMs = () => nowMs;
+    const clock = new SimulationClock();
+    pw.reset();
+    const run = (frames: number) => {
+      for (let i = 0; i < frames; i += 1) {
+        const n = clock.requestSteps(1 / 60);
+        for (let k = 0; k < n; k += 1) clock.advance();
+        pw.step(clock, 1 / 60);
+      }
+    };
+    run(4 * 60);
+    const first = pw.latestMcaMeasure();
+    expect(first).not.toBeNull();
+    // Sin columnas nuevas: mismo objeto (no recalcula).
+    expect(pw.latestMcaMeasure()).toBe(first);
+    // Columnas nuevas pero < 500 ms: la caché sigue valiendo.
+    const rev = pw.revision;
+    run(15);
+    expect(pw.revision).toBeGreaterThan(rev);
+    nowMs += 250;
+    expect(pw.latestMcaMeasure()).toBe(first);
+    // ≥ 500 ms con columnas nuevas: recalcula.
+    nowMs += 250;
+    const second = pw.latestMcaMeasure();
+    expect(second).not.toBe(first);
+    expect(second).not.toBeNull();
+    // Un ajuste de medida (corrección angular) recalcula en el acto.
+    s.settings = { ...s.settings, angleCorrectionDeg: 30 };
+    const corrected = pw.latestMcaMeasure();
+    expect(corrected).not.toBe(second);
+    expect(Math.abs(corrected!.psvCms)).toBeGreaterThan(Math.abs(second!.psvCms));
+    // PW apagado → sin medida.
+    s.pwOn = false;
+    expect(pw.latestMcaMeasure()).toBeNull();
+  });
+
   it('descarta respuestas de una configuración anterior (configVersion)', () => {
     const sim = buildReferenceCase();
     const s = temporalM1State(sim);

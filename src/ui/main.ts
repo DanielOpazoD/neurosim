@@ -44,8 +44,37 @@ import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdPr
 import { buildDebrief } from '../app/debrief';
 import { currentPose } from '../app/poses';
 import { lindegaardRatio } from '../doppler/measureMca';
-import { Navigator3D } from './navigator3d';
-import { HeadView3D } from './headView3d';
+// Three.js se carga aparte (DEC-56): las vistas 3D llegan tras el primer B-mode.
+import type { Navigator3D } from './navigator3d';
+import type { HeadView3D } from './headView3d';
+import type { Measurement } from '../domain/contracts';
+import {
+  advance,
+  completedSince,
+  currentStep,
+  guideById,
+  guideForStation,
+  guideSummary,
+  hintVisible,
+  isGuideDone,
+  nextStep,
+  pauseGuide,
+  prevStep,
+  resetGuide,
+  resumeGuide,
+  startGuide,
+  type GuideContext,
+  type GuideProgress,
+  type GuideSummary,
+} from '../domain/guides';
+import {
+  buildGuideContext,
+  guideTruth,
+  measurementRetroOffsetMm,
+  type MeasurementMeta,
+} from '../app/guideContext';
+import { exportGuideReport } from '../app/exporter';
+import { renderGuidePanel, setSpotlight } from './guidePanel';
 import './styles.css';
 import { isWebGL2Available } from '../render/gl/context';
 import { GlBmodePipeline } from '../render/gl/glPipeline';
@@ -87,12 +116,34 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const bmodeCv = $<HTMLCanvasElement>('bmode');
 const spectralCv = $<HTMLCanvasElement>('spectral');
 const navigatorCv = $<HTMLCanvasElement>('navigator');
-const navigator3d = new Navigator3D(navigatorCv, sim);
 const headViewCv = $<HTMLCanvasElement>('headView');
 // Vista de cabeza: arrastrar la sonda escribe offsetMm/offsetVMm directamente.
 const headViewEnabled = !new URLSearchParams(location.search).has('nohead');
 // `?nohead` desactiva la vista de cabeza (aislamiento/diagnóstico).
-const headView = headViewEnabled ? new HeadView3D(headViewCv, sim, s, (st, sd) => setStation(st, sd)) : null;
+/* Vistas 3D (Three.js) en un chunk aparte (DEC-56): los canvas existen desde
+ * el principio (con un esqueleto animado) y las clases se crean tras el
+ * primer B-mode pintado. Hasta entonces, `null`. */
+let navigator3d: Navigator3D | null = null;
+let headView: HeadView3D | null = null;
+let views3dRequested = false;
+function loadViews3d(): void {
+  if (views3dRequested) return;
+  views3dRequested = true;
+  Promise.all([import('./navigator3d'), headViewEnabled ? import('./headView3d') : Promise.resolve(null)])
+    .then(([navModule, headModule]) => {
+      navigator3d = new navModule.Navigator3D(navigatorCv, sim);
+      navigator3d.resetCamera(s.station, s.side);
+      if (headModule) {
+        headView = new headModule.HeadView3D(headViewCv, sim, s, (st, sd) => setStation(st, sd));
+        headView.resetCamera(s.station, s.side);
+      }
+    })
+    .catch((error) => logError('views3d', error))
+    .finally(() => {
+      navigatorCv.classList.remove('loading3d');
+      headViewCv.classList.remove('loading3d');
+    });
+}
 const errorBadge = $<HTMLButtonElement>('errores');
 const bCtx = bmodeCv.getContext('2d')!;
 const renderer = createRenderClient();
@@ -316,7 +367,7 @@ function setStation(station: Station, side: Side): void {
   s.station = station;
   s.side = side;
   document.body.dataset.station = station;
-  navigator3d.resetCamera(station, side);
+  navigator3d?.resetCamera(station, side);
   headView?.resetCamera(station, side);
   s.settings = station === 'ojo' ? defaultEyeSettings() : defaultTemporalSettings();
   const depthInput = $<HTMLInputElement>('depth');
@@ -417,6 +468,8 @@ function sendRenderRequest(timing: RenderTiming): void {
       s.currentFrame = response.frame;
       pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
       drawFrame(response);
+      // Primer B-mode pintado: ahora sí se descarga Three.js (DEC-56).
+      if (!views3dRequested) setTimeout(loadViews3d, 0);
     })
     .catch((error) => {
       if (!(error instanceof SupersededRenderRequest)) {
@@ -630,9 +683,16 @@ loadDuplex();
 if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => fitBmode()).observe(bmodeStage);
 else window.addEventListener('resize', fitBmode);
 
-function recordMeasurement(): void {
+/** Rotación del marcador y distancia retroglobo de cada medición (guía). */
+const measurementMeta = new WeakMap<Measurement, MeasurementMeta>();
+
+function recordMeasurement(rotDegAtMeasure = s.rotDeg): void {
   const measurement = s.measurements[s.measurements.length - 1];
   if (!measurement) return;
+  measurementMeta.set(measurement, {
+    rotDeg: rotDegAtMeasure,
+    offsetMm: measurementRetroOffsetMm(sim, measurement),
+  });
   const angle = pw.insonation();
   s.debrief.setTime(clock.t);
   s.debrief.record('measurement', measurement.kind, {
@@ -659,6 +719,14 @@ function updateDebriefPanel(): void {
         (finding) =>
           `<div class="${severityClass(finding.severity)}"><b>${finding.severity}</b> ${finding.code}: ${finding.text}</div>`,
       ),
+      ...report.guide.flatMap((section) => [
+        '<hr>',
+        `<div><b>Guía</b> · ${section.title} · ${section.completed ? 'completa' : 'en curso'} · ${section.totalS.toFixed(0)} s</div>`,
+        ...section.steps.map(
+          (step) =>
+            `<div>${step.manual ? '↷' : '✓'} ${step.title}: ${step.durationS.toFixed(1)} s${step.manual ? ' (omitido)' : ''}</div>`,
+        ),
+      ]),
       '<hr>',
       ...report.events
         .slice(-12)
@@ -770,6 +838,124 @@ function drawCineFrame(): void {
     `Cine ${s.cineIdx + 1}/${s.cine.length} · cuadro t=${item.frame.tSeconds.toFixed(2)} s`;
 }
 
+/* ── Modo guiado (DEC-56) ── */
+const guideDrawer = $('guideDrawer');
+const guideButton = $<HTMLButtonElement>('guide');
+/** Progreso por guía: cambiar de examen conserva el de la otra. */
+const guideProgress = new Map<string, GuideProgress>();
+let guideOpen = false;
+let activeGuideId: string | null = null;
+let lastGuideCtx: GuideContext | null = null;
+let lastGuideSummary: GuideSummary | null = null;
+const guideTruthValues = guideTruth(sim);
+
+function recordGuideEvents(prev: GuideProgress, next: GuideProgress): void {
+  const guide = guideById(next.guideId);
+  for (const event of completedSince(prev, next)) {
+    const step = guide.steps[event.stepIndex]!;
+    s.debrief.setTime(clock.t);
+    s.debrief.record('guide', `${guide.title}: ${step.title}${event.manual ? ' (omitido)' : ''}`, {
+      guideId: event.guideId,
+      stepId: event.stepId,
+      stepIndex: event.stepIndex,
+      durationS: event.durationMs / 1000,
+      manual: event.manual,
+    });
+  }
+}
+
+function setGuideProgress(next: GuideProgress): void {
+  const prev = guideProgress.get(next.guideId);
+  if (prev === next) return;
+  if (prev) recordGuideEvents(prev, next);
+  guideProgress.set(next.guideId, next);
+}
+
+/** Progreso de la guía del examen actual; pausa la del otro examen. */
+function activeGuide(now: number): GuideProgress {
+  const guide = guideForStation(s.station);
+  if (activeGuideId && activeGuideId !== guide.id) {
+    const other = guideProgress.get(activeGuideId);
+    if (other) guideProgress.set(other.guideId, pauseGuide(other, now));
+  }
+  activeGuideId = guide.id;
+  let progress = guideProgress.get(guide.id);
+  if (!progress) {
+    progress = startGuide(guide.id, now);
+    guideProgress.set(guide.id, progress);
+  } else if (progress.pausedAtMs !== null) {
+    progress = resumeGuide(progress, now);
+    guideProgress.set(guide.id, progress);
+  }
+  return progress;
+}
+
+function updateGuide(now: number): void {
+  if (!guideOpen) return;
+  const ctx = buildGuideContext(sim, s, pw, measurementMeta);
+  lastGuideCtx = ctx;
+  const progress = advance(activeGuide(now), ctx, now);
+  setGuideProgress(progress);
+  lastGuideSummary = isGuideDone(progress) ? guideSummary(progress, ctx, guideTruthValues) : null;
+  renderGuidePanel({ progress, hint: hintVisible(progress, now), summary: lastGuideSummary });
+  setSpotlight(currentStep(progress)?.target ?? null);
+}
+
+function setGuideOpen(open: boolean): void {
+  const now = performance.now();
+  guideOpen = open;
+  guideDrawer.hidden = !open;
+  guideButton.classList.toggle('on', open);
+  guideButton.setAttribute('aria-expanded', String(open));
+  document.body.dataset.guide = open ? 'open' : 'closed';
+  if (open) {
+    activeGuide(now);
+    updateGuide(now);
+  } else {
+    if (activeGuideId) {
+      const progress = guideProgress.get(activeGuideId);
+      if (progress) guideProgress.set(progress.guideId, pauseGuide(progress, now));
+    }
+    activeGuideId = null;
+    setSpotlight(null);
+  }
+  fitBmode();
+}
+
+function guideAction(action: (p: GuideProgress, now: number) => GuideProgress): void {
+  const now = performance.now();
+  const next = action(activeGuide(now), now);
+  setGuideProgress(next);
+  updateGuide(now);
+}
+
+guideButton.addEventListener('click', () => setGuideOpen(!guideOpen));
+$('guideClose').addEventListener('click', () => setGuideOpen(false));
+$('guidePrev').addEventListener('click', () => guideAction(prevStep));
+$('guideNext').addEventListener('click', () =>
+  guideAction((p, now) => nextStep(p, now, lastGuideCtx ?? undefined)),
+);
+$('guideReset').addEventListener('click', () => {
+  guideAction(resetGuide);
+  s.debrief.setTime(clock.t);
+  s.debrief.record('guide', `${guideForStation(s.station).title}: reiniciar`, {
+    guideId: guideForStation(s.station).id,
+    reset: true,
+  });
+});
+$('guideExport').addEventListener('click', () => {
+  const progress = activeGuideId ? guideProgress.get(activeGuideId) : undefined;
+  if (!progress || !lastGuideSummary) return;
+  exportGuideReport(sim, s, progress, lastGuideSummary, (name, href) => {
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = href;
+    a.click();
+  });
+  s.debrief.setTime(clock.t);
+  s.debrief.record('export', `informe guía ${progress.guideId}`);
+});
+
 function frameLoop(now: number): void {
   const elapsed = Math.min(0.2, (now - lastT) / 1000);
   lastT = now;
@@ -797,14 +983,16 @@ function frameLoop(now: number): void {
     }
     const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
     const gateCenter = s.pwOn ? pw.gateCenter(navPose) : null;
-    navigator3d.update(
-      s,
-      currentScan,
-      navPose,
-      gateCenter,
-      s.colorOn && s.station === 'temporal' ? s.settings.colorBox : null,
-    );
-    navigator3d.renderIfNeeded(now);
+    if (navigator3d) {
+      navigator3d.update(
+        s,
+        currentScan,
+        navPose,
+        gateCenter,
+        s.colorOn && s.station === 'temporal' ? s.settings.colorBox : null,
+      );
+      navigator3d.renderIfNeeded(now);
+    }
     // La vista de cabeza es una segunda superficie WebGL: a ritmo reducido
     // basta para la interacción y no satura el renderizador por software.
     if (headView && headView.update(s, navPose, currentScan)) {
@@ -825,6 +1013,7 @@ function frameLoop(now: number): void {
       if (onsdReportPanel.open) updateOnsdReport();
       if (debriefPanel.open) updateDebriefPanel();
       updateAcousticLabel();
+      updateGuide(now);
     }
   } catch (err) {
     logError('frame', err);
@@ -1065,6 +1254,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'f') $('color').click();
   else if (e.key === 'c') $('caliper').click();
   else if (e.key === 'd') $('teaching').click();
+  else if (e.key === 'g') guideButton.click();
 });
 $('cine').addEventListener('click', () => {
   s.cinePlaying = !s.cinePlaying;
@@ -1208,8 +1398,13 @@ bmodeCv.addEventListener('click', (e) => {
     s.gateUMm = point.u;
     return;
   }
+  // El protocolo DVNO gira el marcador al completar un hueco: la rotación de
+  // la medición es la de antes del clic. Solo se registra una medición nueva
+  // (antes un clic sin caliper activo re-registraba la última).
+  const rotBefore = s.rotDeg;
+  const countBefore = s.measurements.length;
   addCaliperPoint(sim, s, point);
-  if (s.measurements.length > 0 && s.caliperPts.length === 0) recordMeasurement();
+  if (s.measurements.length > countBefore) recordMeasurement(rotBefore);
 });
 $('export').addEventListener('click', () => {
   const download = (name: string, href: string) => {

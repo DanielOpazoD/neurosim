@@ -84,6 +84,8 @@ export const MAX_BATCH_S = 0.5;
 /** Ventana temporal del búfer de columnas (barrido máximo 6 s + margen). */
 const COLUMN_WINDOW_S = 7;
 const MAX_COLUMNS = 4096;
+/** Tope de recálculo de la medida PSV/EDV/PI: 2 veces por segundo (DEC-56). */
+export const MEASURE_MIN_INTERVAL_MS = 500;
 
 export class PwController {
   private transport: PwTransport;
@@ -101,6 +103,14 @@ export class PwController {
   private fft = 128;
   private lastComposition: GateComposition | null = null;
   private rev = 0;
+  private measureCache: {
+    revision: number;
+    settingsKey: string;
+    atMs: number;
+    value: ReturnType<typeof summarizeBeats>;
+  } | null = null;
+  /** Reloj de tiempo real para el tope de la medida (inyectable en pruebas). */
+  nowMs: () => number = () => performance.now();
   /** Bloques descartados por venir de una configuración anterior. */
   droppedReplies = 0;
 
@@ -407,7 +417,30 @@ export class PwController {
     this.transport.post({ type: 'reset', configVersion: this.configVersion });
   }
 
+  /**
+   * Última medida PSV/EDV/PI de la traza adquirida (DEC-56): se cachea por
+   * revisión del búfer de columnas y ajustes de medida, así que solo se
+   * recalcula cuando llegan columnas nuevas, y como mucho cada
+   * MEASURE_MIN_INTERVAL_MS (la medida puede ir hasta ~0,5 s por detrás).
+   * Un cambio de ajuste de medida (ángulo, filtro…) recalcula en el acto.
+   */
   latestMcaMeasure(): ReturnType<typeof summarizeBeats> {
+    const s = this.state;
+    if (!s.pwOn || this.cols.length <= 20) return null;
+    const settingsKey = `${s.settings.frequencyMhz}|${s.settings.angleCorrectionDeg}|${s.settings.invertColor}|${s.settings.wallFilterHz}|${this.fft}`;
+    const cached = this.measureCache;
+    const now = this.nowMs();
+    if (cached && cached.settingsKey === settingsKey) {
+      if (cached.revision === this.rev) return cached.value;
+      if (now - cached.atMs < MEASURE_MIN_INTERVAL_MS) return cached.value;
+    }
+    const value = this.computeMcaMeasure();
+    this.measureCache = { revision: this.rev, settingsKey, atMs: now, value };
+    return value;
+  }
+
+  /** Medida sin caché (coste ~30–60 ms con 2,5 s de columnas). */
+  private computeMcaMeasure(): ReturnType<typeof summarizeBeats> {
     try {
       const s = this.state;
       const cols = this.cols;

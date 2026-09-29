@@ -542,3 +542,69 @@ variante, caso)` que el worker de render. El protocolo vive en
     `frameLoop` evalúa `clock.requestSteps(elapsed)` en la condición del
     `for`, así que el reloj de simulación avanza ~1,2× el tiempo real a
     60 fps (anterior a este cambio).
+55. **DEC-56** — Modo de examen guiado, medida PW cacheada y Three.js
+    diferido. (a) **Guías puras**: `src/domain/guides.ts` define `Guide`
+    (`vaina`, `dtc`) como listas de `GuideStep` con título, instrucción de
+    1–2 frases, `check(ctx)`, pista opcional, selector del control a
+    resaltar y `capture` opcional (PSV/EDV/IP/TAMax de cada M1). Las
+    comprobaciones leen solo una instantánea plana (`GuideContext`) que
+    `src/app/guideContext.ts` construye en la UI cada 250 ms: estación,
+    lado, inclinación, rotación, desplazamientos, profundidad, ganancia,
+    color/PW/congelado, puerta con `dominantVesselId` y `bloodFraction`,
+    ángulo real de insonación, última medida PW, mediciones (con la
+    rotación del marcador al medir y la distancia retroglobo medida por
+    `nerveSection`), huecos del protocolo DVNO y la posición lateral en la
+    imagen del centro del nervio a 3 mm (`patientToImage` sobre
+    `fromEyeLocal(nerveCenterline(ojo, 3))`, pose sin temblor). (b)
+    **Reductor**: `advance(estado, ctx, ahoraMs)` completa el paso solo si
+    la comprobación se mantiene 600 ms seguidos; «Anterior» reabre un paso
+    sin auto-avance hasta que la comprobación falle una vez; «Siguiente»
+    manual queda marcado como omitido si no se cumplía; la guía del otro
+    examen se pausa (el tiempo en pausa no cuenta) y cada guía conserva su
+    progreso; la pista aparece tras 20 s activos en el paso. (c) **Pasos
+    vaina**: Ojo D → profundidad 38–52 mm → |barrido| ≤ 3 mm y nervio a
+    ≤ 4 mm del centro → congelar → DVNO der a 3 ± 0,5 mm retroglobo
+    (distancia medida; si falta, la declarada) → DVNO der con |rotación| ≥ 80°
+    → ambos planos del Ojo I (rotación < 45° transversal, ≥ 80° sagital; 45–80°
+    no cuenta). Resumen: media por ojo y bilateral frente a la verdad del
+    modelo por plano (transversal = `trueOnsdMm` interno; sagital = eje
+    menor, excentricidad × transversal, la misma frontera interna que
+    `classifyEyeLocal`), «precisa» si el error ≤ 0,3 mm, y
+    > 5,8 mm → «compatible con PIC elevada», nunca diagnóstico; si la medida
+    > cambia la conclusión respecto a la vaina del caso se señala. **Pasos
+    > DTC**: Temporal D → |inclinación| ≤ 3° → color → PW con vaso dominante
+    > `m1-*` y ≥ 20 % de sangre → ángulo real ≤ 30° → medida con ≥ 2 latidos
+    > (captura) → Temporal I con M1 medida (captura). Resumen: asimetría PSV
+    > (> 30 % señalada), IP (0,6–1,1 normal; > 1,2 elevado) y Lindegaard con
+    > la ACI del caso. (d) **UI**: botón «Guía» (G) en la cabecera y cajón
+    > lateral de 320 px, primer hijo pegajoso de la columna derecha (que se
+    > ensancha a 320 px con la guía abierta): progreso, paso, pista, lista de
+    > pasos con tiempos, Anterior/Siguiente/Reiniciar y, en el resumen,
+    > «Exportar informe» (`exportGuideReport`: guía, tiempos, capturas,
+    > resumen, informe DVNO y `exportPayload`). El control del paso recibe
+    > `.guide-target` (anillo pulsante; los deslizadores, su `label.ctl`),
+    > se abren sus `<details>` y solo si no se ve entero se desplaza lo
+    > mínimo. Debriefing: eventos `guide` (paso, tiempo, omitido; `reset` al
+    > reiniciar) y sección «Guía» (`guideSections`, último intento por paso).
+    > (e) **Medida PW**: `latestMcaMeasure` se cachea por `revision` del
+    > búfer de columnas y por los ajustes de medida (f0, corrección angular,
+    > inversión, filtro de pared, FFT); con columnas nuevas recalcula como
+    > mucho cada 500 ms (la lectura puede ir ~0,5 s por detrás), y un cambio
+    > de ajuste recalcula en el acto. Node, TCD D en M1, 6 s de PW síncrono:
+    > antes 46,6 ms por llamada aun sin columnas nuevas y 52,5 ms de media
+    > (máx. 69) en el patrón real de 4 llamadas/s (~210 ms/s de hilo
+    > principal); ahora 0,001 ms por llamada repetida y 27,5 ms de media a
+    > 4 Hz (máx. 62; ~2 recálculos/s, ~110 ms/s). (f) **Three.js diferido**:
+    > `Navigator3D` y `HeadView3D` se importan con `import()` tras el primer
+    > B-mode pintado; los canvas existen desde el principio con un esqueleto
+    > animado (`canvas.loading3d`) y `manualChunks` separa `three`. Chunk
+    > `index` 789,00 kB (gzip 213,87) → 212,93 kB (70,95) + `three` 572,48 kB
+    > (142,56) + `navigator3d` 11,68 kB + `headView3d` 10,22 kB + `probeMesh`
+    > 2,18 kB. (g) **Corrección**: el clic en el B-mode volvía a registrar la
+    > última medición en el debriefing aunque no se midiera nada; ahora solo
+    > se registra una medición nueva, con la rotación previa al clic (el
+    > protocolo DVNO gira el marcador al rellenar un hueco). Observado sin
+    > cambiar: en el Ojo I el nervio está inclinado ~18° en el plano de imagen
+    > a 3 mm (tortuosidad) y la frontera elíptica de `classifyEyeLocal` usa el
+    > desplazamiento x/y local, así que el diámetro perpendicular visible es
+    > ~4,96 mm frente a 4,70 mm de `trueOnsdMm` (Ojo D: 4,61 frente a 4,60).
