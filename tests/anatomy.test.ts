@@ -4,14 +4,20 @@ import {
   buildReferenceEyes,
   classifyEyeLocal,
   nerveCenterline,
+  nerveFrame,
+  nerveSection,
+  nerveSectionBounds,
+  nerveTangent,
   sheathRadiiAt,
+  trueOnsdMinorMm,
   trueOnsdMm,
 } from '../src/anatomy/eye';
+import { CASES } from '../src/domain/cases';
 import { classifyHead, inTemporalWindow, landmarkAt, skullThicknessAt, vesselAt } from '../src/anatomy/head';
 import { smoothPolyline } from '../src/anatomy/willis';
 import { ANATOMIA_CABEZA, ANATOMIA_OJO } from '../src/anatomy/params';
 import { buildReferenceCase } from '../src/domain/referenceCase';
-import { dist, type Vec3 } from '../src/core/vec3';
+import { add, cross, dist, dot, scale, type Vec3 } from '../src/core/vec3';
 import { temporalPose } from '../src/app/poses';
 import { buildScan } from '../src/ultrasound/probe';
 
@@ -134,6 +140,126 @@ describe('ojo de referencia N1', () => {
     for (const s of [2, 5, 10, 20]) {
       expect(classifyEyeLocal(eyes.der, nerveCenterline(eyes.der, s))).toBe('nervioOptico');
     }
+  });
+});
+
+describe('marco de la sección del nervio (DEC-57)', () => {
+  const sim = buildReferenceCase();
+
+  it('la tangente analítica coincide con la diferencia central (h = 0,05 mm)', () => {
+    for (const side of ['der', 'izq'] as const) {
+      const g = sim.eyes[side];
+      for (let s = 0; s <= 40; s += 0.5) {
+        const a = nerveCenterline(g, s - 0.05);
+        const b = nerveCenterline(g, s + 0.05);
+        const d: Vec3 = [(b[0] - a[0]) / 0.1, (b[1] - a[1]) / 0.1, (b[2] - a[2]) / 0.1];
+        const n = Math.hypot(d[0], d[1], d[2]);
+        const t = nerveTangent(g, s);
+        expect(dist(t, [d[0] / n, d[1] / n, d[2] / n])).toBeLessThan(1e-4);
+      }
+    }
+  });
+
+  it('u, v, t forman una base ortonormal con u ≈ temporal y v ≈ superior', () => {
+    for (const side of ['der', 'izq'] as const) {
+      for (const s of [0, 3, 10, 25]) {
+        const { t, u, v } = nerveFrame(sim.eyes[side], s);
+        for (const w of [t, u, v]) expect(Math.hypot(w[0], w[1], w[2])).toBeCloseTo(1, 9);
+        expect(dot(u, t)).toBeCloseTo(0, 9);
+        expect(dot(v, t)).toBeCloseTo(0, 9);
+        expect(dot(u, v)).toBeCloseTo(0, 9);
+        expect(u[0]).toBeGreaterThan(0.85);
+        expect(v[1]).toBeGreaterThan(0.99);
+        expect(dist(cross(u, t), v)).toBeLessThan(1e-9);
+      }
+    }
+  });
+
+  it('inPlane son las coordenadas (u, v, t) del punto en la sección', () => {
+    const g = sim.eyes.izq;
+    const { c, t, u, v } = nerveFrame(g, 3);
+    const p = add(c, add(scale(u, 1.1), scale(v, -0.7)));
+    const sec = nerveSection(g, p);
+    expect(sec.sMm).toBeCloseTo(3, 1);
+    expect(sec.inPlane[0]).toBeCloseTo(1.1, 2);
+    expect(sec.inPlane[1]).toBeCloseTo(-0.7, 2);
+    expect(Math.abs(sec.inPlane[2])).toBeLessThan(0.01);
+    expect(dot(t, t)).toBeCloseTo(1, 9);
+  });
+
+  it('la caja de rechazo contiene toda la vaina (elipse rotada + tolerancia axial)', () => {
+    // Holgura mínima de los puntos extremos de la vaina respecto a la caja:
+    // debe quedar ≥ 0,2 mm dentro del margen de 0,5 mm que cubre el muestreo.
+    let minSlack = Infinity;
+    for (const cc of CASES) {
+      const c = buildReferenceCase(undefined, 'normal', cc);
+      for (const side of ['der', 'izq'] as const) {
+        const g = c.eyes[side];
+        const box = nerveSectionBounds(g);
+        for (let s = 0; s <= 40; s += 0.05) {
+          const f = nerveFrame(g, s);
+          const r = sheathRadiiAt(g, s);
+          for (const tau of [-box.axialAntMm, 0, box.axialPostMm]) {
+            for (let k = 0; k < 64; k++) {
+              const th = (2 * Math.PI * k) / 64;
+              const p = add(
+                f.c,
+                add(
+                  add(scale(f.u, r.major * Math.cos(th)), scale(f.v, r.minor * Math.sin(th))),
+                  scale(f.t, tau),
+                ),
+              );
+              minSlack = Math.min(
+                minSlack,
+                p[0] - box.minX,
+                box.maxX - p[0],
+                p[1] - box.minY,
+                box.maxY - p[1],
+              );
+            }
+          }
+        }
+      }
+    }
+    expect(minSlack).toBeGreaterThan(0.2);
+  });
+
+  it('la tolerancia axial no recorta la unión vaina–globo ni el interior', () => {
+    for (const id of ['normal', 'paradaCirculatoria'] as const) {
+      const c = buildReferenceCase(
+        undefined,
+        'normal',
+        CASES.find((x) => x.id === id),
+      );
+      for (const side of ['der', 'izq'] as const) {
+        const g = c.eyes[side];
+        const r = g.globeRadiusMm;
+        const box = nerveSectionBounds(g);
+        let minTau = 0;
+        let maxInterior = 0;
+        for (let x = -10; x <= 8; x += 0.25) {
+          for (let y = -5; y <= 5; y += 0.25) {
+            for (let z = -r - 6; z <= -r + 4; z += 0.25) {
+              if (Math.hypot(x, y, z) <= r) continue;
+              const sec = nerveSection(g, [x, y, z]);
+              const rr = sheathRadiiAt(g, sec.sMm);
+              if (Math.hypot(sec.inPlane[0] / rr.major, sec.inPlane[1] / rr.minor) > 1) continue;
+              minTau = Math.min(minTau, sec.inPlane[2]);
+              if (sec.sMm > 0.5) maxInterior = Math.max(maxInterior, Math.abs(sec.inPlane[2]));
+            }
+          }
+        }
+        // Cuña en s = 0 con ≥ 1 mm de margen; en el interior off·t ≈ 0.
+        expect(minTau).toBeGreaterThan(-(box.axialAntMm - 1));
+        expect(maxInterior).toBeLessThan(0.1);
+      }
+    }
+  });
+
+  it('trueOnsdMinorMm = excentricidad × eje mayor (ambas convenciones)', () => {
+    const g = sim.eyes.izq;
+    expect(trueOnsdMinorMm(g, 3, 'externo')).toBeCloseTo(g.sheathEcc * trueOnsdMm(g, 3, 'externo'), 9);
+    expect(trueOnsdMinorMm(g, 3, 'interno')).toBeCloseTo(g.sheathEcc * trueOnsdMm(g, 3, 'interno'), 9);
   });
 });
 

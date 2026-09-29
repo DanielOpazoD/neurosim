@@ -7,9 +7,9 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { fromEyeLocal, nerveCenterline, rectusPaths, sheathRadiiAt } from '../anatomy/eye';
+import { eyeLocalDir, fromEyeLocal, nerveFrame, rectusPaths, sheathRadiiAt } from '../anatomy/eye';
 import { diencephalonShapes, midbrainShapes, vesselFlowDir, type Vessel } from '../anatomy/head';
-import { add, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
+import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
 import { imageToPatient } from '../ultrasound/probe';
 import type { ScanGeometry } from '../ultrasound/probe';
 import type { ColorBox, ProbePose, Side, Station } from '../domain/contracts';
@@ -90,6 +90,16 @@ export interface EllipsoidDesc {
   readonly color: string;
   readonly opacity: number;
 }
+/**
+ * Sección elíptica por muestra de un tubo (marco del paciente): semiejes
+ * `major` a lo largo de `u` y `minor` a lo largo de `v` (vaina, DEC-57).
+ */
+export interface TubeSection {
+  readonly u: readonly Vec3[];
+  readonly v: readonly Vec3[];
+  readonly major: readonly number[];
+  readonly minor: readonly number[];
+}
 export interface TubeDesc {
   readonly points: readonly Vec3[];
   readonly radiusMm: number;
@@ -97,6 +107,8 @@ export interface TubeDesc {
   readonly opacity: number;
   readonly emissive: number;
   readonly vesselId?: string;
+  /** Si existe, el tubo es elíptico con el marco dado (ignora `radiusMm`). */
+  readonly section?: TubeSection;
 }
 export interface DiscDesc {
   readonly center: Vec3;
@@ -113,10 +125,15 @@ export interface BoxDesc {
 }
 export interface RingDesc {
   readonly center: Vec3;
+  /** Normal del anillo (tangente del nervio), marco del paciente. */
   readonly tangent: Vec3;
   readonly innerMm: number;
   readonly outerMm: number;
   readonly color: string;
+  /** Eje mayor (⟂ tangente); con `minorScale` el anillo es elíptico. */
+  readonly majorAxis?: Vec3;
+  /** Razón eje menor / mayor (1 = circular). */
+  readonly minorScale?: number;
 }
 export interface BandDesc {
   readonly from: Vec3;
@@ -224,20 +241,31 @@ function describeHead(sim: ReferenceCase): SceneDescriptor {
 function describeEye(sim: ReferenceCase, side: Side): SceneDescriptor {
   const eye = sim.eyes[side];
   const r = eye.globeRadiusMm;
+  // Marco de la sección compartido con la clasificación (`nerveFrame`,
+  // DEC-57): la vaina se dibuja elíptica y el anillo DVNO a 3 mm se orienta
+  // con la tangente y el eje mayor reales, pasados al marco del paciente.
   const nervePts: Vec3[] = [];
-  const sheathPts: Vec3[] = [];
+  const section = { u: [] as Vec3[], v: [] as Vec3[], major: [] as number[], minor: [] as number[] };
   for (let s = 0; s <= 35; s += 1) {
-    nervePts.push(fromEyeLocal(eye, nerveCenterline(eye, s)));
-    sheathPts.push(fromEyeLocal(eye, nerveCenterline(eye, s)));
+    const f = nerveFrame(eye, s);
+    nervePts.push(fromEyeLocal(eye, f.c));
+    const radii = sheathRadiiAt(eye, s);
+    section.u.push(eyeLocalDir(eye, f.u));
+    section.v.push(eyeLocalDir(eye, f.v));
+    section.major.push(radii.major);
+    section.minor.push(radii.minor);
   }
-  const ringLocal = nerveCenterline(eye, 3);
-  const ringAhead = nerveCenterline(eye, 3.5);
+  const ring = nerveFrame(eye, 3);
+  const ringRadii = sheathRadiiAt(eye, 3);
   const rings: RingDesc[] = [
     {
-      center: fromEyeLocal(eye, ringLocal),
-      tangent: normalize(sub(ringAhead, ringLocal)),
-      innerMm: 0.8,
-      outerMm: 1.6,
+      center: fromEyeLocal(eye, ring.c),
+      tangent: eyeLocalDir(eye, ring.t),
+      majorAxis: eyeLocalDir(eye, ring.u),
+      minorScale: ringRadii.minor / ringRadii.major,
+      // Anillo dural a 3 mm (DVNO externa), apenas sobre la superficie de la vaina.
+      innerMm: ringRadii.major - eye.duraMm,
+      outerMm: ringRadii.major + 0.15,
       color: '#ffd77a',
     },
   ];
@@ -277,11 +305,12 @@ function describeEye(sim: ReferenceCase, side: Side): SceneDescriptor {
         emissive: 0.15,
       },
       {
-        points: sheathPts,
+        points: nervePts,
         radiusMm: sheathRadiiAt(eye, 3).major,
         color: '#e8b44a',
         opacity: 0.25,
         emissive: 0,
+        section,
       },
     ],
     lenses: [
@@ -357,8 +386,41 @@ function ellipsoidMesh(d: EllipsoidDesc): THREE.Mesh {
 }
 
 function tubeMesh(d: TubeDesc): THREE.Mesh {
+  if (d.section) return ellipticTubeMesh(d, d.section);
   const curve = new THREE.CatmullRomCurve3(d.points.map(v3));
   const geo = new THREE.TubeGeometry(curve, Math.max(8, d.points.length * 2), d.radiusMm, 10, false);
+  return new THREE.Mesh(geo, stdMaterial(d.color, d.opacity, d.emissive));
+}
+
+/** Tubo de sección elíptica con marco explícito por muestra (sin suavizado). */
+function ellipticTubeMesh(d: TubeDesc, sec: TubeSection): THREE.Mesh {
+  const seg = 24;
+  const n = d.points.length;
+  const pos = new Float32Array(n * seg * 3);
+  for (let i = 0; i < n; i++) {
+    const c = d.points[i]!;
+    const u = sec.u[i]!;
+    const v = sec.v[i]!;
+    for (let j = 0; j < seg; j++) {
+      const th = (2 * Math.PI * j) / seg;
+      const a = sec.major[i]! * Math.cos(th);
+      const b = sec.minor[i]! * Math.sin(th);
+      const k = 3 * (i * seg + j);
+      for (let q = 0; q < 3; q++) pos[k + q] = c[q]! + a * u[q]! + b * v[q]!;
+    }
+  }
+  const index: number[] = [];
+  for (let i = 0; i + 1 < n; i++) {
+    for (let j = 0; j < seg; j++) {
+      const a = i * seg + j;
+      const b = i * seg + ((j + 1) % seg);
+      index.push(a, a + seg, b, b, a + seg, b + seg);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(index);
+  geo.computeVertexNormals();
   return new THREE.Mesh(geo, stdMaterial(d.color, d.opacity, d.emissive));
 }
 
@@ -375,7 +437,16 @@ function ringMesh(d: RingDesc): THREE.Mesh {
     stdMaterial(d.color, 1),
   );
   mesh.position.copy(v3(d.center));
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), v3(normalize(d.tangent)));
+  const z = normalize(d.tangent);
+  if (d.majorAxis) {
+    // Base (eje mayor, menor, tangente): el toro vive en el plano XY local.
+    const x = normalize(sub(d.majorAxis, scale(z, dot(d.majorAxis, z))));
+    const y = cross(z, x);
+    mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(v3(x), v3(y), v3(z)));
+    mesh.scale.set(1, d.minorScale ?? 1, 1);
+  } else {
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), v3(z));
+  }
   return mesh;
 }
 

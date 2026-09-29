@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
-import { nerveCenterline, fromEyeLocal } from '../../src/anatomy/eye';
+import { eyeLocalDir, nerveCenterline, nerveFrame, fromEyeLocal } from '../../src/anatomy/eye';
 import { currentPose } from '../../src/app/poses';
 import { createInitialState } from '../../src/app/state';
 import { describeStaticScene, flowColor, probeBasis } from '../../src/ui/navigator3d';
@@ -30,6 +30,30 @@ describe('navegador 3D (escena estática)', () => {
         ring.center.every((v, i) => Math.abs(v - expectedIzq[i]!) < 1e-9);
       expect(match).toBe(true);
     }
+  });
+
+  it('vaina y anillo DVNO usan el marco de la sección (DEC-57) en coordenadas del paciente', () => {
+    const desc = describeStaticScene(sim, 'ojo');
+    const sheaths = desc.tubes.filter((t) => t.section);
+    expect(sheaths).toHaveLength(2);
+    expect(desc.rings).toHaveLength(2);
+    (['der', 'izq'] as const).forEach((side, i) => {
+      const eye = sim.eyes[side];
+      const f = nerveFrame(eye, 3);
+      const ring = desc.rings[i]!;
+      const t = eyeLocalDir(eye, f.t);
+      const u = eyeLocalDir(eye, f.u);
+      for (let k = 0; k < 3; k++) {
+        expect(ring.tangent[k]).toBeCloseTo(t[k]!, 9);
+        expect(ring.majorAxis![k]).toBeCloseTo(u[k]!, 9);
+      }
+      expect(dot(ring.tangent, ring.majorAxis!)).toBeCloseTo(0, 9);
+      expect(ring.minorScale).toBeCloseTo(eye.sheathEcc, 9);
+      // El marco local se transforma al paciente (en el ojo izquierdo
+      // temporal = −x): antes la tangente del anillo se copiaba sin rotar.
+      const sheath = sheaths[i]!.section!;
+      expect(sheath.u[3]!.every((v, k) => Math.abs(v - u[k]!) < 1e-9)).toBe(true);
+    });
   });
 
   it('la base de la sonda temporal es ortonormal', () => {

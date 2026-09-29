@@ -18,7 +18,7 @@
  * excentricidad de la vaina ~0,5 según estudio 3D [silverman-3d-onsd-2026].
  */
 import { MATERIALS, type Material, type MaterialId } from './materials';
-import { add, dist, dot, normalize, scale, smoothstep, sub, v3, type Vec3 } from '../core/vec3';
+import { add, cross, dist, dot, normalize, scale, smoothstep, sub, v3, type Vec3 } from '../core/vec3';
 import type { SeededRandom } from '../core/random';
 import type { Side } from '../domain/contracts';
 import { ANATOMIA_OJO } from './params';
@@ -141,19 +141,84 @@ export function nerveCenterline(
 }
 
 /**
- * Distancia con signo a la envoltura de la vaina en el corte transversal local
- * al nervio, evaluada en el punto `pLocal` (marco del ojo). Devuelve también
- * la coordenada axial s (mm retroglobo) del centro más cercano.
- *
- * Aproximación: para un punto cuya z cae por detrás del globo, se busca el s
- * que minimiza la distancia al centro del nervio (marcha corta) y se evalúan
- * las secciones elípticas en el plano perpendicular al trayecto.
+ * Tangente unitaria de `nerveCenterline` en `sMm` (derivada analítica,
+ * sentido posterior = s creciente), marco local del ojo.
  */
+export function nerveTangent(g: Pick<EyeGeometry, 'gazeAngleRad' | 'tortuosityPhaseRad'>, sMm: number): Vec3 {
+  return normalize(nerveDerivative(g, sMm));
+}
+
+/** dc/ds de `nerveCenterline` (sin normalizar; |dc/ds| ≥ cos(mirada)). */
+function nerveDerivative(g: Pick<EyeGeometry, 'gazeAngleRad' | 'tortuosityPhaseRad'>, sMm: number): Vec3 {
+  const dBend = Math.exp(-sMm / 18) / 18;
+  const gaze = g.gazeAngleRad;
+  const k = (2 * Math.PI) / EYE.tortuosityPeriodMm.value;
+  const dTort = EYE.tortuosityAmpMm.value * k * Math.cos(k * sMm + g.tortuosityPhaseRad);
+  return [-EYE.nerveNasalBendMm.value * dBend + Math.sin(gaze) + dTort, -0.4 * dBend, -Math.cos(gaze)];
+}
+
+/** Marco ortonormal de la sección del nervio (marco local del ojo). */
+export interface NerveFrame {
+  /** Centro de la sección (punto de la línea central). */
+  readonly c: Vec3;
+  /** Tangente unitaria (posterior, s creciente). */
+  readonly t: Vec3;
+  /** Eje mayor de la vaina: +x local (temporal) proyectado ⟂ t. */
+  readonly u: Vec3;
+  /** Eje menor: v = u × t (≈ superior, +y local). */
+  readonly v: Vec3;
+}
+
+/**
+ * Marco de la sección perpendicular del nervio en `sMm` (DEC-57), compartido
+ * por la clasificación de la vaina, los vasos intraneurales/ciliares y el
+ * navegador 3D: u = normaliza(eₓ − (eₓ·t)t), v = u × t. Con t posterior
+ * (≈ −z local) este producto da v ≈ +y (superior); t × u daría −y.
+ */
+export function nerveFrame(
+  g: Pick<EyeGeometry, 'gazeAngleRad' | 'tortuosityPhaseRad' | 'globeRadiusMm'>,
+  sMm: number,
+): NerveFrame {
+  const c = nerveCenterline(g, sMm);
+  const t = nerveTangent(g, sMm);
+  const u = normalize([1 - t[0] * t[0], -t[0] * t[1], -t[0] * t[2]]);
+  const v = cross(u, t);
+  return { c, t, u, v };
+}
+
+/** Dirección del marco local del ojo expresada en el marco del paciente. */
+export function eyeLocalDir(g: Pick<EyeGeometry, 'temporal' | 'superior' | 'anterior'>, d: Vec3): Vec3 {
+  return add(add(scale(g.temporal, d[0]), scale(g.superior, d[1])), scale(g.anterior, d[2]));
+}
+
+/**
+ * Tolerancia axial de la sección (mm): un punto sólo pertenece a la vaina si
+ * su componente a lo largo de la tangente del centro más cercano cumple
+ * −NERVE_AXIAL_ANT_MM ≤ off·t ≤ NERVE_AXIAL_POST_MM. En el interior del
+ * trayecto el mínimo de distancia da off·t ≈ 0; solo actúa en los extremos y
+ * acota la caja de rechazo de `nerveSection`. En s = 0 la cuña entre la
+ * esfera del globo y el plano de la sección (inclinado ~25° por la curva
+ * nasal) llega a off·t ≈ −1,5 mm en N1 y ≈ −2,8 mm con la vaina máxima de
+ * los casos (parada circulatoria); 5 mm no recorta la unión vaina–esclera
+ * (test en anatomy.test.ts). En s = 40 el nervio acaba 1 mm tras el ápex
+ * (hueso) en vez de prolongarse indefinidamente.
+ */
+const NERVE_AXIAL_ANT_MM = 5;
+const NERVE_AXIAL_POST_MM = 1;
+const NERVE_AXIAL_TOL_MM = Math.max(NERVE_AXIAL_ANT_MM, NERVE_AXIAL_POST_MM);
+
 /**
  * Caché por geometría: línea central del nervio tabulada cada 0,25 mm
  * (s ∈ [0,40], 161 puntos) y caja envolvente de todas las secciones de la
  * vaina. La tabla almacena los valores exactos de `nerveCenterline`, así que
  * la marcha gruesa a paso 1 mm produce los mismos candidatos que antes.
+ *
+ * Caja (DEC-57): un punto dentro de la elipse de la sección s cumple
+ * p = c + a·ξ·u + b·η·v + τ·t con ξ² + η² ≤ 1 y |τ| ≤ NERVE_AXIAL_TOL_MM,
+ * luego |pₓ − cₓ| ≤ √(a²uₓ² + b²vₓ²) + tol·|tₓ| (función soporte de la
+ * elipse rotada) y lo mismo en y. La caja acumula esa cota en las 161
+ * muestras y añade 0,5 mm por la variación de c, a, b y el marco entre
+ * muestras (|dc/ds| ≤ 1,2, |da/ds| < 0,1 → < 0,2 mm en medio paso).
  */
 const nerveCurveCache = new WeakMap<
   EyeGeometry,
@@ -175,15 +240,17 @@ function nerveCurve(g: EyeGeometry): {
     let maxY = -Infinity;
     for (let k = 0; k <= 160; k += 1) {
       const s = k * 0.25;
-      const c = nerveCenterline(g, s);
+      const { c, t: tan, u, v } = nerveFrame(g, s);
       pts[3 * k] = c[0];
       pts[3 * k + 1] = c[1];
       pts[3 * k + 2] = c[2];
-      const { major, minor } = sheathRadiiAt(g, s);
-      minX = Math.min(minX, c[0] - major);
-      maxX = Math.max(maxX, c[0] + major);
-      minY = Math.min(minY, c[1] - minor);
-      maxY = Math.max(maxY, c[1] + minor);
+      const { major: a, minor: b } = sheathRadiiAt(g, s);
+      const hx = Math.hypot(a * u[0], b * v[0]) + NERVE_AXIAL_TOL_MM * Math.abs(tan[0]);
+      const hy = Math.hypot(a * u[1], b * v[1]) + NERVE_AXIAL_TOL_MM * Math.abs(tan[1]);
+      minX = Math.min(minX, c[0] - hx);
+      maxX = Math.max(maxX, c[0] + hx);
+      minY = Math.min(minY, c[1] - hy);
+      maxY = Math.max(maxY, c[1] + hy);
     }
     // Margen por el movimiento del centro entre muestras de la tabla.
     const m = 0.5;
@@ -193,15 +260,37 @@ function nerveCurve(g: EyeGeometry): {
   return t;
 }
 
+/**
+ * Caja de rechazo de `nerveSection` (marco local del ojo, x/y) y límites
+ * axiales de la sección; expuesta para que los tests verifiquen la cota.
+ */
+export function nerveSectionBounds(g: EyeGeometry): {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  axialAntMm: number;
+  axialPostMm: number;
+} {
+  const { minX, maxX, minY, maxY } = nerveCurve(g);
+  return { minX, maxX, minY, maxY, axialAntMm: NERVE_AXIAL_ANT_MM, axialPostMm: NERVE_AXIAL_POST_MM };
+}
+
+/**
+ * Sección del nervio que contiene al punto `pLocal` (marco del ojo): s (mm
+ * retroglobo) del centro más cercano (marcha gruesa + refinado), distancia 3D
+ * a ese centro e `inPlane` = (off·u, off·v, off·t) en el marco de la sección
+ * perpendicular (`nerveFrame`). La elipse de la vaina se evalúa en (u, v).
+ */
 export function nerveSection(
   g: EyeGeometry,
   pLocal: Vec3,
 ): { sMm: number; distToCenterMm: number; inPlane: Vec3 } {
   const table = nerveCurve(g);
-  // Rechazo exacto: la elipse de la vaina sólo puede contener al punto si
-  // |dx| ≤ major(s) y |dy| ≤ minor(s) para algún s; fuera de la caja eso es
-  // imposible para todo s (en > 1 garantizado), así que se devuelve una
-  // sección sintética con inPlane fuera de la elipse.
+  // Rechazo exacto: un punto de la vaina (elipse de la sección s en el marco
+  // u/v, |τ| ≤ NERVE_AXIAL_TOL_MM) cae dentro de la caja de `nerveCurve`;
+  // fuera de ella `classifyEyeLocal` no puede dar nervio/LCR/dura para ningún
+  // s, así que se devuelve una sección sintética con inPlane fuera de la elipse.
   if (pLocal[0] < table.minX || pLocal[0] > table.maxX || pLocal[1] < table.minY || pLocal[1] > table.maxY) {
     return { sMm: 0, distToCenterMm: Infinity, inPlane: [1e6, 0, 0] };
   }
@@ -237,12 +326,24 @@ export function nerveSection(
   const num = (mid - lo) ** 2 * (fMid - fHi) - (hi - mid) ** 2 * (fMid - fLo);
   const den = (mid - lo) * (fMid - fHi) - (hi - mid) * (fMid - fLo);
   bestS = Math.abs(den) < 1e-12 ? mid : Math.min(hi, Math.max(lo, mid - (0.5 * num) / den));
-  const c = nerveCenterline(g, bestS);
-  bestD = dist(pLocal, c);
+  // Paso de Gauss-Newton sobre (p − c(s))·c'(s) = 0: el pulido parabólico
+  // deja residuos axiales de hasta ~0,25 mm (y s = 0,05 en vez de 0 en el
+  // extremo del globo); un paso los reduce por debajo de ~0,01 mm.
+  const c0 = nerveCenterline(g, bestS);
+  const d0 = nerveDerivative(g, bestS);
+  const step = dot(sub(pLocal, c0), d0) / dot(d0, d0);
+  bestS = Math.min(40, Math.max(0, bestS + Math.max(-0.5, Math.min(0.5, step))));
+  // Coordenadas en el marco de la sección perpendicular (DEC-57): u (eje
+  // mayor, ≈ temporal), v (eje menor, ≈ superior) y t (axial, ≈ 0 salvo en
+  // los extremos). Proyectar sobre u, v hace la sección insensible a errores
+  // pequeños de s (un error δ sólo desplaza el punto a lo largo de t).
+  const { c, t, u, v } = nerveFrame(g, bestS);
   const off = sub(pLocal, c);
-  // El plano local del nervio: la sección elíptica rota suavemente con s
-  // (las vainas no son circulares; eje mayor aproximadamente horizontal).
-  return { sMm: bestS, distToCenterMm: bestD, inPlane: off };
+  return {
+    sMm: bestS,
+    distToCenterMm: Math.hypot(off[0], off[1], off[2]),
+    inPlane: [dot(off, u), dot(off, v), dot(off, t)],
+  };
 }
 
 /** Radios efectivos de la vaina a distancia s retroglobo (mm). */
@@ -419,12 +520,14 @@ export function classifyEyeLocal(g: EyeGeometry, p: Vec3): MaterialId {
   if (z < 0) {
     const sec = nerveSection(g, p);
     const radii = sheathRadiiAt(g, sec.sMm);
-    // Sección elíptica: coordenadas en el plano local del nervio.
+    // Sección elíptica en el marco perpendicular al nervio (u mayor, v menor).
     const a = radii.major;
     const b = radii.minor;
-    const en = Math.hypot(sec.inPlane[0] / a, sec.inPlane[1] / b);
+    const [su, sv, st] = sec.inPlane;
+    const axialOk = st >= -NERVE_AXIAL_ANT_MM && st <= NERVE_AXIAL_POST_MM;
+    const en = axialOk ? Math.hypot(su / a, sv / b) : Infinity;
     if (en <= 1) {
-      const eNerve = sec.distToCenterMm / radii.nerve;
+      const eNerve = Math.hypot(su, sv) / radii.nerve;
       if (eNerve <= 1) return 'nervioOptico';
       if (en <= (a - g.duraMm) / a) return 'lcrVaina';
       return 'duraVaina';
@@ -461,4 +564,16 @@ export function trueOnsdMm(g: EyeGeometry, sMm: number, convention: 'interno' | 
   const r = sheathRadiiAt(g, sMm);
   const ext = 2 * r.major;
   return convention === 'externo' ? ext : ext - 2 * g.duraMm;
+}
+
+/**
+ * DVNO verdadero a lo largo del eje MENOR de la sección perpendicular (plano
+ * sagital). Externa = 2·minor; interna = frontera LCR/dura de
+ * `classifyEyeLocal` (elipse escalada (a − dura)/a) = excentricidad × interna
+ * mayor.
+ */
+export function trueOnsdMinorMm(g: EyeGeometry, sMm: number, convention: 'interno' | 'externo'): number {
+  const r = sheathRadiiAt(g, sMm);
+  const ext = 2 * r.minor;
+  return convention === 'externo' ? ext : ext * ((r.major - g.duraMm) / r.major);
 }
