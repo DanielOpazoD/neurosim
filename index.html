@@ -68,6 +68,11 @@
         <path d="M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5 2.5-2.5" />
         <circle cx="5" cy="18" r="1.4" />
       </symbol>
+      <symbol id="i-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="7.5" />
+        <circle cx="12" cy="12" r="2" />
+        <path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" />
+      </symbol>
       <symbol id="i-info" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9" />
         <path d="M12 11v5M12 8h.01" />
@@ -200,9 +205,6 @@
               <input id="press" type="range" min="0" max="100" step="5" value="30"
             /></label>
           </div>
-          <label class="switchRow"
-            ><input id="handMotion" type="checkbox" checked /> Micro-movimiento de mano</label
-          >
           <div class="chips">
             <button id="planoMesencefalico" class="chip">Plano mesencefálico</button>
             <button id="planoDiencefalico" class="chip">Plano diencefálico</button>
@@ -229,6 +231,13 @@
               </button>
               <button id="audio" class="btn-mode">
                 <svg class="ic"><use href="#i-volume" /></svg><span>Audio</span>
+              </button>
+              <button
+                id="optimal"
+                class="btn-tool"
+                title="Ventana óptima: lleva la sonda a la adquisición ideal de esta ventana (O)"
+              >
+                <svg class="ic"><use href="#i-target" /></svg><span>Ventana óptima</span><kbd>O</kbd>
               </button>
               <button id="caliper" class="btn-tool" title="Caliper (C)">
                 <svg class="ic"><use href="#i-ruler" /></svg><span>Caliper</span><kbd>C</kbd>
@@ -474,8 +483,16 @@
       </section>
     </main>
     <footer>
-      neurosono-sim · simulador docente, no es un dispositivo médico · DVNO interna por defecto; TAMax =
-      integral de la envolvente real.
+      <span
+        >neurosono-sim · simulador docente, no es un dispositivo médico · DVNO interna por defecto; TAMax =
+        integral de la envolvente real.</span
+      >
+      <span id="credits" class="credits"
+        >Acerca de / créditos: cabeza 3D «Infinite, 3D Head Scan» de Lee Perry-Smith (Infinite-Realities,
+        <a href="http://www.ir-ltd.net/" target="_blank" rel="noopener">ir-ltd.net</a>), licencia
+        <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>,
+        vía los ejemplos de three.js.</span
+      >
     </footer>
     <script type="module" src="/src/ui/main.ts"></script>
   </body>

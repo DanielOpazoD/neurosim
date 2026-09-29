@@ -5,7 +5,7 @@ import { defaultTemporalSettings } from '../src/domain/settings';
 import { PwDopplerChain } from '../src/doppler/pwChain';
 import type { SpectralColumn } from '../src/doppler/spectral';
 import { createInitialState } from '../src/app/state';
-import { currentPose, handMotionVelocityMmS } from '../src/app/poses';
+import { currentPose } from '../src/app/poses';
 import {
   createPwHandlerState,
   handlePwMessage,
@@ -65,7 +65,7 @@ describe('protocolo del worker PW (DEC-55)', () => {
       direct.step(
         (tt) => sim.physStateAt(tt),
         step.tStart,
-        (tt) => handMotionVelocityMmS(tt, sim.patient.seed),
+        () => [0, 0, 0],
         step.dt,
       );
       direct.flush();
@@ -86,7 +86,7 @@ describe('protocolo del worker PW (DEC-55)', () => {
     const columns: SpectralColumn[] = [];
     const replies: PwReply[] = [];
     for (const step of steps) {
-      const reply = post({ type: 'step', configVersion: 1, ...step, handMotion: true, wantAudio: true });
+      const reply = post({ type: 'step', configVersion: 1, ...step, wantAudio: true });
       expect(reply).not.toBeNull();
       replies.push(reply!);
       columns.push(...unpackColumns(reply!));
@@ -151,7 +151,6 @@ describe('protocolo del worker PW (DEC-55)', () => {
         configVersion: 0,
         tStart: 0,
         dt: 0.05,
-        handMotion: false,
         wantAudio: false,
       }),
     ).toBeNull();
@@ -180,7 +179,6 @@ function temporalM1State(sim: ReturnType<typeof buildReferenceCase>) {
   s.station = 'temporal';
   s.side = 'der';
   s.settings = defaultTemporalSettings();
-  s.handMotion = false;
   s.pwOn = true;
   const target = sim.head.vessels.find((v) => v.id === 'm1-der')!.points[2]!;
   const { u, z } = patientToImage(currentPose(sim, s), 'sector', target);

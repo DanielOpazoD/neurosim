@@ -5,11 +5,18 @@ export default defineConfig({
   build: {
     target: 'es2022',
     // Three.js va en su propio chunk, cargado bajo demanda tras el primer
-    // B-mode (DEC-56); ~575 kB sin comprimir es esperado para esa librería.
-    chunkSizeWarningLimit: 600,
+    // B-mode (DEC-56); ~620 kB sin comprimir es esperado para esa librería
+    // (575 kB + las clases del núcleo que usa GLTFLoader, DEC-59).
+    chunkSizeWarningLimit: 650,
     rollupOptions: {
       output: {
-        manualChunks: (id) => (id.includes('/node_modules/three/') ? 'three' : undefined),
+        // GLTFLoader aparte (DEC-59): solo lo pide la cabeza escaneada.
+        manualChunks: (id) =>
+          id.includes('/node_modules/three/examples/jsm/loaders/')
+            ? 'three-gltf'
+            : id.includes('/node_modules/three/')
+              ? 'three'
+              : undefined,
       },
     },
   },

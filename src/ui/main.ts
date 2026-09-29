@@ -48,13 +48,16 @@ import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 import { buildDebrief } from '../app/debrief';
 import { currentPose } from '../app/poses';
+import { solveOptimalWindow, type OnsdPlaneTarget, type ProbeParams } from '../app/optimalWindow';
 import { lindegaardRatio } from '../doppler/measureMca';
 // Three.js se carga aparte (DEC-56): las vistas 3D llegan tras el primer B-mode.
 import type { Navigator3D } from './navigator3d';
 import type { HeadView3D } from './headView3d';
+import { ViewLink } from './viewLink';
 import type { Measurement } from '../domain/contracts';
 import {
   advance,
+  assistWindow,
   completedSince,
   currentStep,
   guideById,
@@ -131,15 +134,23 @@ const headViewEnabled = !new URLSearchParams(location.search).has('nohead');
 let navigator3d: Navigator3D | null = null;
 let headView: HeadView3D | null = null;
 let views3dRequested = false;
+/** Cámaras enlazadas Exploración ↔ Anatomía (DEC-59): una sola dirección de vista. */
+const viewLink = new ViewLink();
+/** `?headmodel=0` fuerza la cabeza estilizada (sin descargar el escaneo). */
+const headScan = urlParams.get('headmodel') !== '0';
 function loadViews3d(): void {
   if (views3dRequested) return;
   views3dRequested = true;
   Promise.all([import('./navigator3d'), headViewEnabled ? import('./headView3d') : Promise.resolve(null)])
     .then(([navModule, headModule]) => {
-      navigator3d = new navModule.Navigator3D(navigatorCv, sim);
+      navigator3d = new navModule.Navigator3D(navigatorCv, sim, viewLink);
       navigator3d.resetCamera(s.station, s.side);
       if (headModule) {
-        headView = new headModule.HeadView3D(headViewCv, sim, s, (st, sd) => setStation(st, sd));
+        headView = new headModule.HeadView3D(headViewCv, sim, s, (st, sd) => setStation(st, sd), {
+          link: viewLink,
+          scan: headScan,
+        });
+        // La vista de cabeza es la maestra: su preset se publica al final.
         headView.resetCamera(s.station, s.side);
       }
     })
@@ -182,7 +193,6 @@ $('casoInfo').innerHTML = `${clinicalCase.summary}<ul>${clinicalCase.teaching
 if (urlParams.get('clock') === 'fixed') {
   const tParam = Number(urlParams.get('t'));
   clock.freezeAt(Number.isFinite(tParam) ? tParam : 0.4);
-  s.handMotion = false;
   // La persistencia GPU es una aproximación por composición alfa: el redondeo
   // de premultiplicar/despre-multiplicar aleja los píxeles de la ruta CPU más
   // que la tolerancia de paridad; en modo reloj fijo se desactiva (los
@@ -190,7 +200,6 @@ if (urlParams.get('clock') === 'fixed') {
   s.persistence = 0;
 }
 let lastRender = 0;
-let lastHeadRender = 0;
 let lastT = performance.now();
 let renderId = 0;
 /** Último id dibujado: con varios workers una respuesta atrasada se descarta. */
@@ -387,9 +396,11 @@ function setFreezeLabel(frozen: boolean): void {
 
 function setStation(station: Station, side: Side): void {
   const previousStation = s.station;
+  probeTween = null;
   s.station = station;
   s.side = side;
   document.body.dataset.station = station;
+  // Mismo preset en ambas vistas; la de cabeza (maestra) publica la última.
   navigator3d?.resetCamera(station, side);
   headView?.resetCamera(station, side);
   s.settings = defaultSettingsFor(station);
@@ -473,7 +484,6 @@ interface RenderTiming {
   cardiacPhase: number;
   respiratoryPhase: number;
   flowModulation: number;
-  handMotion: boolean;
 }
 
 function sendRenderRequest(timing: RenderTiming): void {
@@ -496,7 +506,6 @@ function sendRenderRequest(timing: RenderTiming): void {
       t: timing.t,
       cardiacPhase: timing.cardiacPhase,
       respiratoryPhase: timing.respiratoryPhase,
-      handMotion: timing.handMotion,
       flowModulation: timing.flowModulation,
       physiology: sim.patient.physiology,
       color: s.colorOn,
@@ -775,7 +784,7 @@ function updateDebriefPanel(): void {
         `<div><b>Guía</b> · ${section.title} · ${section.completed ? 'completa' : 'en curso'} · ${section.totalS.toFixed(0)} s</div>`,
         ...section.steps.map(
           (step) =>
-            `<div>${step.manual ? '↷' : '✓'} ${step.title}: ${step.durationS.toFixed(1)} s${step.manual ? ' (omitido)' : ''}</div>`,
+            `<div>${step.assisted ? '⚑' : step.manual ? '↷' : '✓'} ${step.title}: ${step.durationS.toFixed(1)} s${step.assisted ? ' (asistido)' : step.manual ? ' (omitido)' : ''}</div>`,
         ),
       ]),
       '<hr>',
@@ -906,12 +915,14 @@ function recordGuideEvents(prev: GuideProgress, next: GuideProgress): void {
   for (const event of completedSince(prev, next)) {
     const step = guide.steps[event.stepIndex]!;
     s.debrief.setTime(clock.t);
-    s.debrief.record('guide', `${guide.title}: ${step.title}${event.manual ? ' (omitido)' : ''}`, {
+    const note = event.assisted ? ' (asistido ⚑)' : event.manual ? ' (omitido)' : '';
+    s.debrief.record('guide', `${guide.title}: ${step.title}${note}`, {
       guideId: event.guideId,
       stepId: event.stepId,
       stepIndex: event.stepIndex,
       durationS: event.durationMs / 1000,
       manual: event.manual,
+      assisted: event.assisted === true,
     });
   }
 }
@@ -1008,10 +1019,115 @@ $('guideExport').addEventListener('click', () => {
   s.debrief.record('export', `informe guía ${progress.guideId}`);
 });
 
+/* ── Ventana óptima (DEC-60) ── */
+const PROBE_KEYS = ['offsetMm', 'offsetVMm', 'tiltDeg', 'tiltVDeg', 'rotDeg', 'press'] as const;
+/** Duración de la transición animada de la sonda, ms. */
+const OPTIMAL_TWEEN_MS = 400;
+/** Transición en curso de los controles de la sonda (null si no hay). */
+let probeTween: { from: ProbeParams; to: ProbeParams; t0: number } | null = null;
+
+function probeParams(): ProbeParams {
+  return {
+    offsetMm: s.offsetMm,
+    offsetVMm: s.offsetVMm,
+    tiltDeg: s.tiltDeg,
+    tiltVDeg: s.tiltVDeg,
+    rotDeg: s.rotDeg,
+    press: s.press,
+  };
+}
+
+/** Interpola los controles de la sonda (ease-in-out): las vistas 3D la ven deslizarse. */
+function stepProbeTween(now: number): void {
+  if (!probeTween) return;
+  const k = Math.min(1, Math.max(0, (now - probeTween.t0) / OPTIMAL_TWEEN_MS));
+  const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+  for (const key of PROBE_KEYS) {
+    const a = probeTween.from[key];
+    const b = probeTween.to[key];
+    s[key] = k >= 1 ? b : a + (b - a) * e;
+  }
+  if (k >= 1) probeTween = null;
+}
+
+/** Plano pedido en el ojo: el siguiente hueco del protocolo DVNO de este lado. */
+function onsdPlaneTarget(): OnsdPlaneTarget {
+  const slot = s.onsdActive ? nextSlot(s.onsd) : null;
+  if (slot && slot.side === s.side) return slot.plane;
+  const progress = guideProgress.get('vaina');
+  if (guideOpen && progress && currentStep(progress)?.id === 'dvno-sagital' && s.side === 'der') {
+    return 'sagital';
+  }
+  return 'transversal';
+}
+
+/** Fija un deslizador por el mismo camino que el usuario (evento `input`). */
+function setRangeValue(id: string, value: number): void {
+  const input = $<HTMLInputElement>(id);
+  input.value = String(value);
+  input.dispatchEvent(new Event('input'));
+}
+
+function applyOptimalWindow(): void {
+  const station = s.station;
+  const side = s.side;
+  const plane = station === 'ojo' ? onsdPlaneTarget() : undefined;
+  const t0 = performance.now();
+  const w = solveOptimalWindow(sim, station, side, { plane });
+  const solveMs = performance.now() - t0;
+  if (s.frozen) toggleFreeze();
+  // Equipo: profundidad, foco y ganancia de fábrica por el camino de los deslizadores.
+  setRangeValue('depth', w.depthMm);
+  setRangeValue('focus', w.focusMm);
+  setRangeValue('gain', defaultSettingsFor(station).gainDb);
+  if (w.colorBox) s.settings = { ...s.settings, colorBox: w.colorBox };
+  if (w.colorOn && !s.colorOn) setColorOn(true);
+  // Puerta lista en el punto de menor ángulo: pulsar P mide al instante.
+  if (w.gate) {
+    s.gateDepthMm = w.gate.depthMm;
+    s.gateUMm = w.gate.uMm;
+  }
+  probeTween = { from: probeParams(), to: w.probe, t0: performance.now() };
+  const m = w.metrics;
+  s.debrief.setTime(clock.t);
+  s.debrief.record('optimal-window', `${station} ${side}${plane ? ` ${plane}` : ''}`, {
+    station,
+    side,
+    plane: plane ?? '',
+    ...w.probe,
+    depthMm: w.depthMm,
+    focusMm: w.focusMm,
+    colorOn: w.colorOn,
+    gateDepthMm: w.gate?.depthMm ?? Number.NaN,
+    gateU: w.gate?.uMm ?? Number.NaN,
+    inPlaneLengthMm: m.inPlaneLengthMm ?? Number.NaN,
+    insonationDeg: m.insonationDeg ?? Number.NaN,
+    nerveImageUMm: m.nerveImageUMm ?? Number.NaN,
+    solveMs,
+  });
+  // Guía: los pasos de encontrar la ventana quedan asistidos (⚑), no completados.
+  const guide = guideForStation(station);
+  const ctx = buildGuideContext(sim, s, pw, measurementMeta);
+  if (guideOpen) {
+    guideAction((p, t) => assistWindow(p, t, ctx));
+  } else {
+    const progress = guideProgress.get(guide.id);
+    if (progress) setGuideProgress(assistWindow(progress, performance.now(), ctx));
+  }
+  const deg = (v: number | undefined) => (v === undefined ? '—' : `${v.toFixed(0)}°`);
+  $('hint').textContent =
+    station === 'ojo'
+      ? `Ventana óptima (${plane}): nervio centrado a 3 mm retroglobo, profundidad ${w.depthMm} mm, foco ${w.focusMm} mm.`
+      : station === 'temporal'
+        ? `Ventana óptima: M1 ${(m.inPlaneLengthMm ?? 0).toFixed(0)} mm en el plano, color sobre M1 y puerta a ${deg(m.insonationDeg)} de insonación — pulsa P para medir.`
+        : `Ventana óptima: ACI ${(m.inPlaneLengthMm ?? 0).toFixed(0)} mm en el plano, puerta a ${deg(m.insonationDeg)} de insonación — pulsa P para medir.`;
+}
+
 function frameLoop(now: number): void {
   const elapsed = Math.min(0.2, (now - lastT) / 1000);
   lastT = now;
   try {
+    stepProbeTween(now);
     const steps = clock.requestSteps(elapsed);
     for (let i = 0; i < steps; i++) clock.advance();
     s.tSec = clock.t;
@@ -1027,13 +1143,13 @@ function frameLoop(now: number): void {
           cardiacPhase: phys.cardiacPhase,
           respiratoryPhase: phys.respiratoryPhase,
           flowModulation: phys.flowModulation,
-          handMotion: s.handMotion,
         });
       }
     } else if (s.cinePlaying && s.cine.length) {
       drawCineFrame();
     }
-    const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
+    // Una sola pose por fotograma, compartida por ambas vistas 3D (DEC-59).
+    const navPose = currentPose(sim, s);
     const gateCenter = s.pwOn ? pw.gateCenter(navPose) : null;
     if (navigator3d) {
       navigator3d.update(
@@ -1045,15 +1161,11 @@ function frameLoop(now: number): void {
       );
       navigator3d.renderIfNeeded(now);
     }
-    // La vista de cabeza es una segunda superficie WebGL: a ritmo reducido
-    // basta para la interacción y no satura el renderizador por software.
-    if (headView && headView.update(s, navPose, currentScan)) {
-      if (headView.interacting || now - lastHeadRender > 150) {
-        lastHeadRender = now;
-        headView.render();
-      }
-    } else if (headView?.interacting) {
-      headView.render();
+    // La vista de cabeza es una segunda superficie WebGL: solo pinta si hay
+    // cambios, a ritmo reducido salvo al interactuar o al animar la sonda.
+    if (headView) {
+      headView.update(s, navPose, currentScan);
+      headView.renderIfNeeded(now, probeTween ? 33 : 150);
     }
     drawSpectral(spectralCtx, sim, s, pw);
     // Paneles DOM a 4 Hz (DEC-54): innerHTML solo si cambia y los <details>
@@ -1181,16 +1293,6 @@ volumeInput.addEventListener('input', () => {
   volumeValue.textContent = `${s.volume}%`;
   pw.setVolume(s.volume);
 });
-const handMotionInput = $('handMotion') as HTMLInputElement;
-handMotionInput.checked = s.handMotion;
-handMotionInput.addEventListener('change', () => {
-  s.handMotion = handMotionInput.checked;
-  s.debrief.setTime(clock.t);
-  s.debrief.record('settings', `microMovimientoMano=${s.handMotion ? 'on' : 'off'}`, {
-    id: 'handMotion',
-    value: s.handMotion,
-  });
-});
 
 $('planoMesencefalico').addEventListener('click', () => setTiltPreset(0));
 $('planoDiencefalico').addEventListener('click', () => setTiltPreset(10));
@@ -1237,6 +1339,7 @@ function probeKey(e: KeyboardEvent): boolean {
   )
     return false;
   const apply = (f: () => void): true => {
+    probeTween = null; // el usuario toma el control de la sonda
     f();
     if (!probeKeyHintShown) {
       probeKeyHintShown = true;
@@ -1316,7 +1419,9 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'c') $('caliper').click();
   else if (e.key === 'd') $('teaching').click();
   else if (e.key === 'g') guideButton.click();
+  else if (e.key === 'o' || e.key === 'O') $('optimal').click();
 });
+$('optimal').addEventListener('click', applyOptimalWindow);
 $('cine').addEventListener('click', () => {
   s.cinePlaying = !s.cinePlaying;
   $('cine').classList.toggle('on', s.cinePlaying);

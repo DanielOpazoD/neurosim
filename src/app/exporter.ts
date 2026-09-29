@@ -126,6 +126,7 @@ export function guideReportPayload(
         title: step.title,
         durationS: progress.records[step.id] ? progress.records[step.id]!.durationMs / 1000 : null,
         manual: progress.records[step.id]?.manual ?? null,
+        assisted: progress.records[step.id]?.assisted === true,
         capture: progress.captures[step.id] ?? null,
       })),
       summary,

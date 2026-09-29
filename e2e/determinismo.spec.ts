@@ -29,8 +29,8 @@ async function freezeAndHash(page: import('@playwright/test').Page): Promise<str
 }
 
 test('dos cargas congeladas conservan el hash B-mode del ojo', async ({ browser }) => {
-  // ?clock=fixed&t=0.4 fija el reloj de simulación y desactiva el temblor de
-  // mano, así el frame congelado tras la primera pintura es reproducible.
+  // ?clock=fixed&t=0.4 fija el reloj de simulación (sin temblor de mano desde
+  // DEC-59), así el frame congelado tras la primera pintura es reproducible.
   const firstPage = await browser.newPage();
   const secondPage = await browser.newPage();
   const firstHash = await freezeAndHash(firstPage);

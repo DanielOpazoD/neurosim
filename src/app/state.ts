@@ -54,8 +54,7 @@ export interface AppState {
   pwOn: boolean;
   /** Doppler color como modo explícito (DEC-54): apagado por defecto. */
   colorOn: boolean;
-  handMotion: boolean;
-  /** Reloj de simulación del frame actual (para micro-movimiento de mano). */
+  /** Reloj de simulación del frame actual. */
   tSec?: number;
   caliperMode: 'none' | 'dist' | 'dvno' | 'dte';
   onsdActive: boolean;
@@ -98,7 +97,6 @@ export function createInitialState(): AppState {
     frozen: false,
     pwOn: false,
     colorOn: false,
-    handMotion: true,
     caliperMode: 'none',
     onsdActive: false,
     onsdWarning: false,

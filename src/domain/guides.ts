@@ -95,6 +95,11 @@ export interface GuideStep {
   readonly target?: string;
   /** Datos a conservar al completar el paso (p. ej. PSV de un lado). */
   readonly capture?: (ctx: GuideContext) => GuideCapture | null;
+  /**
+   * Paso de «encontrar la ventana» (DEC-60): el botón «Ventana óptima» lo da
+   * por hecho y lo marca como asistido (⚑), no como completado.
+   */
+  readonly findsWindow?: boolean;
 }
 
 export interface Guide {
@@ -202,6 +207,7 @@ export const ONSD_GUIDE: Guide = {
       check: (c) => c.station === 'ojo' && c.depthMm >= 38 && c.depthMm <= 52,
       hint: 'Profundidad está en la tarjeta Imagen. Con ganancia excesiva el borde de la vaina se engrosa.',
       target: '#depth',
+      findsWindow: true,
     },
     {
       id: 'centrar',
@@ -215,6 +221,7 @@ export const ONSD_GUIDE: Guide = {
         Math.abs(c.nerveImageUMm) <= 4,
       hint: 'El nervio es la banda hipoecoica vertical que sale del polo posterior del globo.',
       target: '#shift',
+      findsWindow: true,
     },
     {
       id: 'congelar',
@@ -273,6 +280,7 @@ export const TCD_GUIDE: Guide = {
       check: (c) => c.station === 'temporal' && Math.abs(c.tiltDeg) <= 3,
       hint: 'El chip «Plano mesencefálico» de la tarjeta Sonda pone la inclinación a 0°.',
       target: '#tilt',
+      findsWindow: true,
     },
     {
       id: 'color',
@@ -281,6 +289,7 @@ export const TCD_GUIDE: Guide = {
         'Activa el Doppler color (F) y localiza la M1: flujo rojo, hacia la sonda, por delante del mesencéfalo.',
       check: (c) => c.station === 'temporal' && c.colorOn,
       target: '#color',
+      findsWindow: true,
     },
     {
       id: 'puerta-m1',
@@ -383,6 +392,8 @@ export interface GuideStepRecord {
   readonly durationMs: number;
   /** Avanzado a mano (Siguiente) sin cumplir la comprobación. */
   readonly manual: boolean;
+  /** Resuelto por «Ventana óptima» (DEC-60): asistido (⚑), no completado a mano. */
+  readonly assisted?: true;
 }
 
 export interface GuideProgress {
@@ -406,6 +417,7 @@ export interface GuideStepEvent {
   readonly stepIndex: number;
   readonly durationMs: number;
   readonly manual: boolean;
+  readonly assisted?: true;
 }
 
 export function startGuide(guideId: string, nowMs: number): GuideProgress {
@@ -429,20 +441,29 @@ export function currentStep(state: GuideProgress): GuideStep | null {
   return guideById(state.guideId).steps[state.stepIndex] ?? null;
 }
 
-function complete(state: GuideProgress, nowMs: number, manual: boolean, ctx?: GuideContext): GuideProgress {
+function complete(
+  state: GuideProgress,
+  nowMs: number,
+  manual: boolean,
+  ctx?: GuideContext,
+  assisted = false,
+): GuideProgress {
   const step = currentStep(state);
   if (!step) return state;
   const capture = ctx && step.capture ? step.capture(ctx) : null;
+  const record: GuideStepRecord = {
+    completedAtMs: nowMs,
+    durationMs: Math.max(0, nowMs - state.stepStartedMs),
+    manual,
+    ...(assisted ? { assisted: true as const } : {}),
+  };
   return {
     ...state,
     stepIndex: state.stepIndex + 1,
     stepStartedMs: nowMs,
     passingSinceMs: null,
     armed: true,
-    records: {
-      ...state.records,
-      [step.id]: { completedAtMs: nowMs, durationMs: Math.max(0, nowMs - state.stepStartedMs), manual },
-    },
+    records: { ...state.records, [step.id]: record },
     captures: capture ? { ...state.captures, [step.id]: capture } : state.captures,
   };
 }
@@ -485,6 +506,25 @@ function safeCheck(step: GuideStep, ctx: GuideContext): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * «Ventana óptima» (DEC-60): los pasos de encontrar la ventana pendientes
+ * hasta el último de ellos se dan por resueltos como ASISTIDOS (⚑). Los
+ * pasos intermedios que no son de ventana (p. ej. elegir el lado) solo se
+ * completan si su comprobación ya se cumple en `ctx`; si no, se detiene ahí.
+ */
+export function assistWindow(state: GuideProgress, nowMs: number, ctx?: GuideContext): GuideProgress {
+  const steps = guideById(state.guideId).steps;
+  const lastWindow = steps.reduce((acc, step, i) => (step.findsWindow ? i : acc), -1);
+  let next = state;
+  while (!isGuideDone(next) && next.stepIndex <= lastWindow) {
+    const step = currentStep(next)!;
+    if (step.findsWindow) next = complete(next, nowMs, false, ctx, true);
+    else if (ctx && safeCheck(step, ctx)) next = complete(next, nowMs, false, ctx);
+    else break;
+  }
+  return next;
 }
 
 /** Anterior: vuelve un paso y lo reabre (sin auto-avance inmediato). */
@@ -536,6 +576,7 @@ export function completedSince(prev: GuideProgress, next: GuideProgress): GuideS
         stepIndex,
         durationMs: record.durationMs,
         manual: record.manual,
+        ...(record.assisted ? { assisted: true as const } : {}),
       });
     }
   });

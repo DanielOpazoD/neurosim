@@ -18,6 +18,15 @@ import type { AppState } from '../app/state';
 import { isTcdStation } from '../domain/contracts';
 import { neckPoint } from '../anatomy/neck';
 import { buildProbeGroup, updateProbePose } from './probeMesh';
+import { AxisGizmo } from './axisGizmo';
+import {
+  linkedCameraPosition,
+  viewFromCamera,
+  viewPreset,
+  yawPitchOf,
+  type ViewLink,
+  type ViewOrientation,
+} from './viewLink';
 
 export { probeBasis } from './probeMesh';
 
@@ -27,8 +36,11 @@ export interface NavigatorFrame {
   readonly scale: number;
 }
 
-const eyePreset = { yawDeg: -25, pitchDeg: -18 };
-
+/**
+ * Yaw/pitch del preset de cámara: derivado del preset ÚNICO compartido con
+ * la vista de cabeza (`viewPreset`, DEC-59), en la convención de
+ * `cameraViewDir`.
+ */
 export function navigatorCameraPreset(
   station: Station,
   side: 'der' | 'izq',
@@ -36,10 +48,7 @@ export function navigatorCameraPreset(
   yawDeg: number;
   pitchDeg: number;
 } {
-  if (station === 'ojo') return { yawDeg: eyePreset.yawDeg, pitchDeg: eyePreset.pitchDeg };
-  // Submandibular: vista lateral-anterior algo desde abajo (ACI/ACE/yugular).
-  if (station === 'submandibular') return { yawDeg: side === 'der' ? -60 : 60, pitchDeg: -18 };
-  return { yawDeg: side === 'der' ? -70 : 70, pitchDeg: -4 };
+  return yawPitchOf(viewPreset(station, side).dir);
 }
 
 function vesselCenter(sim: ReferenceCase): Vec3 {
@@ -47,6 +56,16 @@ function vesselCenter(sim: ReferenceCase): Vec3 {
   if (!points.length) return sim.head.midbrainCenter;
   const sum = points.reduce((acc, point) => add(acc, point), [0, 0, 0] as Vec3);
   return scale(sum, 1 / points.length);
+}
+
+/**
+ * Objetivo temporal: centro del polígono desplazado un 40 % hacia la ventana
+ * del lado explorado, para que la M1 ipsilateral y la sonda entren en el
+ * encuadre con la vista 3/4 superior compartida (DEC-59).
+ */
+function temporalTarget(sim: ReferenceCase, side: Side): Vec3 {
+  const vc = vesselCenter(sim);
+  return add(vc, scale(sub(sim.head.windowCenter[side], vc), 0.4));
 }
 
 /** Desplazamiento posterior del objetivo ocular (mm) para encuadrar globo + ~30 mm de nervio. */
@@ -63,7 +82,7 @@ export function navigatorFrame(
       ? add(sim.eyes[side].center, scale(normalize(sim.eyes[side].anterior), -EYE_TARGET_POSTERIOR_MM))
       : station === 'submandibular'
         ? neckPoint(sim.neck[side].frame, 40, 0, 0)
-        : vesselCenter(sim);
+        : temporalTarget(sim, side);
   const radiusMm = station === 'ojo' ? 28 : station === 'submandibular' ? 50 : 55;
   return { target, radiusMm, scale: (0.46 * canvasSide) / radiusMm };
 }
@@ -596,6 +615,9 @@ export class Navigator3D {
   private station: Station = 'ojo';
   private side: Side = 'der';
   private readonly onDblClick = (): void => this.resetCamera(this.station, this.side);
+  private readonly gizmo = new AxisGizmo();
+  /** Mientras se aplica una orientación del enlace no se republica. */
+  private applyingLink = false;
   /* Materiales del plano/caja/puerta creados una vez: recrearlos (y
    * liberarlos) en cada rAF obligaba a Three.js a recompilar el programa
    * GLSL en cada fotograma (≈75 % del hilo principal; DEC-54). */
@@ -627,6 +649,7 @@ export class Navigator3D {
   constructor(
     private readonly canvas: HTMLCanvasElement,
     sim: ReferenceCase,
+    private readonly link: ViewLink | null = null,
   ) {
     this.sim = sim;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -641,7 +664,47 @@ export class Navigator3D {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.15;
     canvas.addEventListener('dblclick', this.onDblClick);
+    // Orbitar el navegador arrastra la vista de cabeza (enlace bidireccional).
+    this.controls.addEventListener('change', () => {
+      if (!this.applyingLink) this.publishView();
+    });
+    link?.subscribe('anatomia', (view) => this.applyLinkedView(view));
     this.buildStatic();
+  }
+
+  /** Orientación actual (objetivo → cámara) publicada en el enlace. */
+  private publishView(): void {
+    const p = this.camera.position;
+    const t = this.controls.target;
+    const u = this.camera.up;
+    this.link?.publish('anatomia', viewFromCamera([p.x, p.y, p.z], [t.x, t.y, t.z], [u.x, u.y, u.z]));
+  }
+
+  /**
+   * Coloca la cámara en la dirección enlazada desde SU objetivo, a su
+   * distancia actual (encuadre propio), con el mismo «arriba».
+   */
+  applyLinkedView(view: ViewOrientation): void {
+    const t = this.controls.target;
+    const target: Vec3 = [t.x, t.y, t.z];
+    const dist = this.camera.position.distanceTo(t);
+    this.applyingLink = true;
+    try {
+      this.camera.position.copy(v3(linkedCameraPosition(target, view, dist)));
+      this.camera.up.copy(v3(view.up));
+      this.camera.lookAt(t);
+    } finally {
+      this.applyingLink = false;
+    }
+    this.dirty = true;
+    this.lastRenderMs = -Infinity;
+  }
+
+  /** Dirección de vista actual (tests/diagnóstico). */
+  viewDir(): Vec3 {
+    const p = this.camera.position;
+    const t = this.controls.target;
+    return normalize([p.x - t.x, p.y - t.y, p.z - t.z]);
   }
 
   dispose(): void {
@@ -657,17 +720,24 @@ export class Navigator3D {
   }
 
   resetCamera(station: Station, side: Side): void {
-    const preset = navigatorCameraPreset(station, side);
+    const view = viewPreset(station, side);
     const frame = navigatorFrame(this.sim, station, side, 320);
-    const dir = cameraViewDir(preset.yawDeg, preset.pitchDeg);
     // Ojo: la esfera de 28 mm (globo + ~30 mm de nervio) ocupa ~80 % del canvas.
     const dist =
       station === 'ojo'
         ? cameraDistanceForRadius(frame.radiusMm, this.camera.fov, this.camera.aspect, 0.8)
-        : frame.radiusMm * 2.2;
-    this.camera.position.copy(v3(add(frame.target, scale(dir, dist))));
-    this.controls.target.copy(v3(frame.target));
-    this.controls.update();
+        : frame.radiusMm * (station === 'temporal' ? 2.9 : 2.2);
+    this.applyingLink = true;
+    try {
+      this.controls.target.copy(v3(frame.target));
+      this.camera.position.copy(v3(linkedCameraPosition(frame.target, view, dist)));
+      this.camera.up.copy(v3(view.up));
+      this.camera.lookAt(this.controls.target);
+      this.controls.update();
+    } finally {
+      this.applyingLink = false;
+    }
+    this.publishView();
     this.dirty = true;
     this.lastRenderMs = -Infinity;
   }
@@ -718,8 +788,8 @@ export class Navigator3D {
 
   /**
    * Pinta solo si la escena cambió (como mucho cada `minIntervalMs`) o si la
-   * cámara se mueve (órbita/amortiguación): el temblor de mano cambia la pose
-   * en cada rAF y no hace falta repintar a 60 Hz el navegador.
+   * cámara se mueve (órbita/amortiguación): no hace falta repintar a 60 Hz
+   * el navegador.
    */
   renderIfNeeded(nowMs: number, minIntervalMs = 66): boolean {
     const cameraMoved = this.controls.update();
@@ -746,6 +816,7 @@ export class Navigator3D {
     }
     if (updateControls) this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    this.gizmo.render(this.renderer, this.camera);
   }
 
   // ── interno ──

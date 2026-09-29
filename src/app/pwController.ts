@@ -312,7 +312,7 @@ export class PwController {
         this.configureKey = '';
       }
       if (configureKey !== this.configureKey) this.postConfigure();
-      // Cambio de equipo o de la puerta elegida (no el temblor de la mano):
+      // Cambio de equipo o de la puerta elegida:
       // lo pendiente pertenece a la configuración anterior y se envía antes.
       const equipment = this.equipment();
       const equipmentKey = JSON.stringify(equipment);
@@ -349,8 +349,7 @@ export class PwController {
     if (sendGate) {
       const equipment = this.equipment();
       const equipmentKey = JSON.stringify(equipment);
-      // Como antes: puerta con la pose (y el temblor) del final del intervalo.
-      const pose = currentPose(this.sim, { ...s, tSec: tEnd, handMotion: s.handMotion });
+      const pose = currentPose(this.sim, s);
       const gate = this.gateGeometry(pose);
       const gateKey = JSON.stringify(gate);
       if (gateKey !== this.lastSentGate || equipmentKey !== this.equipmentKey || this.needResync) {
@@ -376,7 +375,6 @@ export class PwController {
         configVersion: this.configVersion,
         tStart,
         dt,
-        handMotion: s.handMotion === true,
         wantAudio: this.audio !== null,
       });
     } catch (err) {

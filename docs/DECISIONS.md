@@ -719,3 +719,125 @@ variante, caso)` que el worker de render. El protocolo vive en
     1,51. Modelo (TAMax verdadera): 55,0 / 35,7 → 1,54; 147,2 / 34,4 → 4,28;
     100,3 / 65,2 → 1,54. **Dorados**: se añaden `submandibularDerBmode` y
     `colorAciDer`; los existentes no cambian.
+58. **DEC-59** — Vistas 3D coordinadas, sin micro-movimiento de mano y cabeza
+    escaneada. Petición clínica: «Exploración» y «Anatomía» no parecían tener
+    las mismas posiciones; quitar los micromovimientos; cara mucho más realista.
+    (a) **Cámaras enlazadas** (`src/ui/viewLink.ts`, puro): un único preset por
+    estación y lado, `viewPreset(station, side)` → dirección objetivo→cámara +
+    «arriba», usado por las dos vistas (antes el navegador miraba el globo desde
+    abajo y medial — yaw −25°, pitch −18° — y la cabeza desde delante-derecha).
+    Presets (azimut desde +z hacia el lado explorado / elevación): ojo 48°/22°
+    (frontal-lateral-superior: la sonda sobre el párpado y el globo/nervio se
+    leen igual), temporal 45°/55° (3/4 desde arriba; la M1 corre hacia la sonda
+    y en una vista lateral pura se ve de punta; el plano mesencefálico es
+    axial), submandibular 58°/−14°. En temporal el objetivo del navegador se
+    desplaza un 40 % desde el centro del polígono hacia la ventana explorada y
+    la distancia pasa de 2,2 a 2,9 radios, para que la sonda y la M1 ipsilateral
+    entren en el encuadre. `ViewLink` es un bus bidireccional: la vista de
+    cabeza (maestra) publica su dirección en cada `change` de OrbitControls y al
+    reiniciar; el navegador coloca su cámara en la misma dirección desde SU
+    objetivo y a SU distancia (encuadre propio), con el mismo «arriba»; orbitar
+    el navegador arrastra la cabeza igual. Guardas contra bucles: no se
+    republica durante el despacho ni una orientación a ≤ 1e-7 de la vigente (el
+    eco de la vista que la aplicó). Prueba: con cualquier dirección de la
+    cabeza, la del navegador coincide a 1e-9; el yaw/pitch del navegador sale
+    del mismo preset (1e-12). (b) **Misma pose**: ambas vistas reciben en cada
+    fotograma el mismo objeto `ProbePose` de `currentPose` en main.ts. Pista de
+    orientación idéntica: muesca del marcador opaca y del mismo color
+    (`MARKER_COLOR`, antes 85 % de opacidad en el navegador) y gizmo de ejes
+    L/R/S/I (+A) en la esquina superior izquierda de las dos vistas
+    (`src/ui/axisGizmo.ts`, segunda escena ortográfica con el cuaternión de la
+    cámara principal). La vista de cabeza solo pinta si hay cambios
+    (`renderIfNeeded`: pose, cámara enlazada, asset cargado); antes una pose
+    cambiada dentro de la ventana de 150 ms podía quedarse sin pintar. (c)
+    **Micro-movimiento eliminado**: fuera `#handMotion` (y `.switchRow`),
+    `AppState.handMotion`, `RenderRequest.handMotion`,
+    `PwStepMessage.handMotion`, `handMotionDisplacementMm`,
+    `handMotionVelocityMmS`, `HAND_MAX_RETREAT_MM`, `handTremorVelocityMmS` y
+    los parámetros `doppler.handTremorMmS`/`handDriftFastMm`/`handDriftSlowMm`
+    (y sus pruebas; deja sin objeto la deriva de mano de DEC-55). `currentPose`
+    es `stationPose`: la sonda solo se mueve si la mueve el usuario; la cadena
+    PW recibe velocidad de sonda nula. Los dorados se generaron sin
+    micro-movimiento y no cambian. (d) **Cabeza escaneada**: «Infinite, 3D Head
+    Scan» de Lee Perry-Smith (Infinite-Realities), distribuida con los ejemplos
+    de three.js (`examples/models/gltf/LeePerrySmith/`, no incluida en el
+    paquete npm; descargada de la etiqueta `r186`, la versión instalada).
+    Licencia verificada en `LeePerrySmith_License.txt` del mismo directorio: «…
+    is licensed under a Creative Commons Attribution 3.0 Unported License» → se
+    usa la opción (a) del plan, no la cabeza procedural. Archivos sin modificar
+    en `public/models/head/` (malla 405 KB, color 148 KB, normales 147 KB +
+    licencia); atribución en `docs/PROVENANCE.md` y en el pie («Acerca de /
+    créditos»); `provenance:check` verifica SHA-256, archivo de licencia y que
+    no haya recursos sin fila. Carga diferida con `GLTFLoader` (import dinámico
+    desde la vista de cabeza); `MeshStandardMaterial` con mapa de color sRGB,
+    normales (×0,8), rugosidad 0,6 y un emisivo cálido mínimo; hemisferio
+    cálido, luz clave, contraluz frío y relleno. La malla es una cabeza completa
+    cerrada (cortada en los hombros) con los ojos cerrados, así que no hace
+    falta completar la nuca con el elipsoide: la cabeza estilizada (incluidos
+    los globos, que atravesarían los párpados) se oculta al cargar y queda como
+    respaldo (`?headmodel=0` la fuerza). **Ajuste** (`src/ui/headFit.ts`, tabla
+    con comentario): centros de las hendiduras palpebrales medidos a mano sobre
+    renders con textura y confirmados por raycast (Ojo D x = −0,71, Ojo I x =
+    +0,50, y = 1,66, z = 1,946, en unidades del asset; +y arriba, +z anterior,
+    −x derecha: el marco del caso); semejanza de escala uniforme 66/1,21 = 54,5
+    mm/unidad y traslación que lleva los centros oculares del asset (párpado −
+    radio medio − 3,2 mm) a `sim.eyes.*.center` (exacto; el párpado queda a ≤
+    0,09 mm del contacto de la sonda por la diferencia de radios D/I).
+    Desviación: la anchura del cráneo escaneado al nivel de `skullCenter`
+    resulta 170 mm frente a los 148 mm de `skullRadii.x·2 + 14` (+15 %): la
+    razón distancia interpupilar/anchura del elipsoide (0,45) es mayor que la
+    del escaneo (0,39) y ninguna anisotropía ≤ 10 % reconcilia ambas sin mover
+    los ojos, que mandan (la sonda debe apoyar en el párpado). **Contacto
+    visual**: solo en esta vista, la sonda y su plano se desplazan a lo largo
+    del haz hasta la piel escaneada (rayo desde 120 mm fuera; corrección ≤ 45
+    mm, si no se deja la pose física): en el ojo cae sobre el párpado cerrado
+    (−0,1 mm en el ojo D por defecto); la pose física no cambia. Los anillos de
+    ventana se recolocan sobre la piel por raycast. Coste medido (SwiftShader,
+    230×230 px CSS, DPR 1, `?perf3d` = `gl.finish()` tras pintar, 12 órbitas):
+    escaneo mediana 0,6 ms (máx. 0,8), estilizada 0,5 ms (máx. 2,8); la vista
+    sigue pintando solo con cambios. GLTFLoader va en su chunk `three-gltf` (44
+    kB, import dinámico al cargar el escaneo); el chunk `three` pasa de ~575 a
+    620 kB por las clases del núcleo que usa el cargador (límite de aviso 600 →
+    650 kB). **Dorados**: sin cambios.
+59. **DEC-60** — «Ventana óptima». Petición clínica: un botón que muestre en
+    todas las ventanas la ventana perfecta para medir. Botón `#optimal`
+    (`.btn-tool`, icono de diana, atajo O, visible en todas las estaciones; a ≤
+    1520 px la fila de herramientas se compacta y en el ojo el botón queda solo
+    con icono para que los 11 botones quepan a 1440 px). Solver puro
+    `src/app/optimalWindow.ts` con caché por (geometría, caso, estación, lado,
+    plano). **Ojo**: rot 0 (o 90 si el protocolo DVNO espera el sagital de ese
+    lado, o la guía está en «Plano sagital»), inclinación y angulación 0; Newton
+    2×2 con jacobiano numérico (≤ 5 pasos) sobre (barrido, desplazamiento
+    vertical) para que el centro del nervio a 3 mm
+    (`fromEyeLocal(nerveCenterline(eye, 3))`) caiga en u = 0 (`patientToImage`)
+    y en el plano; décimas de mm; profundidad 45 mm, foco a la profundidad del
+    nervio, ganancia de fábrica. Resultado: |u| ≤ 0,05 mm en ambos ojos, normal
+    e HIC, transversal y sagital (Ojo D −2,3/−0,1 mm, Ojo I +2,5/−0,1 mm).
+    **Temporal**: rejilla gruesa (inclinación ±10° cada 2,5°, desplazamientos ±6
+    mm cada 3 mm) + ascenso local en los pasos de los deslizadores (1°, 0,5 mm)
+    maximizando la longitud de M1 ipsilateral a ≤ 1 mm del plano y dentro del
+    sector (90 mm); profundidad 90, color encendido con la caja sobre las
+    muestras de M1 (+5°, +8 mm) y puerta PW en el punto de M1 (a ≥ 3 mm de los
+    extremos) con menor ángulo real, comprobado con `insonationAngles` (vaso
+    dominante = M1); el PW no se enciende: pulsar P mide al instante. Resultado
+    (caso normal, ambos lados): inclinación −5°, desplazamiento vertical 6 mm,
+    M1 en el plano 25,2 mm (toda la M1), ángulo 16,4°. **Submandibular**: misma
+    búsqueda (inclinación ±12° cada 4°, desplazamientos ±6 mm cada 3 mm; sin
+    angulación, que gira el haz dentro del plano sin girar el lateral de la pose
+    y descoloca la puerta en coordenadas de imagen) minimizando el ángulo a la
+    ACI con ≥ 10 mm de ACI en el plano: 51,5 mm, 0,2°; con P, PSV/EDV 55/28 cm/s
+    y la ACI medida para el Lindegaard. Tiempos del solver sin caché (vitest,
+    mejor–peor de 3 en frío, máquina cargada): ojo ≤ 1 ms, temporal 3–16 ms (230
+    poses), submandibular 4–11 ms (≈ 190 poses); presupuesto 150 ms (la prueba
+    lo exige al mejor de 3). Con la rejilla anterior (cada 2 mm, ≈ 450 poses) la
+    suite completa en paralelo llegó a 173 ms en frío; la rejilla más gruesa da
+    la misma solución. La sonda se anima 400 ms (interpolación ease-in-out de
+    los controles, las vistas 3D la ven deslizarse; la vista de cabeza pinta a
+    30 fps durante la animación); el usuario la interrumpe con el teclado o
+    cambiando de estación. Debriefing: evento `optimal-window` con la solución,
+    métricas y tiempo. **Guía**: los pasos de «encontrar la ventana»
+    (`findsWindow`: ojo «Profundidad y ganancia» y «Centrar el nervio»; DTC
+    «Plano mesencefálico» y «Color y M1») quedan como ASISTIDOS (⚑,
+    `GuideStepRecord.assisted`) con `assistWindow`, no como completados; un paso
+    previo (elegir lado) solo se completa si ya se cumple. El cajón, el
+    debriefing y el informe exportado distinguen ⚑. **Dorados**: sin cambios.

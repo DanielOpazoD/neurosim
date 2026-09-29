@@ -11,7 +11,10 @@ import { PwDopplerChain, type AudioSink } from '../doppler/pwChain';
 import type { GateComposition, GateGeometry } from '../doppler/sampleVolume';
 import type { SpectralColumn } from '../doppler/spectral';
 import { dopplerSceneFor, renderCase, samePhysiology } from './renderRequest';
-import { handMotionVelocityMmS } from './poses';
+import type { Vec3 } from '../core/vec3';
+
+/** Velocidad de la sonda: siempre quieta (sin micro-movimiento de mano, DEC-59). */
+const STILL_PROBE = (): Vec3 => [0, 0, 0];
 
 /** Equipo PW que reconfigura la cadena (`PwDopplerChain.begin`). */
 export interface PwEquipment {
@@ -59,8 +62,6 @@ export interface PwStepMessage {
   readonly configVersion: number;
   readonly tStart: number;
   readonly dt: number;
-  /** Micro-movimiento de mano: velocidad de sonda `handMotionVelocityMmS(t, seed)`. */
-  readonly handMotion: boolean;
   /** ¿Devolver el IQ filtrado para audio? */
   readonly wantAudio: boolean;
 }
@@ -256,14 +257,9 @@ export function handlePwMessage(
       const chain = state.chain;
       const sim = state.sim;
       if (!chain || !sim || !state.equipment) return null;
-      const seed = sim.patient.seed;
       state.collectAudio = msg.wantAudio;
-      chain.step(
-        (tt) => sim.physStateAt(tt),
-        msg.tStart,
-        msg.handMotion ? (tt) => handMotionVelocityMmS(tt, seed) : () => [0, 0, 0],
-        msg.dt,
-      );
+      // Sonda quieta: sin micro-movimiento de mano (DEC-59).
+      chain.step((tt) => sim.physStateAt(tt), msg.tStart, STILL_PROBE, msg.dt);
       chain.flush();
       // Las columnas viajan al hilo principal: la cadena del worker no las guarda.
       const columns = chain.spectral.columns.splice(0);

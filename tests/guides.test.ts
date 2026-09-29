@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advance,
+  assistWindow,
   completedSince,
   currentStep,
   GUIDE_HINT_DELAY_MS,
@@ -539,5 +540,52 @@ describe('contexto de la guía en el caso de referencia', () => {
     ]);
     expect(sections[0]!.totalS).toBe(7);
     expect(sections[0]!.completed).toBe(false);
+  });
+});
+
+describe('«Ventana óptima» en la guía (DEC-60)', () => {
+  it('ojo: elegir lado se completa si se cumple; profundidad y centrado quedan asistidos (⚑)', () => {
+    const before = startGuide('vaina', 0);
+    const g = assistWindow(before, 1000, ctx({ station: 'ojo', side: 'der' }));
+    expect(currentStep(g)!.id).toBe('congelar');
+    expect(g.records['ojo-d']).toEqual({ completedAtMs: 1000, durationMs: 1000, manual: false });
+    expect(g.records['profundidad']!.assisted).toBe(true);
+    expect(g.records['centrar']!.assisted).toBe(true);
+    expect(g.records['centrar']!.manual).toBe(false);
+    const events = completedSince(before, g);
+    expect(events.map((e) => [e.stepId, e.assisted === true])).toEqual([
+      ['ojo-d', false],
+      ['profundidad', true],
+      ['centrar', true],
+    ]);
+  });
+
+  it('se detiene en un paso previo que no se cumple y no toca pasos posteriores', () => {
+    const g0 = startGuide('dtc', 0);
+    // En el ojo: «Temporal D» no se cumple → nada cambia.
+    expect(assistWindow(g0, 500, ctx({ station: 'ojo' }))).toBe(g0);
+    const g = assistWindow(g0, 500, ctx({ station: 'temporal', side: 'der' }));
+    expect(currentStep(g)!.id).toBe('puerta-m1');
+    expect(g.records['mesencefalico']!.assisted).toBe(true);
+    expect(g.records['color']!.assisted).toBe(true);
+    // Pasado el último paso de ventana, el botón no avanza más.
+    expect(assistWindow(g, 900, ctx({ station: 'temporal' }))).toBe(g);
+  });
+
+  it('el debriefing conserva el estado asistido', () => {
+    const log = new DebriefLog(0);
+    log.record('guide', 'x', { guideId: 'vaina', stepId: 'ojo-d', durationS: 1, manual: false });
+    log.record('guide', 'x', {
+      guideId: 'vaina',
+      stepId: 'centrar',
+      durationS: 0,
+      manual: false,
+      assisted: true,
+    });
+    const [section] = guideSections(log.events());
+    expect(section!.steps.map((step) => [step.stepId, step.assisted === true])).toEqual([
+      ['ojo-d', false],
+      ['centrar', true],
+    ]);
   });
 });

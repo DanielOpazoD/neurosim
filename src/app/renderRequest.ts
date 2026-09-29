@@ -54,7 +54,6 @@ export interface RenderRequest {
   readonly t: number;
   readonly cardiacPhase: number;
   readonly respiratoryPhase: number;
-  readonly handMotion?: boolean;
   readonly flowModulation: number;
   readonly physiology?: BasalPhysiology;
   readonly color: boolean;
@@ -390,8 +389,6 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
     tiltVDeg: req.tiltVDeg,
     rotDeg: req.rotDeg,
     press: req.press,
-    tSec: req.t,
-    handMotion: req.handMotion,
   };
   const pose = currentPose(sim, poseInput);
   const scan = buildScan(pose, req.settings.transducer, linesFor(req.settings.lineDensity));

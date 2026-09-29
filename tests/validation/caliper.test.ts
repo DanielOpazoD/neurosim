@@ -123,7 +123,6 @@ describe('validación de calipers', () => {
         s.side = side;
         s.offsetMm = side === 'der' ? -2.5 : 2.5;
         s.rotDeg = rotDeg;
-        s.handMotion = false;
         const pose = currentPose(sim, s);
         const g = sim.eyes[side];
         const img = (sMm: number) => patientToImage(pose, 'linear', fromEyeLocal(g, nerveCenterline(g, sMm)));

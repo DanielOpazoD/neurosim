@@ -23,7 +23,7 @@ exacta; una señal ausente no acredita cese circulatorio.
 - Ventana transtemporal bilateral: cráneo, mesencéfalo, polígono de Willis;
   B-mode + Doppler color + PW con audio y medidas PSV/EDV/TAMax/PI/IR y
   índice de Lindegaard.
-- B-mode dinámico: pulso cerebral, respiración, temblor de mano y deformación
+- B-mode dinámico: pulso cerebral, respiración y deformación
   por presión de la sonda sobre el globo (speckle coherente complejo y PSF
   sobre IQ).
 - Navegador 3D (Three.js) con cráneo, polígono de Willis, órbitas, sonda y
@@ -78,6 +78,18 @@ exacta; una señal ausente no acredita cese circulatorio.
   de Lindegaard del mismo lado («ACI medida»; sin medida, «ACI de
   referencia» del caso), así la hiperemia (< 3) se distingue del
   vasoespasmo (≥ 3).
+- Vistas 3D coordinadas (DEC-59): «Exploración» (cabeza escaneada «Infinite,
+  3D Head Scan» de Lee Perry-Smith, CC BY 3.0, ajustada a los ojos del caso;
+  `?headmodel=0` usa la cabeza estilizada) y «Anatomía» comparten dirección
+  de vista: orbitar una arrastra a la otra; misma pose de sonda, muesca del
+  marcador del mismo color y gizmo de ejes L/R/S/I idéntico en ambas. La
+  sonda está quieta: el micro-movimiento de mano se eliminó.
+- «Ventana óptima» (DEC-60, botón o tecla O): lleva la sonda con una
+  animación de 400 ms a la adquisición ideal de la estación y el lado —
+  nervio óptico centrado a 3 mm (transversal o el sagital que espera el
+  protocolo), M1 más larga en el plano con color y puerta PW en el punto de
+  menor ángulo, o ACI submandibular con el menor ángulo— lista para medir.
+  En la guía, los pasos de encontrar la ventana quedan como asistidos (⚑).
 - Sin dinámica de PIC ni evolución temporal de la patología: bloques
   posteriores (ver `docs/LIMITATIONS.md`).
 
@@ -99,7 +111,9 @@ npm run check    # format + lint + typecheck + test + build
 ```
 
 `?clock=fixed&t=0.4` fija el reloj de simulación (reloj pausado en `t`
-segundos y micro-movimiento de mano desactivado); lo usan las pruebas e2e.
+segundos, persistencia GPU desactivada); lo usan las pruebas e2e. El
+micro-movimiento de mano se eliminó (DEC-59): la sonda está quieta salvo que
+la mueva el usuario.
 
 Consulta la [suite de validación](docs/TESTING.md) para los criterios del plan.
 

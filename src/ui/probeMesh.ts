@@ -22,8 +22,10 @@ const SKIN_MAT = (transparent = false) =>
     ...(transparent ? { transparent: true, opacity: 0.6, depthWrite: false } : {}),
   });
 const GRIP_MAT = () => new THREE.MeshStandardMaterial({ color: '#3b4148', roughness: 0.7, metalness: 0.1 });
+/** Color de la muesca del marcador: idéntico en ambas vistas 3D (DEC-59). */
+export const MARKER_COLOR = '#e8b44a';
 const MARKER_MAT = () =>
-  new THREE.MeshStandardMaterial({ color: '#e8b44a', emissive: '#e8b44a', emissiveIntensity: 0.4 });
+  new THREE.MeshStandardMaterial({ color: MARKER_COLOR, emissive: MARKER_COLOR, emissiveIntensity: 0.4 });
 
 /** Base ortonormal de la sonda: lateral, elevación y forward del haz. */
 export function probeBasis(pose: ProbePose): {
@@ -70,9 +72,8 @@ export function buildProbeGroup(linear = true, opts: ProbeMeshOptions = {}): THR
     body.name = 'body';
     body.rotation.x = Math.PI / 2;
     body.position.set(0, 0, -12);
+    // Muesca opaca, del mismo color que en la vista de cabeza (DEC-59).
     const marker = markerMesh(linear);
-    (marker.material as THREE.MeshStandardMaterial).transparent = true;
-    (marker.material as THREE.MeshStandardMaterial).opacity = 0.85;
     group.add(footMesh(linear, true), body, marker);
     group.userData.linear = linear;
     group.userData.compact = true;
@@ -128,10 +129,6 @@ export function updateProbePose(group: THREE.Group, pose: ProbePose, linear: boo
     }
     const foot = footMesh(linear, compact);
     const marker = markerMesh(linear);
-    if (compact) {
-      (marker.material as THREE.MeshStandardMaterial).transparent = true;
-      (marker.material as THREE.MeshStandardMaterial).opacity = 0.85;
-    }
     group.add(foot, marker);
     group.userData.marker = marker;
   }

@@ -5,10 +5,9 @@ import { add, dot, dist, normalize, sub, type Vec3 } from '../../src/core/vec3';
 import type { MaterialId } from '../../src/anatomy/materials';
 import { SeededRandom } from '../../src/core/random';
 import { buildReferenceCase, REFERENCE_SEED } from '../../src/domain/referenceCase';
-import { defaultEyeSettings, defaultTemporalSettings } from '../../src/domain/settings';
+import { defaultTemporalSettings } from '../../src/domain/settings';
 import { arterialShape } from '../../src/physiology/flow';
 import { eyeScene, headScene, renderRequest } from '../../src/app/renderRequest';
-import { currentPose, HAND_MAX_RETREAT_MM, handMotionDisplacementMm } from '../../src/app/poses';
 import { hashBMode } from './hash';
 
 const sim = buildReferenceCase(REFERENCE_SEED);
@@ -117,74 +116,6 @@ describe('movimiento dinámico', () => {
     expect(dot(u, radial)).toBeGreaterThan(0);
   });
 
-  it('la mano mueve la sonda ≤1,5 mm y conserva la normal unitaria', () => {
-    const base = { side: 'der' as const, station: 'temporal' as const, tiltDeg: 0, offsetMm: 0 };
-    const rest = currentPose(sim, base);
-    for (const tSec of [0, 0.5, 1]) {
-      const pose = currentPose(sim, { ...base, tSec, handMotion: true });
-      expect(dist(pose.origin, rest.origin)).toBeLessThanOrEqual(1.5);
-      expect(Math.hypot(...pose.forward)).toBeCloseTo(1, 6);
-    }
-    const still = currentPose(sim, base);
-    expect(still.origin).toEqual(rest.origin);
-    expect(still.forward).toEqual(rest.forward);
-  });
-
-  it('ojo: la deriva de mano no despega la sonda del párpado (DEC-55)', () => {
-    const base = { side: 'der' as const, station: 'ojo' as const, tiltDeg: 0, offsetMm: 0 };
-    const rest = currentPose(sim, base);
-    let oldWorst = 0;
-    let oldWorstT = 0;
-    for (let i = 0; i < 200; i += 1) {
-      const tSec = (60 * i) / 199;
-      const pose = currentPose(sim, { ...base, tSec, handMotion: true });
-      const retreat = -dot(sub(pose.origin, rest.origin), rest.forward);
-      expect(retreat).toBeLessThanOrEqual(HAND_MAX_RETREAT_MM + 1e-9);
-      // Retroceso que producía el código anterior (desplazamiento sin cota).
-      const oldRetreat = -dot(handMotionDisplacementMm(tSec, sim.patient.seed), rest.forward);
-      if (oldRetreat > oldWorst) {
-        oldWorst = oldRetreat;
-        oldWorstT = tSec;
-      }
-    }
-    // El escenario del fallo existe: la deriva bruta retrocedía >0,5 mm.
-    expect(oldWorst).toBeGreaterThan(0.5);
-    // Misma cota en la ventana temporal (gel sobre el cuero cabelludo).
-    const tBase = { ...base, station: 'temporal' as const };
-    const tRest = currentPose(sim, tBase);
-    for (let i = 0; i < 200; i += 1) {
-      const pose = currentPose(sim, { ...tBase, tSec: (60 * i) / 199, handMotion: true });
-      expect(-dot(sub(pose.origin, tRest.origin), tRest.forward)).toBeLessThanOrEqual(
-        HAND_MAX_RETREAT_MM + 1e-9,
-      );
-    }
-    const settings = { ...defaultEyeSettings(), lineDensity: 'baja' as const };
-    const meanDb = (t: number): number => {
-      const { bmode } = renderRequest(
-        {
-          id: 1,
-          seed: REFERENCE_SEED,
-          side: 'der',
-          station: 'ojo',
-          settings,
-          tiltDeg: 0,
-          offsetMm: 0,
-          t,
-          cardiacPhase: 0,
-          respiratoryPhase: 0,
-          handMotion: true,
-          flowModulation: 1,
-          color: false,
-        },
-        sim,
-      );
-      let acc = 0;
-      for (const v of bmode.db) acc += v;
-      return acc / bmode.db.length;
-    };
-    expect(Math.abs(meanDb(oldWorstT) - meanDb(0))).toBeLessThan(1);
-  });
-
   it('misma solicitud → mismo fotograma (determinista)', () => {
     const settings = defaultTemporalSettings();
     const req = {
@@ -200,7 +131,6 @@ describe('movimiento dinámico', () => {
       t: 1.234,
       cardiacPhase: 0.37,
       respiratoryPhase: 0.61,
-      handMotion: true,
       flowModulation: 1,
       color: false,
     };

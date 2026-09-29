@@ -5,6 +5,8 @@ import { currentPose } from '../../src/app/poses';
 import { createInitialState } from '../../src/app/state';
 import { buildScan } from '../../src/ultrasound/probe';
 import { navigatorCameraPreset, navigatorFrame } from '../../src/ui/navigator3d';
+import { viewPreset } from '../../src/ui/viewLink';
+import { cross, dot, normalize, sub } from '../../src/core/vec3';
 
 describe('proyección ortográfica del navegador', () => {
   it('conserva distancias en el plano de cámara sin rotación', () => {
@@ -40,14 +42,16 @@ describe('proyección ortográfica del navegador', () => {
   it('encuadra el polígono temporal y el globo ocular con escala legible', () => {
     const sim = buildReferenceCase();
     const temporalFrame = navigatorFrame(sim, 'temporal', 'der', 300);
-    const temporalCamera = {
-      ...navigatorCameraPreset('temporal', 'der'),
-      target: temporalFrame.target,
-      scale: temporalFrame.scale,
-    };
+    // Proyección ortográfica sobre la base real de la cámara enlazada (DEC-59).
+    const view = viewPreset('temporal', 'der');
+    const right = normalize(cross(view.up, view.dir));
+    const up = view.up;
     const m1 = sim.head.vessels.find((vessel) => vessel.id === 'm1-der');
     expect(m1).toBeDefined();
-    const m1Projected = m1!.points.map((point) => project(point, temporalCamera));
+    const m1Projected = m1!.points.map((point) => {
+      const q = sub(point, temporalFrame.target);
+      return { x: dot(q, right) * temporalFrame.scale, y: dot(q, up) * temporalFrame.scale };
+    });
     const m1Extent = Math.max(
       Math.max(...m1Projected.map((point) => point.x)) - Math.min(...m1Projected.map((point) => point.x)),
       Math.max(...m1Projected.map((point) => point.y)) - Math.min(...m1Projected.map((point) => point.y)),

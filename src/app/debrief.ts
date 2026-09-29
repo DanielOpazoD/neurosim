@@ -18,7 +18,8 @@ export type DebriefEventKind =
   | 'alara'
   | 'protocol'
   | 'export'
-  | 'guide';
+  | 'guide'
+  | 'optimal-window';
 
 export interface DebriefEvent {
   t: number;
@@ -54,14 +55,14 @@ export interface DebriefReport {
 export interface DebriefGuideSection {
   guideId: string;
   title: string;
-  steps: { stepId: string; title: string; durationS: number; manual: boolean }[];
+  steps: { stepId: string; title: string; durationS: number; manual: boolean; assisted?: true }[];
   totalS: number;
   completed: boolean;
 }
 
 /** Tiempos por paso desde los eventos `guide`; un reinicio descarta lo previo. */
 export function guideSections(events: readonly DebriefEvent[]): DebriefGuideSection[] {
-  const perGuide = new Map<string, Map<string, { durationS: number; manual: boolean }>>();
+  const perGuide = new Map<string, Map<string, { durationS: number; manual: boolean; assisted?: true }>>();
   for (const event of events) {
     if (event.kind !== 'guide') continue;
     const guideId = event.data?.guideId;
@@ -74,7 +75,11 @@ export function guideSections(events: readonly DebriefEvent[]): DebriefGuideSect
     const durationS = event.data?.durationS;
     if (typeof stepId !== 'string' || typeof durationS !== 'number') continue;
     const steps = perGuide.get(guideId) ?? new Map();
-    steps.set(stepId, { durationS, manual: event.data?.manual === true });
+    steps.set(stepId, {
+      durationS,
+      manual: event.data?.manual === true,
+      ...(event.data?.assisted === true ? { assisted: true as const } : {}),
+    });
     perGuide.set(guideId, steps);
   }
   const sections: DebriefGuideSection[] = [];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { vesselClosest } from '../../src/anatomy/head';
-import { tissueVelocityMmS, handTremorVelocityMmS } from '../../src/doppler/clutter';
+import { tissueVelocityMmS } from '../../src/doppler/clutter';
 import { cross, normalize, add, scale, sub } from '../../src/core/vec3';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
 import type { GateGeometry } from '../../src/doppler/sampleVolume';
@@ -59,11 +59,6 @@ describe('clutter tisular determinista', () => {
     const vNear = tissueVelocityMmS({ ...args, point: near });
     const vFar = tissueVelocityMmS({ ...args, point: far });
     expect(Math.hypot(vFar[0], vFar[1])).toBeLessThan(Math.hypot(vNear[0], vNear[1]));
-  });
-
-  it('produce el mismo temblor para la misma semilla', () => {
-    expect(handTremorVelocityMmS(0.123, 42)).toEqual(handTremorVelocityMmS(0.123, 42));
-    expect(handTremorVelocityMmS(0.123, 42)).not.toEqual(handTremorVelocityMmS(0.123, 43));
   });
 
   it('hace observable el compromiso del filtro de pared en PW', () => {
