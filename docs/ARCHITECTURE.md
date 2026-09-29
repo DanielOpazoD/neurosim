@@ -80,6 +80,10 @@ Responsables concretos:
   principal: puerta, búfer de columnas, medidas y audio Web Audio (DEC-55).
 - `src/domain/measure.ts` convierte puntos de imagen a paciente y registra
   mediciones; `src/doppler/measureMca.ts` mide la traza espectral.
+- El modo guiado (DEC-56) son guías puras con reductor en
+  `src/domain/guides.ts`; `src/app/guideContext.ts` construye la instantánea
+  del estado que leen sus comprobaciones y `src/ui/guidePanel.ts` pinta el
+  cajón y el resaltado del control.
 
 ## Contratos centrales
 

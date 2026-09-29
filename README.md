@@ -66,6 +66,11 @@ exacta; una señal ausente no acredita cese circulatorio.
   disposición dúplex B-mode/espectro con separador arrastrable cuando PW está
   activo, profundidad transtemporal hasta 160 mm (DEC-52) y sistema visual de
   tarjetas con botones por rol.
+- Examen guiado (DEC-56): botón «Guía» (G) con pasos para la vaina del nervio
+  óptico y el Doppler transcraneal que avanzan solos al cumplirse (estado
+  real del simulador), resaltan el control a usar, dan pistas a los 20 s y
+  cierran con un resumen interpretado (DVNO frente al modelo; asimetría, IP
+  y Lindegaard) exportable; los tiempos por paso pasan al debriefing.
 - Sin patología, sin Lindegaard (ACI extracraneal), sin dinámica de PIC:
   bloques posteriores (ver `docs/LIMITATIONS.md`).
 

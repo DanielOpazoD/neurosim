@@ -5,6 +5,7 @@ import type { ReferenceCase } from '../domain/referenceCase';
 import { buildReport } from '../domain/onsdProtocol';
 import type { Measurement } from '../domain/contracts';
 import type { AppState } from './state';
+import { GUIDES } from '../domain/guides';
 
 export type DebriefEventKind =
   | 'station'
@@ -16,7 +17,8 @@ export type DebriefEventKind =
   | 'probe'
   | 'alara'
   | 'protocol'
-  | 'export';
+  | 'export'
+  | 'guide';
 
 export interface DebriefEvent {
   t: number;
@@ -44,7 +46,53 @@ export interface DebriefReport {
     errorMm?: number;
     errorPct?: number;
   }[];
+  /** Modo guiado (DEC-56): tiempo por paso de cada guía (último intento). */
+  guide: DebriefGuideSection[];
   summary: { nEvents: number; nMeasurements: number; nFindings: number; durationS: number };
+}
+
+export interface DebriefGuideSection {
+  guideId: string;
+  title: string;
+  steps: { stepId: string; title: string; durationS: number; manual: boolean }[];
+  totalS: number;
+  completed: boolean;
+}
+
+/** Tiempos por paso desde los eventos `guide`; un reinicio descarta lo previo. */
+export function guideSections(events: readonly DebriefEvent[]): DebriefGuideSection[] {
+  const perGuide = new Map<string, Map<string, { durationS: number; manual: boolean }>>();
+  for (const event of events) {
+    if (event.kind !== 'guide') continue;
+    const guideId = event.data?.guideId;
+    if (typeof guideId !== 'string') continue;
+    if (event.data?.reset === true) {
+      perGuide.set(guideId, new Map());
+      continue;
+    }
+    const stepId = event.data?.stepId;
+    const durationS = event.data?.durationS;
+    if (typeof stepId !== 'string' || typeof durationS !== 'number') continue;
+    const steps = perGuide.get(guideId) ?? new Map();
+    steps.set(stepId, { durationS, manual: event.data?.manual === true });
+    perGuide.set(guideId, steps);
+  }
+  const sections: DebriefGuideSection[] = [];
+  for (const guide of GUIDES) {
+    const recorded = perGuide.get(guide.id);
+    if (!recorded || recorded.size === 0) continue;
+    const steps = guide.steps
+      .filter((step) => recorded.has(step.id))
+      .map((step) => ({ stepId: step.id, title: step.title, ...recorded.get(step.id)! }));
+    sections.push({
+      guideId: guide.id,
+      title: guide.title,
+      steps,
+      totalS: steps.reduce((sum, step) => sum + step.durationS, 0),
+      completed: guide.steps.every((step) => recorded.has(step.id)),
+    });
+  }
+  return sections;
 }
 
 export class DebriefLog {
@@ -314,6 +362,7 @@ export function buildDebrief(
     events,
     findings,
     measurements,
+    guide: guideSections(events),
     summary: {
       nEvents: events.length,
       nMeasurements: measurements.length,
