@@ -37,6 +37,8 @@ export interface AppState {
   press: number;
   frozen: boolean;
   pwOn: boolean;
+  /** Doppler color como modo explícito (DEC-54): apagado por defecto. */
+  colorOn: boolean;
   handMotion: boolean;
   /** Reloj de simulación del frame actual (para micro-movimiento de mano). */
   tSec?: number;
@@ -78,6 +80,7 @@ export function createInitialState(): AppState {
     press: 0.3,
     frozen: false,
     pwOn: false,
+    colorOn: false,
     handMotion: true,
     caliperMode: 'none',
     onsdActive: false,
@@ -101,4 +104,9 @@ export function createInitialState(): AppState {
     teachingMode: false,
     debrief: new DebriefLog(0),
   };
+}
+
+/** Modo de imagen activo para la salida acústica: PW manda sobre color. */
+export function imagingMode(s: Pick<AppState, 'pwOn' | 'colorOn'>): 'bmode' | 'color' | 'pw' {
+  return s.pwOn ? 'pw' : s.colorOn ? 'color' : 'bmode';
 }

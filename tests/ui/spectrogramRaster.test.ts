@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SpectralColumn } from '../../src/doppler/spectral';
-import { rasterizeSpectrogram } from '../../src/ui/spectrogramRaster';
+import { percentileInPlace, rasterizeSpectrogram } from '../../src/ui/spectrogramRaster';
 
 function column(t: number, values: number[]): SpectralColumn {
   return { t, prfHz: 4000, powerDb: Float32Array.from(values) };
@@ -165,5 +165,23 @@ describe('rasterización pura del espectrograma', () => {
     expect(values[peakY + 1]!).toBeLessThan(peak);
     expect(values[peakY - 2]!).toBeLessThan(values[peakY - 1]!);
     expect(values[peakY + 2]!).toBeLessThan(values[peakY + 1]!);
+  });
+});
+
+describe('percentil por selección (DEC-54)', () => {
+  it('coincide con ordenar y leer el índice redondeado', () => {
+    let seed = 12345;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32;
+    for (let trial = 0; trial < 500; trial++) {
+      const n = 1 + Math.floor(rnd() * 300);
+      const values = Array.from({ length: n }, () =>
+        rnd() < 0.3 ? Math.round(rnd() * 5) : rnd() * 100 - 80,
+      );
+      const p = rnd();
+      const sorted = [...values].sort((a, b) => a - b);
+      const expected = sorted[Math.min(n - 1, Math.max(0, Math.round((n - 1) * p)))];
+      expect(percentileInPlace(Float64Array.from(values), p)).toBe(expected);
+    }
+    expect(percentileInPlace(new Float64Array(0), 0.2)).toBe(-200);
   });
 });

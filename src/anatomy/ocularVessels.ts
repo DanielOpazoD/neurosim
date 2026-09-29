@@ -13,11 +13,11 @@
  * LIM-26: tubos de radio constante, venas sin pulsatilidad, trayecto de la
  * AO estilizado (cruza sobre el nervio ~15 mm retroglobo).
  */
-import type { Vec3 } from '../core/vec3';
+import { add, cross, normalize, scale, sub, type Vec3 } from '../core/vec3';
 import type { Side } from '../domain/contracts';
 import type { Vessel } from './head';
 import { smoothPolyline } from './willis';
-import { fromEyeLocal, nerveCenterline, type EyeGeometry } from './eye';
+import { fromEyeLocal, nerveCenterline, sheathRadiiAt, type EyeGeometry } from './eye';
 
 /** Geometría del ojo antes de insertar el grafo vascular (se construye tras el marco). */
 type EyeBase = Omit<EyeGeometry, 'vessels'>;
@@ -129,36 +129,66 @@ export function buildOcularVessels(eye: EyeBase): Vessel[] {
       eye,
       true,
     ),
-    // Ciliares posteriores superior e inferior: cortas, alcanzan la pared.
-    mkVessel(
-      `acp-sup-${suffix}`,
-      side,
-      [
-        [3, -1, -(R + 10)],
-        [4, -1.5, -(R - 0.5)],
-      ],
-      0.3,
-      7,
-      12,
-      4,
-      eye,
-      false,
-      0.25,
-    ),
-    mkVessel(
-      `acp-inf-${suffix}`,
-      side,
-      [
-        [-3, 1, -(R + 10)],
-        [-4, 1.5, -(R - 0.5)],
-      ],
-      0.3,
-      7,
-      12,
-      4,
-      eye,
-      false,
-      0.25,
-    ),
+    // Ciliares posteriores lateral (temporal) y medial (nasal): cortas y
+    // tortuosas, pegadas a la vaina desde s≈7 mm hasta perforar la esclera
+    // junto a la papila (DEC-54).
+    mkVessel(`acp-lat-${suffix}`, side, ciliaryControls(eye, 1), 0.3, 7, 12, 4, eye, false, 0.25),
+    mkVessel(`acp-med-${suffix}`, side, ciliaryControls(eye, -1), 0.3, 7, 12, 4, eye, false, 0.25),
   ];
+}
+
+/**
+ * Marco local de la sección del nervio en `sMm` (el mismo corte que usa
+ * `nerveSection`): centro `c`, normal horizontal temporal `h` ⟂ tangente y
+ * normal «superior» `v` = h × t. Marco local del ojo.
+ */
+function nerveSectionFrame(eye: EyeBase, sMm: number): { c: Vec3; h: Vec3; v: Vec3 } {
+  const c = nerveCenterline(eye, sMm);
+  const a = nerveCenterline(eye, Math.max(0, sMm - 0.25));
+  const b = nerveCenterline(eye, sMm + 0.25);
+  const t = normalize(sub(b, a)); // sentido posterior
+  const h = normalize([-t[2], 0, t[0]]); // t × ŷ: horizontal, hacia temporal
+  const v = normalize(cross(h, t));
+  return { c, h, v };
+}
+
+/** Separación radial de las ACP respecto al radio mayor de la vaina, mm. */
+const CILIARY_SHEATH_GAP_MM = 1.0;
+/** Distancia de la perforación escleral al centro de la papila, mm. */
+const CILIARY_SCLERAL_ENTRY_MM = 2.3;
+/**
+ * Posición angular en la sección (desde el meridiano horizontal): la lateral
+ * va supero-temporal y la medial ínfero-nasal, así en los cortes transversal
+ * y sagital solo entran en el grosor de corte los últimos milímetros antes
+ * de la esclera (visibles «unos pocos mm», no una línea continua).
+ */
+const CILIARY_ANGLE_RAD = (30 * Math.PI) / 180;
+/** Controles de trayecto (s, mm retroglobo) y ondulación suave (mm). */
+const CILIARY_S = [7, 5, 3, 1.5] as const;
+const CILIARY_WIGGLE_T = [0, 0.45, -0.35, 0.3] as const;
+const CILIARY_WIGGLE_R = [0, -0.2, 0.25, -0.1] as const;
+
+/**
+ * Arteria ciliar posterior corta (`sign` +1 lateral/temporal, −1
+ * medial/nasal): nace a s≈7 mm, recorre la vaina a `major(s) + 1 mm` del eje
+ * — desplazamiento aplicado en el marco local de la sección del nervio, así
+ * sigue la curva nasal y la tortuosidad del nervio — con una ondulación suave
+ * (5 puntos de control, Catmull-Rom) y termina en la pared del globo a
+ * 2,3 mm del centro de la papila. Flujo hacia el globo (orden de los puntos).
+ */
+function ciliaryControls(eye: EyeBase, sign: 1 | -1): Vec3[] {
+  const cosA = Math.cos(CILIARY_ANGLE_RAD);
+  const sinA = Math.sin(CILIARY_ANGLE_RAD);
+  const radialDir = (h: Vec3, v: Vec3): Vec3 => scale(add(scale(h, cosA), scale(v, sinA)), sign);
+  const controls = CILIARY_S.map((s, k): Vec3 => {
+    const { c, h, v } = nerveSectionFrame(eye, s);
+    const radial = sheathRadiiAt(eye, s).major + CILIARY_SHEATH_GAP_MM + CILIARY_WIGGLE_R[k]!;
+    const tangential = scale(add(scale(h, -sinA), scale(v, cosA)), sign * CILIARY_WIGGLE_T[k]!);
+    return add(c, add(scale(radialDir(h, v), radial), tangential));
+  });
+  const { c: onh, h: h0, v: v0 } = nerveSectionFrame(eye, 0);
+  const entry = add(onh, scale(radialDir(h0, v0), CILIARY_SCLERAL_ENTRY_MM));
+  // Punto final dentro de la pared (0,3 mm bajo la superficie del globo).
+  controls.push(scale(normalize(entry), eye.globeRadiusMm - 0.3));
+  return controls;
 }

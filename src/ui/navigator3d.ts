@@ -459,6 +459,33 @@ export class Navigator3D {
   private station: Station = 'ojo';
   private side: Side = 'der';
   private readonly onDblClick = (): void => this.resetCamera(this.station, this.side);
+  /* Materiales del plano/caja/puerta creados una vez: recrearlos (y
+   * liberarlos) en cada rAF obligaba a Three.js a recompilar el programa
+   * GLSL en cada fotograma (≈75 % del hilo principal; DEC-54). */
+  private readonly planeFillMat = new THREE.MeshStandardMaterial({
+    color: '#5aa0ff',
+    transparent: true,
+    opacity: 0.22,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  private readonly outlineMat = new THREE.LineBasicMaterial({ color: '#8fbfff' });
+  private readonly focusMat = new THREE.LineDashedMaterial({ color: '#e8b44a', dashSize: 1.2, gapSize: 0.8 });
+  private readonly boxMat = new THREE.LineBasicMaterial({
+    color: '#ffffff',
+    transparent: true,
+    opacity: 0.6,
+  });
+  private readonly gateMat = new THREE.MeshStandardMaterial({
+    color: '#ffd77a',
+    emissive: '#ffd77a',
+    emissiveIntensity: 0.5,
+  });
+  /** Clave de las entradas del plano (se reconstruye solo si cambia). */
+  private planeKey = '';
+  /** Hay cambios de escena pendientes de pintar. */
+  private dirty = true;
+  private lastRenderMs = -Infinity;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -504,6 +531,8 @@ export class Navigator3D {
     this.camera.position.copy(v3(add(frame.target, scale(dir, dist))));
     this.controls.target.copy(v3(frame.target));
     this.controls.update();
+    this.dirty = true;
+    this.lastRenderMs = -Infinity;
   }
 
   update(
@@ -517,7 +546,24 @@ export class Navigator3D {
       this.station = s.station;
       this.side = s.side;
       this.buildStatic();
+      this.planeKey = '';
+      this.dirty = true;
     }
+    const key = [
+      s.station,
+      pose.origin.join(','),
+      pose.forward.join(','),
+      pose.lateral.join(','),
+      scan ? `${scan.apex.join(',')}|${scan.lateralDir.join(',')}|${scan.lines.length}` : 'none',
+      s.settings.depthMm,
+      s.settings.focusMm,
+      s.settings.gateMm,
+      colorBox ? `${colorBox.uCenter},${colorBox.uHalf},${colorBox.zMinMm},${colorBox.zMaxMm}` : '',
+      gateCenter ? gateCenter.join(',') : '',
+    ].join('|');
+    if (key === this.planeKey) return;
+    this.planeKey = key;
+    this.dirty = true;
     // Color de los tubos por sentido de flujo (sin reconstruir geometría).
     if (this.station === 'temporal') {
       for (const v of this.sim.head.vessels) {
@@ -529,7 +575,25 @@ export class Navigator3D {
     this.updatePlane(s, scan, pose, gateCenter, colorBox);
   }
 
-  render(): void {
+  /**
+   * Pinta solo si la escena cambió (como mucho cada `minIntervalMs`) o si la
+   * cámara se mueve (órbita/amortiguación): el temblor de mano cambia la pose
+   * en cada rAF y no hace falta repintar a 60 Hz el navegador.
+   */
+  renderIfNeeded(nowMs: number, minIntervalMs = 66): boolean {
+    const cameraMoved = this.controls.update();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const resized =
+      this.canvas.width !== Math.round((this.canvas.clientWidth || 300) * dpr) ||
+      this.canvas.height !== Math.round((this.canvas.clientHeight || 300) * dpr);
+    if (!cameraMoved && !resized && !(this.dirty && nowMs - this.lastRenderMs >= minIntervalMs)) return false;
+    this.lastRenderMs = nowMs;
+    this.dirty = false;
+    this.render(false);
+    return true;
+  }
+
+  render(updateControls = true): void {
     const w = this.canvas.clientWidth || 300;
     const h = this.canvas.clientHeight || 300;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -539,7 +603,7 @@ export class Navigator3D {
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
     }
-    this.controls.update();
+    if (updateControls) this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -593,10 +657,10 @@ export class Navigator3D {
     gateCenter: Vec3 | null,
     colorBox: ColorBox | null,
   ): void {
+    // Solo se liberan geometrías: los materiales son compartidos y persistentes.
     this.planeGroup.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments || o instanceof THREE.Line) {
         o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
       }
     });
     this.planeGroup.clear();
@@ -606,14 +670,7 @@ export class Navigator3D {
     const last = scan.lines[scan.lines.length - 1]!;
     // Ojo: sólo contorno del plano (el relleno tapaba globo y nervio).
     const fillPlane = this.station !== 'ojo';
-    const planeMat = (): THREE.MeshStandardMaterial =>
-      new THREE.MeshStandardMaterial({
-        color: '#5aa0ff',
-        transparent: true,
-        opacity: 0.22,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      });
+    const planeMat = (): THREE.MeshStandardMaterial => this.planeFillMat;
     const outline: THREE.Vector3[] = [];
     if (scan.kind === 'linear') {
       const endA = add(first.origin, scale(first.dir, depth));
@@ -644,12 +701,7 @@ export class Navigator3D {
       for (const a of arc) outline.push(a.clone());
       outline.push(v3(scan.apex), arc[arc.length - 1]!);
     }
-    this.planeGroup.add(
-      new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(outline),
-        new THREE.LineBasicMaterial({ color: '#8fbfff' }),
-      ),
-    );
+    this.planeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(outline), this.outlineMat));
     // Foco: trazo corto a focusMm sobre la línea central.
     const midLine = scan.lines[Math.floor(scan.lines.length / 2)]!;
     const focus = add(midLine.origin, scale(midLine.dir, s.settings.focusMm));
@@ -659,7 +711,7 @@ export class Navigator3D {
           v3(add(focus, scale(scan.lateralDir, -3))),
           v3(add(focus, scale(scan.lateralDir, 3))),
         ]),
-        new THREE.LineDashedMaterial({ color: '#e8b44a', dashSize: 1.2, gapSize: 0.8 }),
+        this.focusMat,
       ),
     );
     // Caja de color (temporal): arcos a zMin/zMax + radiales laterales.
@@ -685,21 +737,12 @@ export class Navigator3D {
         v3(imageToPatient(pose, kind, uMax, colorBox.zMinMm)),
         v3(imageToPatient(pose, kind, uMax, colorBox.zMaxMm)),
       );
-      this.planeGroup.add(
-        new THREE.LineSegments(
-          new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6 }),
-        ),
-      );
+      this.planeGroup.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), this.boxMat));
     }
     if (gateCenter) {
       const gate = new THREE.Mesh(
         new THREE.BoxGeometry(s.settings.gateMm, 3, s.settings.gateMm),
-        new THREE.MeshStandardMaterial({
-          color: '#ffd77a',
-          emissive: '#ffd77a',
-          emissiveIntensity: 0.5,
-        }),
+        this.gateMat,
       );
       gate.position.copy(v3(gateCenter));
       this.planeGroup.add(gate);

@@ -7,6 +7,10 @@ import { renderCase, renderRequest, type RenderRequest, type RenderResponse } fr
 
 export interface RenderClientLike {
   request(request: RenderRequest): Promise<RenderResponse>;
+  /** Solicitudes que pueden estar en vuelo a la vez sin reemplazarse. */
+  readonly capacity: number;
+  /** Huecos libres ahora mismo (0 → una nueva solicitud reemplazaría otra). */
+  readonly idle: number;
 }
 
 export interface RenderWorkerLike {
@@ -16,6 +20,8 @@ export interface RenderWorkerLike {
 }
 
 export class SyncRenderClient implements RenderClientLike {
+  readonly capacity = 1;
+  readonly idle = 1;
   request(request: RenderRequest): Promise<RenderResponse> {
     return Promise.resolve(
       renderRequest(request, renderCase(request.seed, request.willisVariant, request.caseId)),
@@ -37,6 +43,11 @@ export class RenderClient implements RenderClientLike {
   private active: Pending | null = null;
   private queued: Pending | null = null;
   private readonly sync = new SyncRenderClient();
+
+  readonly capacity = 1;
+  get idle(): number {
+    return this.active ? 0 : 1;
+  }
 
   constructor(worker: RenderWorkerLike) {
     this.worker = worker;
@@ -97,5 +108,41 @@ export class RenderClient implements RenderClientLike {
       this.queued = null;
       this.dispatch(queued);
     }
+  }
+}
+
+/**
+ * Canalización de render (DEC-54): N workers independientes, cada uno con
+ * una solicitud en vuelo como máximo. Mientras se dibuja la respuesta de uno
+ * el otro ya calcula el fotograma siguiente, así los fps dejan de estar
+ * acotados por 1/(render + transferencia + dibujo). Cada worker es un
+ * `RenderClient` (con su caché de casos y su fallback síncrono).
+ */
+export class RenderPool implements RenderClientLike {
+  private readonly slots: { client: RenderClientLike; pending: number }[];
+
+  constructor(clients: readonly RenderClientLike[]) {
+    if (clients.length === 0) throw new Error('RenderPool sin clientes');
+    this.slots = clients.map((client) => ({ client, pending: 0 }));
+  }
+
+  get capacity(): number {
+    return this.slots.length;
+  }
+
+  get idle(): number {
+    return this.slots.filter((slot) => slot.pending === 0).length;
+  }
+
+  request(request: RenderRequest): Promise<RenderResponse> {
+    // Sin hueco libre se recurre al primero (política latest-wins del cliente).
+    const slot = this.slots.find((candidate) => candidate.pending === 0) ?? this.slots[0]!;
+    slot.pending += 1;
+    const done = (): void => {
+      slot.pending -= 1;
+    };
+    const promise = slot.client.request(request);
+    promise.then(done, done);
+    return promise;
   }
 }

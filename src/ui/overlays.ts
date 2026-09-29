@@ -12,7 +12,7 @@ import { drawSpectrum } from './canvasDraw';
 import type { ScanGeometry } from '../ultrasound/probe';
 import { imageToPatient, LINEAR_APERTURE_MM, patientToImage } from '../ultrasound/probe';
 import { currentPose } from '../app/poses';
-import type { AppState } from '../app/state';
+import { imagingMode, type AppState } from '../app/state';
 import { imagePointToCanvas, canvasToImagePoint, dteGuide } from '../app/measurements';
 import { buildReport } from '../domain/onsdProtocol';
 import type { PwController } from '../app/pwController';
@@ -275,6 +275,14 @@ const row = (k: string, v: string, opts: { unit?: string; wide?: boolean; warn?:
 };
 const wide = (k: string, v: string) => row(k, v, { wide: true });
 
+const lastHtml = new WeakMap<HTMLElement, string>();
+/** Escribe `innerHTML` solo si el marcado cambió (evita relayout por rAF). */
+export function setHtml(el: HTMLElement, html: string): void {
+  if (lastHtml.get(el) === html) return;
+  lastHtml.set(el, html);
+  el.innerHTML = html;
+}
+
 export function updateReadouts(
   el: HTMLElement,
   sim: ReferenceCase,
@@ -304,7 +312,7 @@ export function updateReadouts(
   const alara = acousticOutput({
     transducer: s.settings.transducer,
     station: s.station,
-    mode: s.pwOn ? 'pw' : 'color',
+    mode: imagingMode(s),
     frequencyMhz: s.settings.frequencyMhz,
     focusMm: s.settings.focusMm,
     prfHz: s.settings.prfHz,
@@ -348,44 +356,50 @@ export function updateReadouts(
       : [];
   if (summary) {
     const comp = controller.composition();
-    el.innerHTML = [
-      row('PSV', `${Math.abs(summary.psvCms).toFixed(0)}`, { unit: 'cm/s' }),
-      row('EDV', `${Math.abs(summary.edvCms).toFixed(0)}`, { unit: 'cm/s' }),
-      row('TAMax', `${Math.abs(summary.taMaxCms).toFixed(0)}`, { unit: 'cm/s' }),
-      row('PI (Gosling)', summary.pi.toFixed(2)),
-      row('IR', summary.ri.toFixed(2)),
-      row('Latidos', `${summary.beats}`),
-      row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}`, { unit: '%' }),
-      wide('Vaso dominante', comp?.dominantVesselId ?? '—'),
-      ...(comp?.dominantVesselId?.startsWith('m1-')
-        ? [
-            wide(
-              'Lindegaard',
-              `TAMax ${Math.abs(summary.taMaxCms).toFixed(0)} / ACI ${sim.clinicalCase.icaExtracranialTamaxCms.toFixed(0)} = ${lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms).toFixed(1)}`,
-            ),
-          ]
-        : []),
-      ...angleRows,
-      ...hemoRows,
-      ...alaraRows,
-      ...reportRows,
-    ].join('');
+    setHtml(
+      el,
+      [
+        row('PSV', `${Math.abs(summary.psvCms).toFixed(0)}`, { unit: 'cm/s' }),
+        row('EDV', `${Math.abs(summary.edvCms).toFixed(0)}`, { unit: 'cm/s' }),
+        row('TAMax', `${Math.abs(summary.taMaxCms).toFixed(0)}`, { unit: 'cm/s' }),
+        row('PI (Gosling)', summary.pi.toFixed(2)),
+        row('IR', summary.ri.toFixed(2)),
+        row('Latidos', `${summary.beats}`),
+        row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}`, { unit: '%' }),
+        wide('Vaso dominante', comp?.dominantVesselId ?? '—'),
+        ...(comp?.dominantVesselId?.startsWith('m1-')
+          ? [
+              wide(
+                'Lindegaard',
+                `TAMax ${Math.abs(summary.taMaxCms).toFixed(0)} / ACI ${sim.clinicalCase.icaExtracranialTamaxCms.toFixed(0)} = ${lindegaardRatio(summary.taMaxCms, sim.clinicalCase.icaExtracranialTamaxCms).toFixed(1)}`,
+              ),
+            ]
+          : []),
+        ...angleRows,
+        ...hemoRows,
+        ...alaraRows,
+        ...reportRows,
+      ].join(''),
+    );
     return;
   }
   if (s.measurements.length) {
     const last = s.measurements[s.measurements.length - 1]!;
-    el.innerHTML = [
-      row(
-        last.kind === 'dvno' ? `DVNO ${last.convention ?? ''}` : last.kind === 'dte' ? 'DTE' : 'Distancia',
-        last.value.toFixed(2),
-        { unit: 'mm' },
-      ),
-      row('Cuadro', `t=${last.frameTSeconds.toFixed(2)}`, { unit: 's' }),
-      row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'}`, { unit: 'mm' }),
-      row('Medidas', `${s.measurements.length}`),
-    ].join('');
+    setHtml(
+      el,
+      [
+        row(
+          last.kind === 'dvno' ? `DVNO ${last.convention ?? ''}` : last.kind === 'dte' ? 'DTE' : 'Distancia',
+          last.value.toFixed(2),
+          { unit: 'mm' },
+        ),
+        row('Cuadro', `t=${last.frameTSeconds.toFixed(2)}`, { unit: 's' }),
+        row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'}`, { unit: 'mm' }),
+        row('Medidas', `${s.measurements.length}`),
+      ].join(''),
+    );
   } else {
-    el.innerHTML = [...angleRows, ...hemoRows, ...alaraRows, ...reportRows, row('Sin medidas', '—')].join('');
+    setHtml(el, [...angleRows, ...hemoRows, ...alaraRows, ...reportRows, row('Sin medidas', '—')].join(''));
   }
 }
 

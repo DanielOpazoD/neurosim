@@ -24,10 +24,40 @@ export interface SpectralVelocityTick {
 }
 
 function percentile(values: readonly number[], p: number): number {
-  if (values.length === 0) return -200;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * p)));
-  return sorted[index]!;
+  return percentileInPlace(Float64Array.from(values), p);
+}
+
+/**
+ * Percentil por selección (quickselect, O(n)) sobre un buffer que se
+ * reordena: devuelve el mismo estadístico de orden que ordenar y leer el
+ * índice `round((n−1)·p)`, sin el coste de ordenar ~80 k valores por rAF.
+ */
+export function percentileInPlace(a: Float64Array, p: number): number {
+  const n = a.length;
+  if (n === 0) return -200;
+  const k = Math.min(n - 1, Math.max(0, Math.round((n - 1) * p)));
+  let lo = 0;
+  let hi = n - 1;
+  while (hi > lo) {
+    const pivot = a[(lo + hi) >> 1]!;
+    let i = lo;
+    let j = hi;
+    while (i <= j) {
+      while (a[i]! < pivot) i++;
+      while (a[j]! > pivot) j--;
+      if (i <= j) {
+        const t = a[i]!;
+        a[i] = a[j]!;
+        a[j] = t;
+        i++;
+        j--;
+      }
+    }
+    if (k <= j) hi = j;
+    else if (k >= i) lo = i;
+    else break;
+  }
+  return a[k]!;
 }
 
 function visibleColumns(
@@ -89,7 +119,10 @@ export function rasterizeSpectrogram(
     if (bucket.length > 0) {
       const profile = new Float32Array(N);
       for (let k = 0; k < N; k++) {
-        profile[k] = bucket.reduce((sum, column) => sum + column.powerDb[k]!, 0) / bucket.length;
+        // Misma suma izquierda→derecha que el antiguo reduce (bit a bit).
+        let sum = 0;
+        for (let c = 0; c < bucket.length; c++) sum += bucket[c]!.powerDb[k]!;
+        profile[k] = sum / bucket.length;
       }
       profiles.push(profile);
       continue;
@@ -107,16 +140,32 @@ export function rasterizeSpectrogram(
     profiles.push(nearest.powerDb);
   }
 
-  const allPower = profiles.flatMap((profile) => Array.from(profile));
-  const floorDb = percentile(allPower, opts.floorPercentile ?? 0.2);
+  let total = 0;
+  for (const profile of profiles) total += profile.length;
+  const allPower = new Float64Array(total);
+  let offsetAll = 0;
+  for (const profile of profiles) {
+    allPower.set(profile, offsetAll);
+    offsetAll += profile.length;
+  }
+  const floorDb = percentileInPlace(allPower, opts.floorPercentile ?? 0.2);
   const gamma = opts.gamma ?? 0.7;
   const dr = Math.max(1e-6, opts.drDb);
+  const floorRef = floorDb + (opts.floorOffsetDb ?? 6);
   for (let y = 0; y < height; y++) {
     const fraction = rowFrequencyFraction(y + 0.5, height, opts.baseline, opts.invert);
     const index = (fraction + 1) * (N / 2);
+    // Vecinos/peso del bin por fila (idénticos a `interpolateBin` para perfiles
+    // de longitud N): se calculan una vez por fila, no por píxel (DEC-54).
+    const clamped = Math.max(0, Math.min(N - 1, index));
+    const lo = Math.floor(clamped);
+    const hi = Math.min(N - 1, lo + 1);
+    const f = clamped - lo;
     for (let x = 0; x < width; x++) {
-      const dbv = interpolateBin(profiles[x]!, index);
-      const u = Math.min(1, Math.max(0, (dbv + opts.gainDb - (floorDb + (opts.floorOffsetDb ?? 6))) / dr));
+      const profile = profiles[x]!;
+      const dbv =
+        profile.length === N ? profile[lo]! * (1 - f) + profile[hi]! * f : interpolateBin(profile, index);
+      const u = Math.min(1, Math.max(0, (dbv + opts.gainDb - floorRef) / dr));
       const level = 4 + Math.round(251 * Math.pow(u, gamma));
       const offset = (y * width + x) * 4;
       if (opts.colormap === 'ambar') {

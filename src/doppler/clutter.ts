@@ -2,7 +2,7 @@ import type { Vec3 } from '../core/vec3';
 import { normalize, scale, sub } from '../core/vec3';
 import { hash3 } from '../core/random';
 import type { VesselScene } from '../anatomy/head';
-import { vesselClosest, vesselDistance } from '../anatomy/head';
+import { vesselClosest, vesselDistance, vesselLowerBound } from '../anatomy/head';
 import { arterialShape } from '../physiology/flow';
 import { DOPPLER } from './params';
 import { FISIOLOGIA } from '../physiology/params';
@@ -28,6 +28,10 @@ function arterialShapeDerivative(phase: number, heartRateBpm: number): number {
   return (dShapeDPhase - cycleSlope) * (heartRateBpm / 60);
 }
 
+let memoPhase = Number.NaN;
+let memoHr = Number.NaN;
+let memoDShapeDt = 0;
+
 /** Geometría estática del movimiento tisular: solo depende de `point`. */
 export interface TissueMotionBasis {
   radial: Vec3;
@@ -37,7 +41,10 @@ export interface TissueMotionBasis {
 export function tissueMotionBasis(scene: VesselScene, point: Vec3): TissueMotionBasis {
   let nearest = scene.vessels[0]!;
   let nearestDistance = vesselDistance(nearest, point);
-  for (const vessel of scene.vessels.slice(1)) {
+  for (let i = 1; i < scene.vessels.length; i++) {
+    const vessel = scene.vessels[i]!;
+    // Descarte exacto: si ni la cota inferior mejora, el vaso no puede ganar.
+    if (vesselLowerBound(vessel, point) > nearestDistance) continue;
     const d = vesselDistance(vessel, point);
     if (d < nearestDistance) {
       nearest = vessel;
@@ -55,7 +62,14 @@ export function tissueVelocityFromBasis(
   heartRateBpm: number,
   tSec: number,
 ): Vec3 {
-  const dShapeDt = arterialShapeDerivative(cardiacPhase, heartRateBpm);
+  // Memo del último (fase, FC): el PW y el color evalúan cientos de
+  // dispersores con la misma fase por muestra lenta (DEC-54; mismo valor).
+  if (cardiacPhase !== memoPhase || heartRateBpm !== memoHr) {
+    memoPhase = cardiacPhase;
+    memoHr = heartRateBpm;
+    memoDShapeDt = arterialShapeDerivative(cardiacPhase, heartRateBpm);
+  }
+  const dShapeDt = memoDShapeDt;
   const wallMagnitude =
     DOPPLER.params.wallExcursionMm.value *
     dShapeDt *

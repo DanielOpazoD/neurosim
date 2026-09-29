@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { defaultEyeSettings } from '../../src/domain/settings';
-import { classifyEye } from '../../src/anatomy/eye';
+import { classifyEye, nerveCenterline, nerveSection, sheathRadiiAt, toEyeLocal } from '../../src/anatomy/eye';
 import { vesselVelocityCms } from '../../src/physiology/flow';
 import { CerebralFlow } from '../../src/physiology/flow';
 import { renderColorDoppler } from '../../src/doppler/color';
@@ -40,8 +40,8 @@ describe('grafo vascular ocular', () => {
           `vcr-${side}`,
           `ao-${side}`,
           `vos-${side}`,
-          `acp-sup-${side}`,
-          `acp-inf-${side}`,
+          `acp-lat-${side}`,
+          `acp-med-${side}`,
         ]),
       );
     }
@@ -77,6 +77,55 @@ describe('clasificación vascular ocular', () => {
   });
 });
 
+describe('ciliares posteriores y vasos centrales (DEC-54)', () => {
+  const eye = sim.eyes.der;
+  for (const id of ['acp-lat-der', 'acp-med-der']) {
+    it(`${id} nace a s≈6–8 mm, abraza la vaina y perfora la esclera junto a la papila`, () => {
+      const v = eye.vessels.find((x) => x.id === id)!;
+      const local = v.points.map((p) => toEyeLocal(eye, p));
+      const first = nerveSection(eye, local[0]!);
+      expect(first.sMm).toBeGreaterThanOrEqual(6);
+      expect(first.sMm).toBeLessThanOrEqual(8);
+      // Tramo retrobulbar (s ≥ 1,5 mm): entre 0,5 y 2 mm por fuera del radio mayor.
+      for (const q of local) {
+        const sec = nerveSection(eye, q);
+        if (sec.sMm < 1.5) continue;
+        const gap = sec.distToCenterMm - sheathRadiiAt(eye, sec.sMm).major;
+        expect(gap).toBeGreaterThan(0.4);
+        expect(gap).toBeLessThan(2);
+      }
+      // Termina en la pared del globo a 1,5–2,5 mm del centro de la papila.
+      const end = local[local.length - 1]!;
+      expect(Math.hypot(end[0], end[1], end[2])).toBeLessThan(eye.globeRadiusMm);
+      const onh = nerveCenterline(eye, 0);
+      const d = Math.hypot(end[0] - onh[0], end[1] - onh[1], end[2] - onh[2]);
+      expect(d).toBeGreaterThan(1.5);
+      expect(d).toBeLessThan(2.5);
+    });
+  }
+
+  it('ACR y VCR recorren el parénquima del nervio (s ≤ 12 mm), rodeadas de nervioOptico', () => {
+    for (const id of ['acr-der', 'vcr-der']) {
+      const v = eye.vessels.find((x) => x.id === id)!;
+      for (const p of v.points) {
+        const sec = nerveSection(eye, toEyeLocal(eye, p));
+        // s < 1,5 mm: papila/lámina cribosa (vecindad legítima distinta).
+        if (sec.sMm < 1.5) continue;
+        expect(sec.sMm).toBeLessThanOrEqual(12.5);
+        expect(sec.distToCenterMm).toBeLessThan(0.6 * sheathRadiiAt(eye, sec.sMm).nerve);
+        for (const [dx, dy] of [
+          [0.5, 0],
+          [-0.5, 0],
+          [0, 0.5],
+          [0, -0.5],
+        ] as const) {
+          expect(['nervioOptico', 'vaso']).toContain(classifyEye(eye, [p[0] + dx, p[1] + dy, p[2]]));
+        }
+      }
+    }
+  });
+});
+
 describe('color Doppler ocular', () => {
   const settings = defaultEyeSettings();
   const pose = eyePose(sim, 'der');
@@ -91,6 +140,25 @@ describe('color Doppler ocular', () => {
     0.2, // sístole
     settings.colorBox,
   );
+
+  it('sin color fuera de la vaina: toda celda cae a ≤ 1,5 mm de la dura (sin líneas sueltas)', () => {
+    const box = grid.box;
+    let finite = 0;
+    for (let zi = 0; zi < grid.rows; zi++) {
+      for (let ci = 0; ci < grid.cols; ci++) {
+        if (!Number.isFinite(grid.vel[zi * grid.cols + ci]!)) continue;
+        finite++;
+        const u = box.uCenter + ((ci + 0.5) / grid.cols - 0.5) * box.uHalf * 2;
+        const z = box.zMinMm + ((zi + 0.5) / grid.rows) * (box.zMaxMm - box.zMinMm);
+        const sec = nerveSection(
+          sim.eyes.der,
+          toEyeLocal(sim.eyes.der, imageToPatient(pose, 'linear', u, z)),
+        );
+        expect(sec.distToCenterMm - sheathRadiiAt(sim.eyes.der, sec.sMm).major).toBeLessThan(1.5);
+      }
+    }
+    expect(finite).toBeGreaterThan(0);
+  });
 
   it('la caja retrobulbar produce al menos 20 celdas con velocidad finita', () => {
     const finite = Array.from(grid.vel).filter((v) => Number.isFinite(v)).length;

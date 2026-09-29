@@ -21,7 +21,14 @@ import { dist, scale } from '../core/vec3';
 import { dopplerShiftHz } from '../core/units';
 import { MATERIALS, type MaterialId } from '../anatomy/materials';
 import type { HeadGeometry, Vessel, VesselScene } from '../anatomy/head';
-import { classifyHead, vesselAt, vesselClosest, vesselDistance, vesselRadiusAt } from '../anatomy/head';
+import {
+  classifyHead,
+  vesselAt,
+  vesselClosest,
+  vesselDistance,
+  vesselLowerBound,
+  vesselRadiusAt,
+} from '../anatomy/head';
 import { stenosisTurbulenceMms, vesselVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
 import { FISIOLOGIA } from '../physiology/params';
@@ -365,6 +372,7 @@ export class SampleVolumeIQ {
     let best: Vessel | null = null;
     let bestD = DOPPLER.params.partialWallMm.value;
     for (const cand of this.scene.vessels) {
+      if (vesselLowerBound(cand, world) >= bestD) continue; // no puede mejorar (DEC-54)
       const d = vesselDistance(cand, world);
       if (d >= 0 && d < bestD) {
         best = cand;

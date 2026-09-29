@@ -15,14 +15,15 @@ import type {
   WillisVariant,
 } from '../domain/contracts';
 import { defaultEyeSettings, defaultTemporalSettings } from '../domain/settings';
-import { drawBMode, drawColorOverlay } from './canvasDraw';
-import { createInitialState, type AppState } from '../app/state';
+import { drawBMode, drawColorOverlay, type ColorOverlayGrid } from './canvasDraw';
+import { createInitialState, imagingMode, type AppState } from '../app/state';
 import { PwController } from '../app/pwController';
 import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
 import { exportOnsdReport, exportSession } from '../app/exporter';
 import {
   RenderClient,
+  RenderPool,
   SupersededRenderRequest,
   SyncRenderClient,
   type RenderClientLike,
@@ -35,6 +36,7 @@ import {
   drawTeachingLandmarks,
   drawScale,
   drawSpectral,
+  setHtml,
   updateReadouts,
 } from './overlays';
 import { acousticOutput } from '../ultrasound/acousticOutput';
@@ -131,8 +133,11 @@ if (urlParams.get('clock') === 'fixed') {
 let lastRender = 0;
 let lastHeadRender = 0;
 let lastT = performance.now();
-let renderInFlight = false;
 let renderId = 0;
+/** Último id dibujado: con varios workers una respuesta atrasada se descarta. */
+let lastDrawnId = 0;
+/** Tope de la canalización de render: 30 fps (DEC-54). */
+const MIN_RENDER_INTERVAL_MS = 1000 / 30;
 let currentScan: RenderResponse['scan'] | null = null;
 let colorPersist: { vel: Float32Array; pow: Float32Array; key: string } | null = null;
 let bmodePersist: { db: Float32Array; key: string } | null = null;
@@ -140,6 +145,20 @@ let bmodePersist: { db: Float32Array; key: string } | null = null;
 const BMODE_PERSIST_ALPHA = [0, 0.35, 0.55, 0.7, 0.8] as const;
 const GRAY_MAP_CODE = { lineal: 0, sigmoide: 1, gamma: 2 } as const;
 let alaraLogged = false;
+/** Refresco de paneles DOM (lecturas, protocolo, informes): 4 Hz. */
+const PANEL_INTERVAL_MS = 250;
+let lastPanelUpdate = -Infinity;
+const forcePanels = (): void => {
+  lastPanelUpdate = -Infinity;
+};
+const spectralCtx = spectralCv.getContext('2d')!;
+const readoutsEl = $('readouts');
+const onsdReportPanel = $<HTMLDetailsElement>('onsdReportPanel');
+const debriefPanel = $<HTMLDetailsElement>('debriefPanel');
+for (const panel of [onsdReportPanel, debriefPanel]) panel.addEventListener('toggle', forcePanels);
+document.addEventListener('keydown', forcePanels, true);
+document.addEventListener('click', forcePanels, true);
+document.addEventListener('input', forcePanels, true);
 
 function drawGpuBMode(
   bmode: RenderResponse['bmode'],
@@ -192,10 +211,24 @@ function bmodeDbWithPersistence(
   return persist.db;
 }
 
+/** Workers de render en paralelo (DEC-54): 2 por defecto; `?workers=1..4`. */
+function renderWorkerCount(): number {
+  const requested = Number(urlParams.get('workers'));
+  if (Number.isInteger(requested) && requested >= 1 && requested <= 4) return requested;
+  const cores = navigator.hardwareConcurrency || 2;
+  return cores >= 4 ? 2 : 1;
+}
+
 function createRenderClient(): RenderClientLike {
   if (typeof Worker === 'undefined') return new SyncRenderClient();
   try {
-    return new RenderClient(new Worker(new URL('./renderWorker.ts', import.meta.url), { type: 'module' }));
+    const clients: RenderClientLike[] = [];
+    for (let i = 0; i < renderWorkerCount(); i++) {
+      clients.push(
+        new RenderClient(new Worker(new URL('./renderWorker.ts', import.meta.url), { type: 'module' })),
+      );
+    }
+    return clients.length === 1 ? clients[0]! : new RenderPool(clients);
   } catch (error) {
     logError('worker', error);
     return new SyncRenderClient();
@@ -310,6 +343,7 @@ function setStation(station: Station, side: Side): void {
   $('navigatorLegend').hidden = station !== 'temporal';
   $('navigatorTitle').textContent = station === 'ojo' ? `Ojo ${side}` : `Temporal ${side}`;
   setPwOn(false);
+  setColorOn(false);
   ($('cine') as HTMLButtonElement).disabled = true;
   s.cine.length = 0;
   s.cineIdx = 0;
@@ -337,7 +371,6 @@ interface RenderTiming {
 }
 
 function sendRenderRequest(timing: RenderTiming): void {
-  renderInFlight = true;
   const requestId = ++renderId;
   renderer
     .request({
@@ -360,17 +393,18 @@ function sendRenderRequest(timing: RenderTiming): void {
       handMotion: timing.handMotion,
       flowModulation: timing.flowModulation,
       physiology: sim.patient.physiology,
-      color: true,
+      color: s.colorOn,
     })
     .then((response) => {
-      renderInFlight = false;
+      // Canalización: una respuesta más antigua que la ya dibujada se descarta.
+      if (response.id < lastDrawnId) return;
       if (s.frozen && s.currentFrame) return; // congelado conserva el último frame en vivo; si aún no hay ninguno, el frame en vuelo es el primero
+      lastDrawnId = response.id;
       s.currentFrame = response.frame;
       pushCine(s, { frame: response.frame, bmode: response.bmode, scan: response.scan });
       drawFrame(response);
     })
     .catch((error) => {
-      renderInFlight = false;
       if (!(error instanceof SupersededRenderRequest)) {
         logError('worker', error);
       }
@@ -400,51 +434,72 @@ function toggleFreeze(): void {
   });
 }
 
+/** Mezcla la malla de color nueva con la persistencia (por celda) y
+ * devuelve la malla a pintar; `null` con el color apagado. */
+function colorWithPersistence(response: RenderResponse): ColorOverlayGrid | null {
+  const { frame, color } = response;
+  if (!color || !s.colorOn) {
+    colorPersist = null;
+    return null;
+  }
+  const key = JSON.stringify([
+    color.rows,
+    color.cols,
+    color.box,
+    frame.side,
+    frame.settings.depthMm,
+    frame.settings.prfHz,
+  ]);
+  let persist = colorPersist;
+  if (!persist || persist.key !== key || persist.vel.length !== color.vel.length) {
+    persist = { vel: Float32Array.from(color.vel), pow: Float32Array.from(color.pow), key };
+  } else {
+    for (let i = 0; i < color.vel.length; i += 1) {
+      const pwNew = color.pow[i]!;
+      persist.pow[i] = Math.max(pwNew, persist.pow[i]! * 0.65);
+      const vNew = color.vel[i]!;
+      if (pwNew > 0.02 && Number.isFinite(vNew)) {
+        const prev = persist.vel[i]!;
+        persist.vel[i] = 0.55 * vNew + 0.45 * (Number.isFinite(prev) ? prev : vNew);
+      }
+    }
+  }
+  colorPersist = persist;
+  return { vel: persist.vel, pow: persist.pow, rows: color.rows, cols: color.cols, box: color.box };
+}
+
 function drawFrame(response: RenderResponse): void {
-  const { frame, bmode, scan, color } = response;
+  const { frame, bmode, scan } = response;
   currentScan = scan;
+  const grid = colorWithPersistence(response);
   if (s.renderer === 'gpu' && gpuPipeline) {
     bmodeDbWithPersistence(bmode, frame); // mantiene la clave/vida del estado
     drawGpuBMode(bmode, scan, frame.settings, BMODE_PERSIST_ALPHA[s.persistence] ?? 0);
-  } else {
-    const db = bmodeDbWithPersistence(bmode, frame);
-    drawBMode(bCtx, { ...bmode, db }, { dynamicRangeDb: frame.settings.dynamicRangeDb, grayMap: s.grayMap });
-  }
-  if (color) {
-    const key = JSON.stringify([
-      color.rows,
-      color.cols,
-      color.box,
-      frame.side,
-      frame.settings.depthMm,
-      frame.settings.prfHz,
-    ]);
-    let persist = colorPersist;
-    if (!persist || persist.key !== key || persist.vel.length !== color.vel.length) {
-      persist = { vel: Float32Array.from(color.vel), pow: Float32Array.from(color.pow), key };
-    } else {
-      for (let i = 0; i < color.vel.length; i += 1) {
-        const pwNew = color.pow[i]!;
-        persist.pow[i] = Math.max(pwNew, persist.pow[i]! * 0.65);
-        const vNew = color.vel[i]!;
-        if (pwNew > 0.02 && Number.isFinite(vNew)) {
-          const prev = persist.vel[i]!;
-          persist.vel[i] = 0.55 * vNew + 0.45 * (Number.isFinite(prev) ? prev : vNew);
-        }
-      }
+    if (grid) {
+      drawColorOverlay(
+        bCtx,
+        grid,
+        scan,
+        frame.settings.depthMm,
+        frame.settings.prfHz,
+        frame.settings.frequencyMhz,
+        bmode.width,
+        bmode.height,
+      );
     }
-    colorPersist = persist;
-    drawColorOverlay(
+  } else {
+    // Ruta CPU: B-mode (LUT precalculada) y color en un único putImageData.
+    const db = bmodeDbWithPersistence(bmode, frame);
+    drawBMode(
       bCtx,
-      { vel: persist.vel, pow: persist.pow, rows: color.rows, cols: color.cols, box: color.box },
-      scan,
-      frame.settings.depthMm,
-      frame.settings.prfHz,
-      frame.settings.frequencyMhz,
+      { ...bmode, db },
+      { dynamicRangeDb: frame.settings.dynamicRangeDb, grayMap: s.grayMap },
+      grid ? { grid, prfHz: frame.settings.prfHz, f0Mhz: frame.settings.frequencyMhz } : undefined,
     );
-    drawColorBox(bCtx, s, frame.settings.colorBox);
-    if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
   }
+  if (grid) drawColorBox(bCtx, s, frame.settings.colorBox);
+  // PW sobre escala de grises es válido (DEC-54): la puerta no depende del color.
+  if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
   drawCaliperMarks(bCtx, s);
   drawTeachingLandmarks(bCtx, sim, s, scan);
   drawScale(bCtx, sim, s, s.currentFrame);
@@ -465,6 +520,17 @@ function setPwOn(on: boolean): void {
   document.body.dataset.pw = String(on);
   syncSpectralGainControl();
   fitBmode();
+}
+
+/** Enciende/apaga el Doppler color (modo explícito, DEC-54). Apagado: el
+ * worker no calcula la malla, no hay caja ni arrastre y se descarta la
+ * persistencia de color. PW no fuerza el color. */
+function setColorOn(on: boolean): void {
+  s.colorOn = on;
+  $('color').classList.toggle('on', on);
+  document.body.dataset.color = String(on);
+  colorPersist = null;
+  if (!on) boxDrag = null;
 }
 
 /* ── Dúplex B-mode/espectro (DEC-53) ── */
@@ -571,17 +637,20 @@ function updateDebriefPanel(): void {
   const report = buildDebrief(s.debrief, sim, s, pw.hemodynamics());
   const panel = $('debriefReport');
   const severityClass = (severity: string) => `debrief-${severity}`;
-  panel.innerHTML = [
-    `<div>Eventos: ${report.summary.nEvents} · Mediciones: ${report.summary.nMeasurements} · Hallazgos: ${report.summary.nFindings}</div>`,
-    ...report.findings.map(
-      (finding) =>
-        `<div class="${severityClass(finding.severity)}"><b>${finding.severity}</b> ${finding.code}: ${finding.text}</div>`,
-    ),
-    '<hr>',
-    ...report.events
-      .slice(-12)
-      .map((event) => `<div>${event.t.toFixed(2)} s · ${event.kind} · ${event.detail}</div>`),
-  ].join('');
+  setHtml(
+    panel,
+    [
+      `<div>Eventos: ${report.summary.nEvents} · Mediciones: ${report.summary.nMeasurements} · Hallazgos: ${report.summary.nFindings}</div>`,
+      ...report.findings.map(
+        (finding) =>
+          `<div class="${severityClass(finding.severity)}"><b>${finding.severity}</b> ${finding.code}: ${finding.text}</div>`,
+      ),
+      '<hr>',
+      ...report.events
+        .slice(-12)
+        .map((event) => `<div>${event.t.toFixed(2)} s · ${event.kind} · ${event.detail}</div>`),
+    ].join(''),
+  );
 }
 
 function syncProbeSlider(id: string, labelId: string, value: number, fmt: (v: number) => string): void {
@@ -634,19 +703,22 @@ function updateOnsdReport(): void {
     const item = report.perSide[side];
     return `<tr><th>${side}</th><td>${value(side, 'transversal')}</td><td>${value(side, 'sagital')}</td><td>${item.dteMm?.toFixed(2) ?? '—'}</td><td>${item.ratio?.toFixed(2) ?? '—'}</td></tr>`;
   };
-  panel.innerHTML = [
-    '<table><thead><tr><th>Lado</th><th>Transversal</th><th>Sagital</th><th>DTE</th><th>Ratio</th></tr></thead>',
-    `<tbody>${sideRow('der')}${sideRow('izq')}</tbody></table>`,
-    `<div>Media bilateral: ${report.bilateralMeanMm?.toFixed(2) ?? '—'} mm · Asimetría: ${report.asymmetryMm?.toFixed(2) ?? '—'} mm</div>`,
-    `<div>Flags: ${report.flags.length ? report.flags.join(', ') : 'ninguno'}</div>`,
-  ].join('');
+  setHtml(
+    panel,
+    [
+      '<table><thead><tr><th>Lado</th><th>Transversal</th><th>Sagital</th><th>DTE</th><th>Ratio</th></tr></thead>',
+      `<tbody>${sideRow('der')}${sideRow('izq')}</tbody></table>`,
+      `<div>Media bilateral: ${report.bilateralMeanMm?.toFixed(2) ?? '—'} mm · Asimetría: ${report.asymmetryMm?.toFixed(2) ?? '—'} mm</div>`,
+      `<div>Flags: ${report.flags.length ? report.flags.join(', ') : 'ninguno'}</div>`,
+    ].join(''),
+  );
 }
 
 function updateAcousticLabel(): void {
   const output = acousticOutput({
     transducer: s.settings.transducer,
     station: s.station,
-    mode: s.pwOn ? 'pw' : 'color',
+    mode: imagingMode(s),
     frequencyMhz: s.settings.frequencyMhz,
     focusMm: s.settings.focusMm,
     prfHz: s.settings.prfHz,
@@ -691,9 +763,11 @@ function frameLoop(now: number): void {
     for (let i = 0; i < clock.requestSteps(elapsed); i++) clock.advance();
     s.tSec = clock.t;
     pw.step(clock, elapsed);
-    if (now - lastRender > 90 && !s.frozen) {
-      lastRender = now;
-      if (!renderInFlight) {
+    if (!s.frozen) {
+      // Canalización (DEC-54): se pide el siguiente fotograma en cuanto hay un
+      // worker libre (sin el antiguo tope fijo de 90 ms), como mucho a 30 fps.
+      if (renderer.idle > 0 && now - lastRender >= MIN_RENDER_INTERVAL_MS) {
+        lastRender = now;
         const phys = sim.physStateAt(clock.t);
         sendRenderRequest({
           t: phys.t,
@@ -703,7 +777,7 @@ function frameLoop(now: number): void {
           handMotion: s.handMotion,
         });
       }
-    } else if (s.frozen && s.cinePlaying && s.cine.length) {
+    } else if (s.cinePlaying && s.cine.length) {
       drawCineFrame();
     }
     const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
@@ -713,9 +787,9 @@ function frameLoop(now: number): void {
       currentScan,
       navPose,
       gateCenter,
-      s.station === 'temporal' ? s.settings.colorBox : null,
+      s.colorOn && s.station === 'temporal' ? s.settings.colorBox : null,
     );
-    navigator3d.render();
+    navigator3d.renderIfNeeded(now);
     // La vista de cabeza es una segunda superficie WebGL: a ritmo reducido
     // basta para la interacción y no satura el renderizador por software.
     if (headView && headView.update(s, navPose, currentScan)) {
@@ -726,12 +800,17 @@ function frameLoop(now: number): void {
     } else if (headView?.interacting) {
       headView.render();
     }
-    drawSpectral(spectralCv.getContext('2d')!, sim, s, pw);
-    updateReadouts($('readouts'), sim, s, pw);
-    syncProtocolControls();
-    updateOnsdReport();
-    updateDebriefPanel();
-    updateAcousticLabel();
+    drawSpectral(spectralCtx, sim, s, pw);
+    // Paneles DOM a 4 Hz (DEC-54): innerHTML solo si cambia y los <details>
+    // cerrados no se recalculan. Cualquier entrada del usuario fuerza el refresco.
+    if (now - lastPanelUpdate >= PANEL_INTERVAL_MS) {
+      lastPanelUpdate = now;
+      updateReadouts(readoutsEl, sim, s, pw);
+      syncProtocolControls();
+      if (onsdReportPanel.open) updateOnsdReport();
+      if (debriefPanel.open) updateDebriefPanel();
+      updateAcousticLabel();
+    }
   } catch (err) {
     logError('frame', err);
   }
@@ -968,6 +1047,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     toggleFreeze();
   } else if (e.key === 'p') $('pw').click();
+  else if (e.key === 'f') $('color').click();
   else if (e.key === 'c') $('caliper').click();
   else if (e.key === 'd') $('teaching').click();
 });
@@ -980,6 +1060,11 @@ $('pw').addEventListener('click', () => {
   if (s.pwOn) pw.reset();
   s.debrief.setTime(clock.t);
   s.debrief.record(s.pwOn ? 'pw-on' : 'pw-off', s.pwOn ? 'PW activar' : 'PW desactivar', { pwOn: s.pwOn });
+});
+$('color').addEventListener('click', () => {
+  setColorOn(!s.colorOn);
+  s.debrief.setTime(clock.t);
+  s.debrief.record('settings', `color=${s.colorOn ? 'on' : 'off'}`, { id: 'color', value: s.colorOn });
 });
 $('audio').addEventListener('click', () => {
   s.audioOn = !s.audioOn;
@@ -1032,7 +1117,7 @@ $('onsdProtocol').addEventListener('click', () => {
 let boxDrag: { du: number; dz: number; x0: number; y0: number; moved: boolean } | null = null;
 let suppressClick = false;
 bmodeCv.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
+  if (e.button !== 0 || !s.colorOn) return;
   const r = bmodeCv.getBoundingClientRect();
   const point = canvasToImagePoint(
     ((e.clientX - r.left) / r.width) * bmodeCv.width,

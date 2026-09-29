@@ -7,7 +7,7 @@ import type { GrayMap } from '../domain/contracts';
 import type { SpectralColumn } from '../doppler/spectral';
 import type { ScanGeometry } from '../ultrasound/probe';
 import type { ColorBox } from '../domain/contracts';
-import { pixelToImage, scanConvert } from './scanConvert';
+import { scanConvertInto, scanLut, type ScanLut } from './scanConvert';
 import { nyquistVelocityCms } from '../core/units';
 import { smoothstep } from '../core/vec3';
 import {
@@ -23,17 +23,51 @@ export function dbToGray(db: number, dynamicRangeDb: number, gainDb: number): nu
   return Math.round(255 * Math.min(1, Math.max(0, x + 1 - 255 / 255 / 1)));
 }
 
-/** Pinta un fotograma B-mode en el canvas (lineal: recto; sector: abanico). */
+/** ImageData reutilizada por canvas (evita reservar 1,2 MB por fotograma). */
+const imageDataCache = new WeakMap<CanvasRenderingContext2D, ImageData>();
+function frameImageData(ctx: CanvasRenderingContext2D): ImageData {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  let img = imageDataCache.get(ctx);
+  if (!img || img.width !== W || img.height !== H) {
+    img = ctx.createImageData(W, H);
+    imageDataCache.set(ctx, img);
+  }
+  return img;
+}
+
+/** Superposición de color para componer junto con el B-mode (ruta CPU). */
+export interface ColorOverlayRequest {
+  readonly grid: ColorOverlayGrid;
+  readonly prfHz: number;
+  readonly f0Mhz: number;
+}
+
+/** Pinta un fotograma B-mode en el canvas (lineal: recto; sector: abanico).
+ * Con `overlay`, el color se compone sobre el mismo buffer antes de un único
+ * `putImageData` (idéntico a pintar y luego superponer, sin releer el canvas). */
 export function drawBMode(
   ctx: CanvasRenderingContext2D,
   frame: BModeFrame,
   settings: { dynamicRangeDb: number; grayMap?: GrayMap },
+  overlay?: ColorOverlayRequest,
 ): { pxPerMmZ: number; pxPerU: number } {
   const { scan, depthMm } = frame;
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
-  const img = ctx.createImageData(W, H);
-  img.data.set(scanConvert(frame, settings, W, H));
+  const img = frameImageData(ctx);
+  scanConvertInto(frame, settings, img.data, W, H);
+  if (overlay) {
+    compositeColorOverlay(
+      img.data,
+      W,
+      H,
+      overlay.grid,
+      scanLut(scan, depthMm, frame.width, frame.height, W, H),
+      overlay.prfHz,
+      overlay.f0Mhz,
+    );
+  }
   ctx.putImageData(img, 0, 0);
   return scan.kind === 'linear'
     ? { pxPerMmZ: H / depthMm, pxPerU: W / scan.widthMmOrRad }
@@ -52,9 +86,8 @@ export interface ColorOverlayGrid {
 }
 
 /**
- * Superpone el mapa Doppler color solo dentro de la caja: recorre los píxeles
- * de salida, muestrea la malla vel/pow por bilineal y respeta al B-mode
- * brillante (tejido sobre color).
+ * Superpone el mapa Doppler color solo dentro de la caja (ruta GPU: relee el
+ * canvas). Ver `compositeColorOverlay`.
  */
 export function drawColorOverlay(
   ctx: CanvasRenderingContext2D,
@@ -63,55 +96,77 @@ export function drawColorOverlay(
   depthMm: number,
   prfHz: number,
   f0Mhz: number,
+  /** Tamaño de la malla B-mode (solo para compartir la LUT con el B-mode). */
+  sourceWidth = 1,
+  sourceHeight = 1,
 ): void {
-  const { vel, pow, rows, cols, box } = color;
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
-  const nyq = nyquistVelocityCms(prfHz, f0Mhz * 1e6, 0);
   const img = ctx.getImageData(0, 0, W, H);
-  const px = img.data;
+  const lut = scanLut(scan, depthMm, sourceWidth, sourceHeight, W, H);
+  compositeColorOverlay(img.data, W, H, color, lut, prfHz, f0Mhz);
+  ctx.putImageData(img, 0, 0);
+}
+
+/**
+ * Compone el color sobre un buffer RGBA: recorre los píxeles de salida (con
+ * sus coordenadas de imagen precalculadas en la LUT), muestrea la malla
+ * vel/pow por bilineal y respeta al B-mode brillante (tejido sobre color).
+ */
+export function compositeColorOverlay(
+  px: Uint8ClampedArray,
+  W: number,
+  H: number,
+  color: ColorOverlayGrid,
+  lut: Pick<ScanLut, 'z' | 'u'>,
+  prfHz: number,
+  f0Mhz: number,
+): void {
+  const { vel, pow, rows, cols, box } = color;
+  const nyq = nyquistVelocityCms(prfHz, f0Mhz * 1e6, 0);
   const zSpan = Math.max(1e-9, box.zMaxMm - box.zMinMm);
   const uSpan = Math.max(1e-9, box.uHalf * 2);
   const nz = rows - 1;
   const nu = cols - 1;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const p = pixelToImage(scan, depthMm, W, H, x, y);
-      if (!p) continue;
-      const fzi = ((p.z - box.zMinMm) / zSpan) * rows - 0.5;
-      const fci = ((p.u - box.uCenter) / uSpan + 0.5) * cols - 0.5;
-      if (fzi < 0 || fzi > nz || fci < 0 || fci > nu) continue;
-      const zi0 = Math.min(nz - 1, Math.floor(fzi));
-      const ci0 = Math.min(nu - 1, Math.floor(fci));
-      const fz = fzi - zi0;
-      const fc = fci - ci0;
-      // Bilineal; la velocidad se pondera por potencia y un nodo NaN cuenta
-      // como potencia 0 para no contaminar a los vecinos.
-      let pInterp = 0;
-      let vNum = 0;
-      let vDen = 0;
-      for (let dz = 0; dz <= 1; dz++) {
-        for (let dc = 0; dc <= 1; dc++) {
-          const w = (dz ? fz : 1 - fz) * (dc ? fc : 1 - fc);
-          const idx = (zi0 + dz) * cols + ci0 + dc;
-          const pw = Number.isFinite(vel[idx]!) ? pow[idx]! : 0;
-          pInterp += w * pw;
-          vNum += w * pw * (pw > 0 ? vel[idx]! : 0);
-          vDen += w * pw;
-        }
+  const lz = lut.z;
+  const lu = lut.u;
+  const n = W * H;
+  for (let k = 0; k < n; k++) {
+    const pz = lz[k]!;
+    if (pz !== pz) continue; // NaN: fuera del sector
+    const fzi = ((pz - box.zMinMm) / zSpan) * rows - 0.5;
+    if (fzi < 0 || fzi > nz) continue;
+    const fci = ((lu[k]! - box.uCenter) / uSpan + 0.5) * cols - 0.5;
+    if (fci < 0 || fci > nu) continue;
+    const zi0 = Math.min(nz - 1, Math.floor(fzi));
+    const ci0 = Math.min(nu - 1, Math.floor(fci));
+    const fz = fzi - zi0;
+    const fc = fci - ci0;
+    // Bilineal; la velocidad se pondera por potencia y un nodo NaN cuenta
+    // como potencia 0 para no contaminar a los vecinos.
+    let pInterp = 0;
+    let vNum = 0;
+    let vDen = 0;
+    for (let dz = 0; dz <= 1; dz++) {
+      for (let dc = 0; dc <= 1; dc++) {
+        const w = (dz ? fz : 1 - fz) * (dc ? fc : 1 - fc);
+        const idx = (zi0 + dz) * cols + ci0 + dc;
+        const pw = Number.isFinite(vel[idx]!) ? pow[idx]! : 0;
+        pInterp += w * pw;
+        vNum += w * pw * (pw > 0 ? vel[idx]! : 0);
+        vDen += w * pw;
       }
-      if (pInterp < 0.02 || vDen <= 0) continue;
-      const k = (y * W + x) * 4;
-      if (px[k]! > 170) continue;
-      const v = vNum / vDen;
-      const [r, g, b] = colorDopplerRgb(v, nyq);
-      const a = smoothstep(0.02, 0.15, pInterp) * 0.95;
-      px[k] = Math.round(px[k]! * (1 - a) + r * a);
-      px[k + 1] = Math.round(px[k + 1]! * (1 - a) + g * a);
-      px[k + 2] = Math.round(px[k + 2]! * (1 - a) + b * a);
     }
+    if (pInterp < 0.02 || vDen <= 0) continue;
+    const o = k * 4;
+    if (px[o]! > 170) continue;
+    const v = vNum / vDen;
+    const [r, g, b] = colorDopplerRgb(v, nyq);
+    const a = smoothstep(0.02, 0.15, pInterp) * 0.95;
+    px[o] = Math.round(px[o]! * (1 - a) + r * a);
+    px[o + 1] = Math.round(px[o + 1]! * (1 - a) + g * a);
+    px[o + 2] = Math.round(px[o + 2]! * (1 - a) + b * a);
   }
-  ctx.putImageData(img, 0, 0);
 }
 
 /**
