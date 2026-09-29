@@ -608,3 +608,57 @@ variante, caso)` que el worker de render. El protocolo vive en
     > a 3 mm (tortuosidad) y la frontera elíptica de `classifyEyeLocal` usa el
     > desplazamiento x/y local, así que el diámetro perpendicular visible es
     > ~4,96 mm frente a 4,70 mm de `trueOnsdMm` (Ojo D: 4,61 frente a 4,60).
+    > **Corregido en DEC-57** (marco de la sección perpendicular): ahora
+    > 4,68 frente a 4,70 (Ojo I) y 4,58 frente a 4,60 (Ojo D).
+56. **DEC-57** — Marco de la sección perpendicular del nervio óptico.
+    `nerveSection` expresaba el desplazamiento al centro más cercano en x/y
+    locales del ojo e ignoraba que la línea central está curvada e inclinada
+    (curva nasal + tortuosidad + mirada); donde el nervio es oblicuo la
+    elipse clasificada era más ancha que la sección perpendicular real
+    (factor 1/cos θ: Ojo I, θ ≈ 18° en la imagen a 3 mm, 4,96 frente a
+    4,70 mm). (a) **Marco compartido** `nerveFrame(g, s)` en
+    `src/anatomy/eye.ts`: tangente analítica `nerveTangent` (derivada
+    exacta de `nerveCenterline`; coincide con la diferencia central de
+    h = 0,05 mm a < 1e-4), u = normaliza(eₓ − (eₓ·t)t) (eje mayor ≈
+    temporal) y v = u × t (eje menor ≈ superior; con t posterior, t × u
+    daría −y, así que se usa u × t). `nerveSection` devuelve
+    `inPlane` = (off·u, off·v, off·t) y `classifyEyeLocal` evalúa la elipse
+    en (u, v) y el radio del nervio con √(u² + v²). Un paso de
+    Gauss-Newton tras el pulido parabólico reduce el residuo axial off·t de
+    ~0,25 mm a < 0,05 mm (y fija s = 0 en el extremo del globo en vez de
+    0,05). (b) **Tolerancia axial**: la vaina exige −5 mm ≤ off·t ≤ 1 mm;
+    en el interior off·t ≈ 0 y en s = 0 la cuña entre el globo y el plano
+    de la sección inclinado llega a −1,5 mm (N1) y −2,8 mm (parada
+    circulatoria, vaina máxima), así que no recorta la unión vaina–esclera;
+    en s = 40 el nervio termina 1 mm tras el ápex (hueso) en vez de
+    prolongarse sin fin. (c) **Rechazo exacto**: la caja x/y de
+    `nerveCurve` acumula por muestra la función soporte de la elipse
+    rotada, √(a²uₓ² + b²vₓ²) + 5·|tₓ| (ídem en y), más 0,5 mm por el
+    muestreo de 0,25 mm; un test recorre la frontera de la vaina a paso
+    0,05 mm con τ ∈ {−5, 0, 1} en todos los casos y exige ≥ 0,2 mm de
+    holgura. (d) **Mismo marco en todo**: vasos retinianos centrales
+    (desplazamiento fijo en (u, v), antes en x/y locales) y ciliares
+    posteriores (`nerveFrame` sustituye a `nerveSectionFrame`, que usaba
+    t × ŷ y diferencias de 0,25 mm) en `ocularVessels.ts`; en el navegador
+    3D la vaina es un tubo elíptico con el marco por muestra y radios
+    `sheathRadiiAt(s)` (antes circular con el radio mayor a 3 mm) y el
+    anillo DVNO a 3 mm es la dura elíptica orientada con t y u en
+    coordenadas del paciente (antes la tangente local se copiaba sin rotar:
+    en el Ojo I, temporal = −x, quedaba especular). (e) **Verdad**:
+    `trueOnsdMm` conserva su semántica (eje mayor, sección perpendicular) y
+    se añade `trueOnsdMinorMm` (externa 2·menor; interna = frontera LCR/dura
+    escalada = excentricidad × interna mayor), que usa `guideTruth` para el
+    plano sagital. Medido (marcha a 0,01 mm por `classifyEye` desde el
+    centro a 3 mm, externa U/V · interna U/V): antes Ojo D 5,36/4,27 ·
+    4,65/3,71 y Ojo I 5,66/4,33 · 4,93/3,77; ahora 5,30/4,27 · 4,60/3,71 y
+    5,40/4,33 · 4,70/3,77 (verdad 5,30/4,27 · 4,60/3,71 y 5,40/4,34 ·
+    4,70/3,77). En el plano B-mode de la guía (⟂ a la dirección del nervio
+    en la imagen, interna): Ojo D transversal 4,61 → 4,58, Ojo I 4,96 →
+    4,68; sagital sin cambio (3,68 y 3,76; cuerda de un plano que no pasa
+    exactamente por el centro). Guía completa en la vista previa de
+    producción (clics de Playwright): 4,58 / 3,66 / 4,68 / 3,76 mm, error
+    frente al modelo 0,06 → 0,02 mm. **Dorados**: `eyeDerBmode`
+    (b5b8d69c → 671488e4; frontera de la vaina en el marco perpendicular) y
+    `colorAcrDer` (4b60e859 → 96f86b1b; ACR/VCR desplazadas en (u, v) y
+    ciliares con el marco nuevo) cambian; `temporalDerBmode`, `pwM1Point2`
+    y `colorM1Der` no.

@@ -6,8 +6,8 @@ import {
   fromEyeLocal,
   nerveCenterline,
   nerveSection,
-  sheathRadiiAt,
   toEyeLocal,
+  trueOnsdMinorMm,
   trueOnsdMm,
 } from '../anatomy/eye';
 import type { Measurement } from '../domain/contracts';
@@ -57,10 +57,9 @@ export function guideTruth(sim: ReferenceCase): GuideTruth {
   const perSide = (side: 'der' | 'izq') => {
     const eye = sim.eyes[side];
     const transversal = trueOnsdMm(eye, GUIDE_ONSD_OFFSET_MM, 'interno');
-    // Sagital: eje menor de la vaina elíptica (excentricidad × eje mayor),
-    // misma frontera interna que `classifyEyeLocal`.
-    const radii = sheathRadiiAt(eye, GUIDE_ONSD_OFFSET_MM);
-    const sagital = 2 * radii.minor * ((radii.major - eye.duraMm) / radii.major);
+    // Sagital: eje menor de la sección perpendicular (DEC-57), misma
+    // frontera interna que `classifyEyeLocal`.
+    const sagital = trueOnsdMinorMm(eye, GUIDE_ONSD_OFFSET_MM, 'interno');
     return { transversal, sagital };
   };
   return {
