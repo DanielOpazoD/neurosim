@@ -395,6 +395,27 @@ function setFreezeLabel(frozen: boolean): void {
   $('freezeKey').textContent = frozen ? '' : 'Esp';
 }
 
+function stationHint(station: Station): string {
+  return station === 'ojo'
+    ? 'DVNO: activa «DVNO 3 mm» y marca los dos bordes de la vaina a 3 mm retroglobo.'
+    : station === 'submandibular'
+      ? 'Submandibular: puerta PW en la ACI distal (flujo alejándose, 30–55 mm, ángulo ≤ 30°); su TAMax es el denominador del Lindegaard.'
+      : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
+}
+
+/** Hint contextual: protocolo ONSD > modo calibre > estación. */
+function syncCaliperHint(): void {
+  if (s.onsdActive && s.station === 'ojo') return;
+  $('hint').textContent =
+    s.caliperMode === 'dist'
+      ? 'Calibre: arrastra para medir (o dos clics) · arrastra un extremo para editar · clic en la línea selecciona y Supr borra.'
+      : s.caliperMode === 'dvno'
+        ? 'DVNO: arrastra sobre la guía a 3 mm retroglobo; el segmento queda perpendicular a la vaina.'
+        : s.caliperMode === 'dte'
+          ? 'DTE: mide el diámetro transverso del globo de retina a retina con dos puntos.'
+          : stationHint(s.station);
+}
+
 function setStation(station: Station, side: Side): void {
   const previousStation = s.station;
   probeTween = null;
@@ -459,12 +480,15 @@ function setStation(station: Station, side: Side): void {
   colorPersist = null;
   bmodePersist = null;
   setFreezeLabel(false);
-  $('hint').textContent =
-    station === 'ojo'
-      ? 'DVNO: activa «DVNO 3 mm» y marca los dos bordes de la vaina a 3 mm retroglobo.'
-      : station === 'submandibular'
-        ? 'Submandibular: puerta PW en la ACI distal (flujo alejándose, 30–55 mm, ángulo ≤ 30°); su TAMax es el denominador del Lindegaard.'
-        : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
+  // Los modos DVNO/DTE solo tienen sentido en la estación ocular.
+  if (station !== 'ojo' && (s.caliperMode === 'dvno' || s.caliperMode === 'dte')) {
+    s.caliperMode = 'none';
+    s.caliperPts = [];
+    $('dvno').classList.remove('on');
+    $('dte').classList.remove('on');
+    caliperTool.reset();
+  }
+  syncCaliperHint();
   s.debrief.setTime(clock.t);
   s.debrief.record('station', `${station} ${side}`, { station, side });
 }
@@ -1522,6 +1546,7 @@ $('caliper').addEventListener('click', () => {
   if (s.caliperMode === 'dist') $('dvno').classList.remove('on');
   s.caliperPts = [];
   caliperTool.reset();
+  syncCaliperHint();
 });
 $('dvno').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dvno' ? 'none' : 'dvno';
@@ -1529,6 +1554,7 @@ $('dvno').addEventListener('click', () => {
   if (s.caliperMode === 'dvno') $('caliper').classList.remove('on');
   s.caliperPts = [];
   caliperTool.reset();
+  syncCaliperHint();
 });
 $('dte').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dte' ? 'none' : 'dte';
@@ -1537,6 +1563,7 @@ $('dte').addEventListener('click', () => {
   $('dvno').classList.remove('on');
   s.caliperPts = [];
   caliperTool.reset();
+  syncCaliperHint();
 });
 $('onsdProtocol').addEventListener('click', () => {
   if (s.station !== 'ojo') return;
@@ -1550,6 +1577,7 @@ $('onsdProtocol').addEventListener('click', () => {
   caliperTool.reset();
   $('onsdProtocol').classList.toggle('on', s.onsdActive);
   $('dvno').classList.toggle('on', s.onsdActive);
+  syncCaliperHint();
   s.debrief.setTime(clock.t);
   s.debrief.record('protocol', s.onsdActive ? 'protocolo DVNO iniciar' : 'protocolo DVNO reiniciar', {
     started: s.onsdActive,
