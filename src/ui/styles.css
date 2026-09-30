@@ -1043,6 +1043,59 @@ body[data-pw='true'] .grpDoppler {
 .stat.warn .v {
   color: var(--warn);
 }
+/* ── Lista de mediciones del caliper (DEC-61) ── */
+.measureList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  max-height: 168px;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+}
+.measureList:empty {
+  margin-top: 0;
+}
+.mrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 11.5px;
+}
+.mrow:hover {
+  background: rgba(255, 210, 74, 0.08);
+}
+.mrow.sel {
+  background: rgba(255, 210, 74, 0.16);
+  border-color: rgba(255, 210, 74, 0.35);
+}
+.mrow .mtag {
+  flex: 1;
+  color: #ffd24a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mrow .mval {
+  color: var(--text);
+  font-weight: 600;
+}
+.mrow .mdel {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.mrow .mdel:hover {
+  color: #ff7b7b;
+}
 .meas {
   color: var(--accent);
 }

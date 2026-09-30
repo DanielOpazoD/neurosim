@@ -9,7 +9,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { eyeLocalDir, fromEyeLocal, nerveFrame, rectusPaths, sheathRadiiAt } from '../anatomy/eye';
 import { diencephalonShapes, midbrainShapes, vesselFlowDir, type Vessel } from '../anatomy/head';
-import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
+import { add, cross, dist, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
+import { EYE_PROBE_STANDOFF_MM } from '../app/poses';
 import { imageToPatient } from '../ultrasound/probe';
 import type { ScanGeometry } from '../ultrasound/probe';
 import type { ColorBox, ProbePose, Side, Station } from '../domain/contracts';
@@ -17,7 +18,7 @@ import type { ReferenceCase } from '../domain/referenceCase';
 import type { AppState } from '../app/state';
 import { isTcdStation } from '../domain/contracts';
 import { neckPoint } from '../anatomy/neck';
-import { buildProbeGroup, updateProbePose } from './probeMesh';
+import { buildProbeGroup, FOOTPRINT, updateProbePose } from './probeMesh';
 import { AxisGizmo } from './axisGizmo';
 import {
   linkedCameraPosition,
@@ -68,8 +69,28 @@ function temporalTarget(sim: ReferenceCase, side: Side): Vec3 {
   return add(vc, scale(sub(sim.head.windowCenter[side], vc), 0.4));
 }
 
-/** Desplazamiento posterior del objetivo ocular (mm) para encuadrar globo + ~30 mm de nervio. */
-const EYE_TARGET_POSTERIOR_MM = 10;
+/** Margen del encuadre ocular alrededor de sonda + globo + anillo, mm. */
+const EYE_FRAME_MARGIN_MM = 1;
+
+/**
+ * Encuadre ocular (N15b): objetivo a medio camino entre la cara de la sonda
+ * (pose por defecto, sobre el párpado) y el centro del globo; el radio
+ * incluye la huella lineal completa (50 × 12 mm, placa de 3,2 mm), el globo
+ * y el anillo DVNO a 3 mm retroglobo.
+ */
+export function eyeNavigatorFrame(sim: ReferenceCase, side: Side): { target: Vec3; radiusMm: number } {
+  const eye = sim.eyes[side];
+  const anterior = normalize(eye.anterior);
+  const probeOrigin = add(eye.center, scale(anterior, eye.globeRadiusMm + EYE_PROBE_STANDOFF_MM));
+  const target = scale(add(probeOrigin, eye.center), 0.5);
+  const toProbe = dist(probeOrigin, target);
+  const [footW, footD] = FOOTPRINT.linear;
+  const footMm = Math.hypot(footW / 2, footD / 2, toProbe + 3.2);
+  const globeMm = dist(eye.center, target) + eye.globeRadiusMm;
+  const ring = fromEyeLocal(eye, nerveFrame(eye, 3).c);
+  const ringMm = dist(ring, target) + sheathRadiiAt(eye, 3).major;
+  return { target, radiusMm: Math.max(footMm, globeMm, ringMm) + EYE_FRAME_MARGIN_MM };
+}
 
 export function navigatorFrame(
   sim: ReferenceCase,
@@ -77,13 +98,13 @@ export function navigatorFrame(
   side: 'der' | 'izq',
   canvasSide: number,
 ): NavigatorFrame {
+  if (station === 'ojo') {
+    const { target, radiusMm } = eyeNavigatorFrame(sim, side);
+    return { target, radiusMm, scale: (0.46 * canvasSide) / radiusMm };
+  }
   const target =
-    station === 'ojo'
-      ? add(sim.eyes[side].center, scale(normalize(sim.eyes[side].anterior), -EYE_TARGET_POSTERIOR_MM))
-      : station === 'submandibular'
-        ? neckPoint(sim.neck[side].frame, 40, 0, 0)
-        : temporalTarget(sim, side);
-  const radiusMm = station === 'ojo' ? 28 : station === 'submandibular' ? 50 : 55;
+    station === 'submandibular' ? neckPoint(sim.neck[side].frame, 40, 0, 0) : temporalTarget(sim, side);
+  const radiusMm = station === 'submandibular' ? 50 : 55;
   return { target, radiusMm, scale: (0.46 * canvasSide) / radiusMm };
 }
 
@@ -298,7 +319,8 @@ function describeEye(sim: ReferenceCase, side: Side): SceneDescriptor {
     to: p.apex,
     radiusMm: 1.4,
     color: '#b5556b',
-    opacity: 0.45,
+    // Rectos muy translúcidos (N15b): el nervio y la vaina se leen a través.
+    opacity: 0.25,
   }));
   const cones: ConeDesc[] = [
     {
@@ -413,24 +435,19 @@ function describeNeck(sim: ReferenceCase): SceneDescriptor {
   return { ...EMPTY, ellipsoids, tubes, bands, labels };
 }
 
-/** Escena estática de la estación (ojo = ambos ojos; temporal = cráneo; submandibular = cuello). */
-export function describeStaticScene(sim: ReferenceCase, station: Station): SceneDescriptor {
+/**
+ * Escena estática de la estación: ojo = solo la órbita explorada (N15b; la
+ * del otro ojo se salía del encuadre y lo confundía), temporal = cráneo,
+ * submandibular = cuello.
+ */
+export function describeStaticScene(
+  sim: ReferenceCase,
+  station: Station,
+  side: Side = 'der',
+): SceneDescriptor {
   if (station === 'temporal') return describeHead(sim);
   if (station === 'submandibular') return describeNeck(sim);
-  const der = describeEye(sim, 'der');
-  const izq = describeEye(sim, 'izq');
-  const merge = <T>(a: readonly T[], b: readonly T[]): T[] => [...a, ...b];
-  return {
-    ellipsoids: merge(der.ellipsoids, izq.ellipsoids),
-    tubes: merge(der.tubes, izq.tubes),
-    discs: merge(der.discs, izq.discs),
-    boxes: merge(der.boxes, izq.boxes),
-    rings: merge(der.rings, izq.rings),
-    bands: merge(der.bands, izq.bands),
-    lenses: merge(der.lenses, izq.lenses),
-    cones: merge(der.cones, izq.cones),
-    labels: merge(der.labels, izq.labels),
-  };
+  return describeEye(sim, side);
 }
 
 /** Base ortonormal de la sonda: lateral, elevación y forward. */
@@ -824,7 +841,7 @@ export class Navigator3D {
   private buildStatic(): void {
     this.staticGroup.clear();
     this.vesselMeshes.clear();
-    const desc = describeStaticScene(this.sim, this.station);
+    const desc = describeStaticScene(this.sim, this.station, this.side);
     for (const d of desc.ellipsoids) this.staticGroup.add(ellipsoidMesh(d));
     for (const d of desc.discs) this.staticGroup.add(discMesh(d));
     for (const d of desc.boxes) {

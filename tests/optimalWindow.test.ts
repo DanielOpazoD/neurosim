@@ -5,8 +5,11 @@ import {
   clearOptimalWindowCache,
   eyeNerveTarget,
   solveOptimalWindow,
+  TCD_CANONICAL_PENALTY_MM,
+  temporalPoseScore,
   type OptimalWindow,
 } from '../src/app/optimalWindow';
+import { dot, sub } from '../src/core/vec3';
 import { stationPose } from '../src/app/poses';
 import { dopplerSceneFor } from '../src/app/renderRequest';
 import { insonationAngles } from '../src/doppler/insonation';
@@ -115,6 +118,26 @@ describe('ventana óptima (DEC-60)', () => {
       expect(ins.realDeg).toBeLessThanOrEqual(15);
       expect(w.colorOn).toBe(true);
       expect(w.gate!.depthMm).toBeLessThanOrEqual(w.depthMm);
+    }
+  });
+
+  it('temporal: con M1 parecida gana el plano canónico; la mariposa queda en el plano', () => {
+    const canon = { tiltDeg: 0, offsetMm: 0, offsetVMm: 0 };
+    const tilted = { tiltDeg: -5, offsetMm: 0, offsetVMm: 6 };
+    // 11 unidades de desvío × 0,3 mm = 3,3 mm de M1.
+    expect(TCD_CANONICAL_PENALTY_MM).toBe(0.3);
+    expect(temporalPoseScore(20, canon)).toBeGreaterThan(temporalPoseScore(23, tilted));
+    expect(temporalPoseScore(20, canon)).toBeLessThan(temporalPoseScore(23.5, tilted));
+    // Caso normal: M1 entera (25,2 mm) solo a −5°/+6 mm frente a 14,5 mm en
+    // el plano canónico → la penalización no cambia la solución.
+    const sim = buildReferenceCase();
+    for (const side of SIDES) {
+      const w = solveOptimalWindow(sim, 'temporal', side);
+      expect(w.probe.tiltDeg).toBe(-5);
+      expect(w.probe.offsetVMm).toBe(6);
+      const pose = poseOf(sim, w);
+      const rel = sub(sim.head.midbrainCenter, pose.origin);
+      expect(Math.abs(dot(rel, elevAxis(pose)))).toBeLessThanOrEqual(2);
     }
   });
 

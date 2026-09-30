@@ -90,6 +90,8 @@ describe('proyección ortográfica del navegador', () => {
       Math.max(...globeProjected.map((point) => point.y)) -
         Math.min(...globeProjected.map((point) => point.y)),
     );
-    expect(globeDiameter).toBeGreaterThanOrEqual(120);
+    // N15b: el encuadre incluye además la huella lineal de 50 mm sobre el
+    // párpado, así que el globo ocupa algo menos (≥ 110 px de 300).
+    expect(globeDiameter).toBeGreaterThanOrEqual(110);
   });
 });

@@ -13,7 +13,9 @@
  *   rejilla gruesa (inclinación ±10° cada 2,5°, desplazamientos ±6 mm cada
  *   3 mm) + ascenso local
  *   en los pasos de los deslizadores, maximizando la longitud de M1 a ≤ 1 mm
- *   del plano y dentro del sector. Profundidad 90 mm, color con la caja
+ *   del plano y dentro del sector, menos 0,3 mm por grado de inclinación y
+ *   por mm de desplazamiento vertical (preferencia por el plano canónico,
+ *   `temporalPoseScore`). Profundidad 90 mm, color con la caja
  *   centrada en M1 y puerta PW en el punto de M1 con menor ángulo de
  *   insonación (el PW no se enciende).
  * - Submandibular: mínimo ángulo de insonación a la ACI ipsilateral con
@@ -85,6 +87,8 @@ export const IN_PLANE_TOL_MM = 1;
 /** Rangos de búsqueda (grados / mm) y pasos de los deslizadores. */
 const TCD_TILT_RANGE = 10;
 const TCD_OFFSET_RANGE = 6;
+/** Coste de alejarse del plano mesencefálico: mm de M1 por grado de inclinación / mm de desplazamiento vertical. */
+export const TCD_CANONICAL_PENALTY_MM = 0.3;
 const TILT_STEP = 1;
 const OFFSET_STEP = 0.5;
 const DEFAULT_PRESS = 0.3;
@@ -414,6 +418,25 @@ function findVessel(scene: VesselScene, id: string): Vessel {
   return v;
 }
 
+/**
+ * Objetivo temporal: longitud de M1 en el plano con preferencia por el plano
+ * mesencefálico canónico (N15b, DEC-60): cada grado de inclinación y cada mm
+ * de desplazamiento vertical cuestan `TCD_CANONICAL_PENALTY_MM` de M1, así
+ * que con visibilidad parecida la pose queda cerca del plano estándar (la
+ * mariposa mesencefálica sigue en el plano). Desempate suave hacia la sonda
+ * centrada en la ventana.
+ */
+export function temporalPoseScore(
+  m1LengthMm: number,
+  p: Pick<ProbeParams, 'tiltDeg' | 'offsetMm' | 'offsetVMm'>,
+): number {
+  return (
+    m1LengthMm -
+    TCD_CANONICAL_PENALTY_MM * (Math.abs(p.tiltDeg) + Math.abs(p.offsetVMm)) -
+    1e-3 * (Math.abs(p.offsetMm) + Math.abs(p.offsetVMm))
+  );
+}
+
 function solveTemporal(sim: ReferenceCase, side: Side): SolvedPart {
   const scene = dopplerSceneFor(sim, 'temporal', side);
   const m1 = findVessel(scene, `m1-${side}`);
@@ -432,8 +455,7 @@ function solveTemporal(sim: ReferenceCase, side: Side): SolvedPart {
     [TCD_TILT_RANGE, TCD_OFFSET_RANGE, TCD_OFFSET_RANGE],
     (p) => {
       const ev = evalPlane(poseFor(sim, 'temporal', side, params(p)), samples, TEMPORAL_DEPTH_MM);
-      // Desempate suave hacia la sonda centrada en la ventana.
-      return ev.lengthMm - 1e-3 * (Math.abs(p[1]) + Math.abs(p[2]));
+      return temporalPoseScore(ev.lengthMm, params(p));
     },
   );
   const probe = params(search.best);

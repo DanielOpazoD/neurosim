@@ -14,8 +14,30 @@ import type {
 import type { ImagePoint } from '../domain/measure';
 import type { ScanGeometry } from '../ultrasound/probe';
 import { defaultEyeSettings } from '../domain/settings';
-import { createOnsdProtocolState, type OnsdProtocolState } from '../domain/onsdProtocol';
+import { createOnsdProtocolState, type OnsdKey, type OnsdProtocolState } from '../domain/onsdProtocol';
 import { DebriefLog } from './debrief';
+
+/**
+ * Medición confirmada sobre la imagen (DEC-61): puntos en coordenadas de
+ * imagen del cuadro en que se trazó, etiqueta numerada y referencias al
+ * hueco del protocolo DVNO para que una edición los mantenga coherentes.
+ */
+export interface CaliperEntry {
+  /** Número visible («1», «2»…), creciente en la sesión. */
+  readonly id: number;
+  measurement: Measurement;
+  a: ImagePoint;
+  b: ImagePoint;
+  /** Cuadro en el que se trazó (la edición recalcula sobre él). */
+  readonly frame: AcquiredFrame;
+  /** Pose y equipo al medir: en vivo solo se dibuja si no cambiaron. */
+  readonly poseKey: string;
+  /** Rótulo: «DVNO D transversal», «DTE I», «Distancia». */
+  readonly tag: string;
+  /** Hueco del protocolo DVNO / DTE que ocupa (si lo ocupa). */
+  readonly onsdKey?: OnsdKey;
+  readonly dteSide?: Side;
+}
 
 export interface CineItem {
   frame: AcquiredFrame;
@@ -62,6 +84,10 @@ export interface AppState {
   onsd: OnsdProtocolState;
   caliperPts: ImagePoint[];
   measurements: Measurement[];
+  /** Mediciones dibujables/editables sobre la imagen (DEC-61). */
+  caliperEntries: CaliperEntry[];
+  /** Siguiente número de etiqueta. */
+  caliperSeq: number;
   cine: CineItem[];
   cinePlaying: boolean;
   cineIdx: number;
@@ -103,6 +129,8 @@ export function createInitialState(): AppState {
     onsd: createOnsdProtocolState(),
     caliperPts: [],
     measurements: [],
+    caliperEntries: [],
+    caliperSeq: 1,
     cine: [],
     cinePlaying: false,
     cineIdx: 0,

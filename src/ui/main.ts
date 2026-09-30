@@ -23,7 +23,7 @@ import { isTcdStation } from '../domain/contracts';
 import { drawBMode, drawColorOverlay, type ColorOverlayGrid } from './canvasDraw';
 import { createInitialState, imagingMode, type AppState } from '../app/state';
 import { PwController, SyncPwTransport, WorkerPwTransport, type PwTransport } from '../app/pwController';
-import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
+import { canvasToImagePoint, formatMeasurementMm } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
 import { exportOnsdReport, exportSession } from '../app/exporter';
 import {
@@ -35,7 +35,7 @@ import {
 } from '../app/renderClient';
 import { type RenderResponse } from '../app/renderRequest';
 import {
-  drawCaliperMarks,
+  drawCaliperOverlay,
   drawColorBox,
   drawGateMarker,
   drawTeachingLandmarks,
@@ -44,6 +44,7 @@ import {
   setHtml,
   updateReadouts,
 } from './overlays';
+import { CaliperTool } from './caliperTool';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 import { buildDebrief } from '../app/debrief';
@@ -627,7 +628,7 @@ function drawFrame(response: RenderResponse): void {
   if (grid) drawColorBox(bCtx, s, frame.settings.colorBox);
   // PW sobre escala de grises es válido (DEC-54): la puerta no depende del color.
   if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
-  drawCaliperMarks(bCtx, s);
+  drawCaliperOverlay(bCtx, sim, s, caliperTool.view);
   drawTeachingLandmarks(bCtx, sim, s, scan);
   drawScale(bCtx, sim, s, s.currentFrame);
 }
@@ -766,6 +767,60 @@ function recordMeasurement(rotDegAtMeasure = s.rotDeg): void {
     realDeg: angle?.realDeg ?? Number.NaN,
   });
 }
+
+/**
+ * Herramienta de calibre (DEC-61): gestos de puntero sobre el B-mode.
+ * Sus ganchos mantienen la meta de guía y el debriefing coherentes con el
+ * flujo clic a clic anterior (`recordMeasurement`).
+ */
+const caliperTool = new CaliperTool(sim, s, bmodeCv, {
+  onCommit: (_entry, rotDeg) => recordMeasurement(rotDeg),
+  onEdit: (entry, prev) => {
+    const meta = measurementMeta.get(prev);
+    if (meta) measurementMeta.set(entry.measurement, meta);
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `${entry.tag} editada`, {
+      kind: entry.measurement.kind,
+      valueMm: entry.measurement.value,
+    });
+  },
+  onDelete: (entry) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `${entry.tag} borrada`, {
+      kind: entry.measurement.kind,
+      valueMm: entry.measurement.value,
+    });
+  },
+});
+
+/** Lista de mediciones del panel Medidas (DEC-61): rótulo, valor y borrado;
+ * el clic en la fila selecciona la entrada sobre la imagen. */
+function renderMeasureList(): void {
+  setHtml(
+    $('measureList'),
+    s.caliperEntries
+      .map((e) => {
+        const sel = caliperTool.view.selectedId === e.id ? ' sel' : '';
+        const val = formatMeasurementMm(e.measurement.kind, e.measurement.value);
+        return `<div class="mrow${sel}" data-id="${e.id}"><span class="mtag">${e.id} · ${e.tag}</span><span class="mval">${val}</span><button class="mdel" data-del="${e.id}" title="Borrar medición" aria-label="Borrar medición ${e.id}">×</button></div>`;
+      })
+      .join(''),
+  );
+}
+$('measureList').addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const del = target.closest<HTMLElement>('[data-del]');
+  if (del) {
+    caliperTool.remove(Number(del.dataset['del']));
+    renderMeasureList();
+    return;
+  }
+  const row = target.closest<HTMLElement>('.mrow');
+  if (row?.dataset['id']) {
+    caliperTool.select(Number(row.dataset['id']));
+    renderMeasureList();
+  }
+});
 
 function updateDebriefPanel(): void {
   const report = buildDebrief(s.debrief, sim, s, pw.hemodynamics());
@@ -1173,6 +1228,7 @@ function frameLoop(now: number): void {
     if (now - lastPanelUpdate >= PANEL_INTERVAL_MS) {
       lastPanelUpdate = now;
       updateReadouts(readoutsEl, sim, s, pw);
+      renderMeasureList();
       syncProtocolControls();
       if (onsdReportPanel.open) updateOnsdReport();
       if (debriefPanel.open) updateDebriefPanel();
@@ -1411,6 +1467,16 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
+  const el = document.activeElement;
+  const inForm =
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLSelectElement ||
+    el instanceof HTMLTextAreaElement ||
+    (el instanceof HTMLElement && el.isContentEditable);
+  if (!inForm && caliperTool.key(e.key)) {
+    e.preventDefault();
+    return;
+  }
   if (e.code === 'Space') {
     e.preventDefault();
     toggleFreeze();
@@ -1455,12 +1521,14 @@ $('caliper').addEventListener('click', () => {
   $('caliper').classList.toggle('on', s.caliperMode === 'dist');
   if (s.caliperMode === 'dist') $('dvno').classList.remove('on');
   s.caliperPts = [];
+  caliperTool.reset();
 });
 $('dvno').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dvno' ? 'none' : 'dvno';
   $('dvno').classList.toggle('on', s.caliperMode === 'dvno');
   if (s.caliperMode === 'dvno') $('caliper').classList.remove('on');
   s.caliperPts = [];
+  caliperTool.reset();
 });
 $('dte').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dte' ? 'none' : 'dte';
@@ -1468,6 +1536,7 @@ $('dte').addEventListener('click', () => {
   $('caliper').classList.remove('on');
   $('dvno').classList.remove('on');
   s.caliperPts = [];
+  caliperTool.reset();
 });
 $('onsdProtocol').addEventListener('click', () => {
   if (s.station !== 'ojo') return;
@@ -1478,6 +1547,7 @@ $('onsdProtocol').addEventListener('click', () => {
   s.side = 'der';
   s.rotDeg = 0;
   s.caliperPts = [];
+  caliperTool.reset();
   $('onsdProtocol').classList.toggle('on', s.onsdActive);
   $('dvno').classList.toggle('on', s.onsdActive);
   s.debrief.setTime(clock.t);
@@ -1487,16 +1557,24 @@ $('onsdProtocol').addEventListener('click', () => {
 });
 let boxDrag: { du: number; dz: number; x0: number; y0: number; moved: boolean } | null = null;
 let suppressClick = false;
-bmodeCv.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || !s.colorOn) return;
+/** Punto del puntero en píxeles de canvas (el CSS puede escalar el <canvas>). */
+function bmodeCanvasPoint(e: PointerEvent): [number, number] {
   const r = bmodeCv.getBoundingClientRect();
-  const point = canvasToImagePoint(
+  return [
     ((e.clientX - r.left) / r.width) * bmodeCv.width,
     ((e.clientY - r.top) / r.height) * bmodeCv.height,
-    s,
-    bmodeCv.width,
-    bmodeCv.height,
-  );
+  ];
+}
+bmodeCv.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const [cx, cy] = bmodeCanvasPoint(e);
+  // DEC-61: con un modo de calibre activo el gesto es de medición, no de caja.
+  if (caliperTool.down(cx, cy)) {
+    bmodeCv.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (!s.colorOn) return;
+  const point = canvasToImagePoint(cx, cy, s, bmodeCv.width, bmodeCv.height);
   const box = s.settings.colorBox;
   if (Math.abs(point.u - box.uCenter) > box.uHalf || point.z < box.zMinMm || point.z > box.zMaxMm) {
     return;
@@ -1511,17 +1589,13 @@ bmodeCv.addEventListener('pointerdown', (e) => {
   bmodeCv.setPointerCapture(e.pointerId);
 });
 bmodeCv.addEventListener('pointermove', (e) => {
+  const [cx, cy] = bmodeCanvasPoint(e);
+  caliperTool.move(cx, cy);
+  bmodeCv.style.cursor = caliperTool.domCursor;
   if (!boxDrag) return;
   if (Math.hypot(e.clientX - boxDrag.x0, e.clientY - boxDrag.y0) >= 4) boxDrag.moved = true;
   if (!boxDrag.moved) return;
-  const r = bmodeCv.getBoundingClientRect();
-  const point = canvasToImagePoint(
-    ((e.clientX - r.left) / r.width) * bmodeCv.width,
-    ((e.clientY - r.top) / r.height) * bmodeCv.height,
-    s,
-    bmodeCv.width,
-    bmodeCv.height,
-  );
+  const point = canvasToImagePoint(cx, cy, s, bmodeCv.width, bmodeCv.height);
   const box = s.settings.colorBox;
   const halfU = (currentScan?.widthMmOrRad ?? box.uHalf * 2) / 2;
   const uCenter = Math.max(-halfU + box.uHalf, Math.min(halfU - box.uHalf, point.u - boxDrag.du));
@@ -1533,6 +1607,11 @@ bmodeCv.addEventListener('pointermove', (e) => {
   };
 });
 bmodeCv.addEventListener('pointerup', (e) => {
+  const [cx, cy] = bmodeCanvasPoint(e);
+  if (caliperTool.up(cx, cy)) {
+    if (bmodeCv.hasPointerCapture(e.pointerId)) bmodeCv.releasePointerCapture(e.pointerId);
+    return;
+  }
   if (!boxDrag) return;
   if (boxDrag.moved) {
     suppressClick = true;
@@ -1546,31 +1625,22 @@ bmodeCv.addEventListener('pointerup', (e) => {
   boxDrag = null;
   if (bmodeCv.hasPointerCapture(e.pointerId)) bmodeCv.releasePointerCapture(e.pointerId);
 });
+bmodeCv.addEventListener('pointerleave', () => caliperTool.leave());
+bmodeCv.addEventListener('pointercancel', () => caliperTool.reset());
 bmodeCv.addEventListener('click', (e) => {
-  if (suppressClick) {
+  const fromTool = caliperTool.consumeClick();
+  if (suppressClick || fromTool) {
     suppressClick = false;
     return;
   }
-  const r = bmodeCv.getBoundingClientRect();
-  const point = canvasToImagePoint(
-    ((e.clientX - r.left) / r.width) * bmodeCv.width,
-    ((e.clientY - r.top) / r.height) * bmodeCv.height,
-    s,
-    bmodeCv.width,
-    bmodeCv.height,
-  );
-  if (s.pwOn) {
-    s.gateDepthMm = point.z;
-    s.gateUMm = point.u;
-    return;
-  }
-  // El protocolo DVNO gira el marcador al completar un hueco: la rotación de
-  // la medición es la de antes del clic. Solo se registra una medición nueva
-  // (antes un clic sin caliper activo re-registraba la última).
-  const rotBefore = s.rotDeg;
-  const countBefore = s.measurements.length;
-  addCaliperPoint(sim, s, point);
-  if (s.measurements.length > countBefore) recordMeasurement(rotBefore);
+  // La puerta PW sigue respondiendo al clic directo (prioridad sobre el
+  // calibre, como antes); los gestos reales del calibre ya suprimieron su
+  // propio click de cierre vía consumeClick.
+  if (!s.pwOn) return;
+  const [cx, cy] = bmodeCanvasPoint(e);
+  const point = canvasToImagePoint(cx, cy, s, bmodeCv.width, bmodeCv.height);
+  s.gateDepthMm = point.z;
+  s.gateUMm = point.u;
 });
 $('export').addEventListener('click', () => {
   const download = (name: string, href: string) => {

@@ -841,3 +841,46 @@ variante, caso)` que el worker de render. El protocolo vive en
     `GuideStepRecord.assisted`) con `assistWindow`, no como completados; un paso
     previo (elegir lado) solo se completa si ya se cumple. El cajón, el
     debriefing y el informe exportado distinguen ⚑. **Dorados**: sin cambios.
+60. **DEC-61** — Herramienta de calibre interactiva y correcciones de la fase
+    N15b (UX 3D). **Calibre** (`src/app/measurements.ts` geometría pura,
+    `src/ui/caliperTool.ts` máquina de gestos sin DOM, `src/ui/overlays.ts`
+    `drawCaliperOverlay`, `src/ui/main.ts` cableado): medición por arrastre
+    con banda elástica y distancia en vivo, compatible con el clic a clic
+    anterior (primer clic ancla A, el segundo confirma); edición de extremos
+    arrastrándolos (≤ 10 px) con recálculo sobre SU cuadro y revancha de
+    Escape que restaura los puntos originales; selección por clic en la línea
+    (≤ 8 px) o en la lista nueva del panel Medidas (`#measureList`, filas
+    `n · rótulo · valor` con borrado ×, selección sincronizada con la imagen)
+    y borrado con Supr/Retroceso; cursor de precisión con cruz y lupa circular
+    ×3 copiada del propio canvas (válida en las rutas CPU y GPU, que componen
+    sobre `bmodeCv`). Referencia DVNO (DEC-61, `dvnoReference`): línea
+    discontinua perpendicular al eje del nervio a 3 mm retroglobo proyectada
+    con `patientToImage`; el punto A tiene imán (≤ 8 px) y el extremo libre se
+    restringe perpendicular al nervio en mm del plano (isótropo, no en px del
+    lineal anisótropo) antes de aplicar el mismo imán — medir sobre la
+    referencia reproduce la DVNO interna del modelo. Prioridad de puntero:
+    calibre > caja de color > puerta PW solo en gestos reales; el `click` de
+    cierre de un gesto de calibre queda suprimido (`consumeClick`), así que la
+    puerta sigue respondiendo al clic directo como antes (los e2e la ponen con
+    un `click` sintético sin pointerdown). Cada medición confirmada es una
+    `CaliperEntry` (número, puntos de imagen, cuadro, `poseKey`, rótulo y
+    hueco de protocolo): en vivo solo se dibuja con la misma pose/equipo y
+    congelada solo sobre su cuadro; editarla sustituye la `Measurement` en la
+    lista y en el hueco DVNO/DTE, y los ganchos `onCommit/onEdit/onDelete`
+    mantienen la meta de guía y el debriefing. **Crestas óseas** (N15b,
+    `src/anatomy/head.ts`, `src/anatomy/materials.ts`): el ala esfenoidal y la
+    cresta del peñasco pasan de losas alineadas con los ejes (3–8 mm de alto,
+    que contenían casi horizontalmente el plano mesencefálico y se veían como
+    masas saturadas, y la interfaz hueso/sangre de la M1 saturaba a lo largo
+    del vaso) a tubos de 2,4 mm a lo largo de la cresta (`BONE_RIDGES`, radio
+    1,2 mm) con material `crestaOsea` de volumen parcial (Z 2,3 MRayl, α 8
+    dB/cm a 2 MHz — ~10 dB bajo la tabla craneal): cualquier plano las corta
+    como una línea o un punto brillante, como en el TCD real. **Navegador
+    ocular** (N15b, `src/ui/navigator3d.ts`): la escena estática muestra solo
+    la órbita explorada (la del otro ojo se salía del encuadre), rectos muy
+    translúcidos (α 0,25) y `eyeNavigatorFrame` encuadra sonda (huella 50 mm),
+    globo y anillo DVNO — objetivo a medio camino entre la cara de la sonda y
+    el centro del globo, radio < 32 mm. **Dorados**: regenerados
+    `temporalDerBmode`, `pwM1Point2` y `colorM1Der` por el material
+    `crestaOsea` (las crestas cambian la ecogenicidad puntual del plano DTC);
+    el resto sin cambios.
