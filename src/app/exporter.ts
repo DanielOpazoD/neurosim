@@ -61,6 +61,11 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
       tiltVDeg: s.tiltVDeg,
       rotDeg: s.rotDeg,
       press: s.press,
+      trayectoria: {
+        angularDeg: s.probeTrack.angularDeg,
+        lateralMm: s.probeTrack.lateralMm,
+        movingS: s.probeTrack.movingS,
+      },
     },
     acousticOutput: acousticOutput({
       transducer: s.settings.transducer,

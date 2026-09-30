@@ -61,6 +61,30 @@ export interface CineItem {
 }
 
 /**
+ * Métricas de trayectoria de la sonda (DEC-63): acumuladas por
+ * `sampleProbeTrack` (en `src/app/debrief.ts`) y volcadas al debriefing y al
+ * export. `last` guarda la pose de la última muestra — uso interno.
+ */
+export interface ProbeTrack {
+  /** Camino angular acumulado |Δtilt|+|ΔtiltV|+|Δrot|, grados. */
+  angularDeg: number;
+  /** Camino lateral acumulado |Δoffset|+|ΔoffsetV|, mm. */
+  lateralMm: number;
+  /** Tiempo con la sonda moviéndose (muestras consecutivas distintas), s. */
+  movingS: number;
+  samples: number;
+  last?: {
+    t: number;
+    tiltDeg: number;
+    tiltVDeg: number;
+    rotDeg: number;
+    offsetMm: number;
+    offsetVMm: number;
+    press: number;
+  };
+}
+
+/**
  * Última TAMax de ACI extracraneal medida por lado (ventana submandibular,
  * DEC-58): denominador del Lindegaard. `tSec` es el tiempo de simulación de
  * la última columna usada en la medida.
@@ -122,6 +146,8 @@ export interface AppState {
   grayMap: GrayMap;
   teachingMode: boolean;
   debrief: DebriefLog;
+  /** Métricas de ergonomía de la sonda (DEC-63); `sampleProbeTrack` las acumula. */
+  probeTrack: ProbeTrack;
   /** ACI medida por lado (Lindegaard medido, DEC-58); null sin medida. */
   icaMeasured: Record<Side, IcaMeasure | null>;
 }
@@ -164,6 +190,7 @@ export function createInitialState(): AppState {
     grayMap: 'sigmoide',
     teachingMode: false,
     debrief: new DebriefLog(0),
+    probeTrack: { angularDeg: 0, lateralMm: 0, movingS: 0, samples: 0 },
     icaMeasured: { der: null, izq: null },
   };
 }

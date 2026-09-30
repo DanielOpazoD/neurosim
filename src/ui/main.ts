@@ -48,7 +48,7 @@ import { CaliperTool } from './caliperTool';
 import { SpectralCaliper } from './spectralCaliper';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
-import { buildDebrief } from '../app/debrief';
+import { buildDebrief, sampleProbeTrack } from '../app/debrief';
 import { currentPose } from '../app/poses';
 import { solveOptimalWindow, type OnsdPlaneTarget, type ProbeParams } from '../app/optimalWindow';
 import { lindegaardRatio } from '../doppler/measureMca';
@@ -912,6 +912,12 @@ function updateDebriefPanel(): void {
     panel,
     [
       `<div>Eventos: ${report.summary.nEvents} · Mediciones: ${report.summary.nMeasurements} · Hallazgos: ${report.summary.nFindings}</div>`,
+      ...(report.probe.samples > 0 &&
+      (report.probe.angularDeg + report.probe.lateralMm > 0 || report.probe.movingS > 0)
+        ? [
+            `<div>Sonda: ${report.probe.angularDeg.toFixed(0)}° girados · ${report.probe.lateralMm.toFixed(0)} mm deslizados · ${report.probe.movingS.toFixed(0)} s en movimiento${report.probe.tToFirstMeasureS != null ? ` · 1ª medición a ${report.probe.tToFirstMeasureS.toFixed(0)} s` : ''}</div>`,
+          ]
+        : []),
       ...report.findings.map(
         (finding) =>
           `<div class="${severityClass(finding.severity)}"><b>${finding.severity}</b> ${finding.code}: ${finding.text}</div>`,
@@ -1309,6 +1315,7 @@ function frameLoop(now: number): void {
     // cerrados no se recalculan. Cualquier entrada del usuario fuerza el refresco.
     if (now - lastPanelUpdate >= PANEL_INTERVAL_MS) {
       lastPanelUpdate = now;
+      sampleProbeTrack(s, clock.t);
       updateReadouts(readoutsEl, sim, s, pw);
       renderMeasureList();
       syncProtocolControls();

@@ -397,6 +397,25 @@ export function deleteSpectralMark(s: AppState, mark: SpectralMark): void {
   s.measurements = s.measurements.filter((x) => x !== mark.measurement);
 }
 
+/**
+ * Índice de resistencia manual a partir de las marcas espectrales (DEC-62):
+ * con ≥ 2 marcas del mismo signo, IR = (|PSV| − |EDV|) / |PSV| tomando la
+ * mayor y la menor |v|. Devuelve null si no hay par interpretable. Es el
+ * equivalente manual del IR automático del controlador PW.
+ */
+export function manualResistanceIndex(
+  marks: readonly SpectralMark[],
+  sign: 1 | -1,
+): { psvCms: number; edvCms: number; ri: number; deltaTs: number } | null {
+  const same = marks.filter((m) => Math.sign(m.velocityCms) === sign);
+  if (same.length < 2) return null;
+  const hi = same.reduce((a, b) => (Math.abs(b.velocityCms) > Math.abs(a.velocityCms) ? b : a));
+  const lo = same.reduce((a, b) => (Math.abs(b.velocityCms) < Math.abs(a.velocityCms) ? b : a));
+  const psv = Math.abs(hi.velocityCms);
+  const edv = Math.abs(lo.velocityCms);
+  return { psvCms: psv, edvCms: edv, ri: (psv - edv) / psv, deltaTs: Math.abs(hi.tSeconds - lo.tSeconds) };
+}
+
 /** Clic a clic (compatibilidad): el segundo punto confirma la medición. */
 export function addCaliperPoint(sim: ReferenceCase, s: AppState, point: ImagePoint): CaliperEntry | null {
   if (s.caliperMode === 'none' || !s.currentFrame) return null;

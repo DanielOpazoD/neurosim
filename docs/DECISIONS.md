@@ -916,3 +916,19 @@ variante, caso)` que el worker de render. El protocolo vive en
     Selección mutuamente excluyente entre ambas herramientas y `reset()` en
     cambio de modo, estación y al apagar PW. Debriefing: `measurement` con
     `valueCms`/`tSeconds` al confirmar, editar y borrar.
+62. **DEC-63** — Métricas de trayectoria de la sonda en el debriefing (LIM-22)
+    e IR manual desde marcas espectrales. **Ergonomía** (`probeTrack` en
+    `src/app/state.ts` + `sampleProbeTrack` en `src/app/debrief.ts`): el bucle
+    de paneles (~4 Hz) muestrea la pose `(tilt, tiltV, rot, offset, offsetV,
+press)` y acumula camino angular `|Δtilt|+|ΔtiltV|+|Δrot|` (°), camino
+    lateral `|Δoffset|+|ΔoffsetV|` (mm) y tiempo en movimiento (s entre
+    muestras consecutivas que difieren — un cambio de `press` también cuenta).
+    `buildDebrief` expone `report.probe` (caminos, `movingS`, `samples` y
+    `tToFirstMeasureS` = primer `measurement` − primer evento); el panel lo
+    muestra solo si hubo movimiento real y `exportPayload` lo serializa como
+    `probe.trayectoria`. Con `clock=fixed` `movingS` queda en 0 — los caminos
+    sí se acumulan — así el e2e (`e2e/probeTrack.spec.ts`) es determinista.
+    **IR manual** (`manualResistanceIndex` en `src/app/measurements.ts`):
+    con ≥ 2 marcas del mismo signo calcula `(|PSV|−|EDV|)/|PSV|` con la mayor
+    y la menor |v|; los readouts PW lo muestran como «IR manual (±)» con la
+    fórmula y Δt entre marcas, al lado del IR automático del controlador.

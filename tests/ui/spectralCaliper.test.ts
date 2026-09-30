@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SpectralCaliper } from '../../src/ui/spectralCaliper';
+import { manualResistanceIndex } from '../../src/app/measurements';
 import { createInitialState, type AppState, type SpectralMark } from '../../src/app/state';
 import { nyquistVelocityCms } from '../../src/core/units';
 import {
@@ -180,5 +181,27 @@ describe('calibre espectral (DEC-62)', () => {
     const p = spectralPointToPixel(mark.tSeconds, mark.velocityCms, W, H, g2)!;
     expect(p[1]).toBeCloseTo(0, 0); // |v|/nyq2 = 1 → borde superior
     void s;
+  });
+
+  it('manualResistanceIndex: IR = (|PSV| − |EDV|) / |PSV| por signo', () => {
+    const { s, columns } = pwState();
+    const tool = new SpectralCaliper(s, surface, () => columns);
+    const nyqV = nyq(s);
+    // PSV en +0,5·Nyq y EDV en +0,1·Nyq (mismo signo); una marca negativa no contamina.
+    tool.down(W * 0.5, H * 0.25);
+    tool.up(W * 0.5, H * 0.25);
+    tool.down(W * 0.7, H * 0.45);
+    tool.up(W * 0.7, H * 0.45);
+    tool.down(W * 0.6, H * 0.8);
+    tool.up(W * 0.6, H * 0.8);
+    const ri = manualResistanceIndex(s.spectralMarks, 1)!;
+    expect(ri.psvCms).toBeCloseTo(0.5 * nyqV, 6);
+    expect(ri.edvCms).toBeCloseTo(0.1 * nyqV, 6);
+    expect(ri.ri).toBeCloseTo(0.8, 6);
+    expect(ri.deltaTs).toBeCloseTo(0.8, 3); // x: 0,5·W → 10,0 s; 0,7·W → 10,8 s
+    // Signo negativo: una sola marca no basta.
+    expect(manualResistanceIndex(s.spectralMarks, -1)).toBeNull();
+    // Sin marcas suficientes: null.
+    expect(manualResistanceIndex([], 1)).toBeNull();
   });
 });

@@ -20,6 +20,7 @@ import {
   dvnoReference,
   entryVisible,
   formatMeasurementMm,
+  manualResistanceIndex,
   measurementDistance,
 } from '../app/measurements';
 import type { ImagePoint } from '../domain/measure';
@@ -711,6 +712,7 @@ export function updateReadouts(
         row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}`, { unit: '%' }),
         wide('Vaso dominante', comp?.dominantVesselId ?? '—'),
         ...lindegaardRows(s, controller),
+        ...spectralDerivedRows(s),
         ...angleRows,
         ...hemoRows,
         ...alaraRows,
@@ -736,11 +738,33 @@ export function updateReadouts(
         row('Cuadro', `t=${last.frameTSeconds.toFixed(2)}`, { unit: 's' }),
         row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'}`, { unit: 'mm' }),
         row('Medidas', `${s.measurements.length}`),
+        ...spectralDerivedRows(s),
       ].join(''),
     );
   } else {
     setHtml(el, [...angleRows, ...hemoRows, ...alaraRows, ...reportRows, row('Sin medidas', '—')].join(''));
   }
+}
+
+/**
+ * Índices derivados de las marcas espectrales (DEC-62): con ≥ 2 marcas del
+ * mismo signo, IR = (|PSV| − |EDV|) / |PSV| con la mayor y la menor |v| —
+ * el equivalente manual del IR automático. Δt documenta la separación en la
+ * traza (latido aproximado si las marcas están en el mismo ciclo).
+ */
+function spectralDerivedRows(s: AppState): string[] {
+  const rows: string[] = [];
+  for (const sign of [1, -1] as const) {
+    const ri = manualResistanceIndex(s.spectralMarks, sign);
+    if (!ri) continue;
+    rows.push(
+      wide(
+        sign > 0 ? 'IR manual (+)' : 'IR manual (−)',
+        `${ri.ri.toFixed(2)} = (${ri.psvCms.toFixed(0)} − ${ri.edvCms.toFixed(0)}) / ${ri.psvCms.toFixed(0)} · Δt ${ri.deltaTs.toFixed(1)} s`,
+      ),
+    );
+  }
+  return rows;
 }
 
 /**

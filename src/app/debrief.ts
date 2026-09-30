@@ -47,6 +47,16 @@ export interface DebriefReport {
     errorMm?: number;
     errorPct?: number;
   }[];
+  /** Ergonomía de la sonda (DEC-63): camino acumulado y tiempo en movimiento. */
+  probe: {
+    angularDeg: number;
+    lateralMm: number;
+    movingS: number;
+    /** Muestras de pose acumuladas por `sampleProbeTrack`. */
+    samples: number;
+    /** Segundos desde el primer evento hasta la primera medición (null si no hubo). */
+    tToFirstMeasureS: number | null;
+  };
   /** Modo guiado (DEC-56): tiempo por paso de cada guía (último intento). */
   guide: DebriefGuideSection[];
   summary: { nEvents: number; nMeasurements: number; nFindings: number; durationS: number };
@@ -98,6 +108,39 @@ export function guideSections(events: readonly DebriefEvent[]): DebriefGuideSect
     });
   }
   return sections;
+}
+
+/**
+ * Acumula una muestra de la pose en `s.probeTrack` (DEC-63): camino angular
+ * (|Δtilt|+|ΔtiltV|+|Δrot|), camino lateral (|Δoffset|+|ΔoffsetV|) y tiempo
+ * en movimiento (intervalos muestreados donde la pose cambió). Pensado para
+ * ser llamado a ~4 Hz desde el bucle de paneles.
+ */
+export function sampleProbeTrack(s: AppState, t: number): void {
+  const track = s.probeTrack;
+  const pose = {
+    t,
+    tiltDeg: s.tiltDeg,
+    tiltVDeg: s.tiltVDeg,
+    rotDeg: s.rotDeg,
+    offsetMm: s.offsetMm,
+    offsetVMm: s.offsetVMm,
+    press: s.press,
+  };
+  const last = track.last;
+  track.samples += 1;
+  track.last = pose;
+  if (!last) return;
+  const dA =
+    Math.abs(pose.tiltDeg - last.tiltDeg) +
+    Math.abs(pose.tiltVDeg - last.tiltVDeg) +
+    Math.abs(pose.rotDeg - last.rotDeg);
+  const dL = Math.abs(pose.offsetMm - last.offsetMm) + Math.abs(pose.offsetVMm - last.offsetVMm);
+  if (dA > 0 || dL > 0 || pose.press !== last.press) {
+    track.angularDeg += dA;
+    track.lateralMm += dL;
+    track.movingS += Math.max(0, t - last.t);
+  }
 }
 
 export class DebriefLog {
@@ -374,11 +417,19 @@ export function buildDebrief(
     }
   }
   const durationS = events.length ? events[events.length - 1]!.t - events[0]!.t : 0;
+  const firstMeasure = events.find((event) => event.kind === 'measurement');
   return {
     startedAt: events[0]?.t ?? log.events()[0]?.t ?? 0,
     events,
     findings,
     measurements,
+    probe: {
+      angularDeg: s.probeTrack.angularDeg,
+      lateralMm: s.probeTrack.lateralMm,
+      movingS: s.probeTrack.movingS,
+      samples: s.probeTrack.samples,
+      tToFirstMeasureS: firstMeasure && events.length ? firstMeasure.t - events[0]!.t : null,
+    },
     guide: guideSections(events),
     summary: {
       nEvents: events.length,
