@@ -2,26 +2,18 @@
  * Poses de sonda: transformaciones puras desde el caso y el estado.
  * No accede al reloj ni a elementos de la interfaz.
  */
-import { add, cross, dot, normalize, scale, type Vec3 } from '../core/vec3';
-import { hash3 } from '../core/random';
+import { add, cross, normalize, scale, type Vec3 } from '../core/vec3';
 import type { ProbePose, Side } from '../domain/contracts';
 import type { ReferenceCase } from '../domain/referenceCase';
-import { DOPPLER } from '../doppler/params';
 import { surfacePoint } from '../anatomy/head';
-import { handTremorVelocityMmS } from '../doppler/clutter';
 import { rotateAround } from '../ultrasound/probe';
 import type { AppState } from './state';
 
 export type PoseInput = Pick<AppState, 'side' | 'station' | 'tiltDeg' | 'offsetMm'> &
-  Partial<Pick<AppState, 'offsetVMm' | 'tiltVDeg' | 'rotDeg' | 'press' | 'handMotion'>> & {
-    tSec?: number;
-  };
+  Partial<Pick<AppState, 'offsetVMm' | 'tiltVDeg' | 'rotDeg' | 'press'>>;
 
-/**
- * Retroceso máximo (mm) de la cara de la sonda respecto del tejido por el
- * micro-movimiento de mano: la sonda sigue acoplada con gel (DEC-55).
- */
-export const HAND_MAX_RETREAT_MM = 0.05;
+/** Distancia (mm) de la cara de la sonda ocular a la superficie del globo: párpado + gel. */
+export const EYE_PROBE_STANDOFF_MM = 3.2;
 
 export function eyePose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbePose {
   const eye = sim.eyes[side];
@@ -37,7 +29,7 @@ export function eyePose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbeP
   const origin = add(
     eye.center,
     add(
-      add(scale(anterior, eye.globeRadiusMm + 3.2), scale(lateral, s.offsetMm)),
+      add(scale(anterior, eye.globeRadiusMm + EYE_PROBE_STANDOFF_MM), scale(lateral, s.offsetMm)),
       scale(elev, s.offsetVMm ?? 0),
     ),
   );
@@ -127,7 +119,7 @@ export function submandibularPose(sim: ReferenceCase, s: PoseInput, side = s.sid
   };
 }
 
-/** Pose nominal de la estación (sin micro-movimiento de mano). */
+/** Pose de la estación: función pura de los controles de la sonda. */
 export function stationPose(sim: ReferenceCase, s: PoseInput, side = s.side): ProbePose {
   return s.station === 'ojo'
     ? eyePose(sim, s, side)
@@ -137,79 +129,14 @@ export function stationPose(sim: ReferenceCase, s: PoseInput, side = s.side): Pr
 }
 
 /**
- * Desplazamiento bruto (mm, marco paciente) del micro-movimiento de mano:
- * temblor + derivas, antes de la cota de contacto de `currentPose`.
+ * Pose actual de la sonda. El micro-movimiento de mano se eliminó (DEC-59):
+ * la pose es exactamente la de los controles, la misma en el B-mode, el PW,
+ * la vista de cabeza y el navegador anatómico.
  */
-export function handMotionDisplacementMm(t: number, seed: number): Vec3 {
-  const tremorAmp = DOPPLER.params.handTremorMmS.value;
-  const driftFast = DOPPLER.params.handDriftFastMm.value;
-  const driftSlow = DOPPLER.params.handDriftSlowMm.value;
-  const disp: Vec3 = [0, 0, 0];
-  for (let axis = 0; axis < 3; axis += 1) {
-    let d = 0;
-    // Temblor fisiológico: mismas frecuencias/fases que
-    // handTremorVelocityMmS, integradas analíticamente (A = v/2πf).
-    for (let harmonic = 0; harmonic < 2; harmonic += 1) {
-      const frequency = 8 + 4 * hash3(seed, axis, harmonic, 0x54524d46);
-      const phase = 2 * Math.PI * hash3(seed, axis, harmonic, 0x54525048);
-      d += (-tremorAmp * Math.cos(2 * Math.PI * frequency * t + phase)) / (2 * Math.PI * frequency);
-    }
-    // Deriva lenta del pulso.
-    d += driftFast * Math.sin(2 * Math.PI * 0.27 * t + 2 * Math.PI * hash3(seed, axis, 7, 0x44524631));
-    d += driftSlow * Math.sin(2 * Math.PI * 0.06 * t + 2 * Math.PI * hash3(seed, axis, 8, 0x44524632));
-    disp[axis] = d;
-  }
-  return disp;
-}
-
 export function currentPose(sim: ReferenceCase, s: PoseInput): ProbePose {
-  const pose = stationPose(sim, s);
-  if (!s.handMotion || s.tSec === undefined) return pose;
-  const seed = sim.patient.seed;
-  const t = s.tSec;
-  const disp = handMotionDisplacementMm(t, seed);
-  // Contacto con gel (DEC-55): la componente que aleja la cara de la sonda
-  // del tejido (−forward) se acota a HAND_MAX_RETREAT_MM; la deriva lateral,
-  // elevacional y hacia el tejido se conserva. Sin la cota, >0,5 mm de
-  // retroceso metía aire (≈125 dB/cm a 10 MHz) y oscurecía el fotograma.
-  const along = dot(disp, pose.forward);
-  const origin = add(
-    pose.origin,
-    along < -HAND_MAX_RETREAT_MM ? add(disp, scale(pose.forward, -HAND_MAX_RETREAT_MM - along)) : disp,
-  );
-  // Jitter de inclinación ~0,3° a 0,27 Hz.
-  const jitterRad =
-    ((0.3 * Math.PI) / 180) * Math.sin(2 * Math.PI * 0.27 * t + 2 * Math.PI * hash3(seed, 3, 9, 0x44525033));
-  const forward = normalize(rotateAround(pose.forward, pose.lateral, jitterRad));
-  return { ...pose, origin, forward };
+  return stationPose(sim, s);
 }
 
 export function poseForSide(sim: ReferenceCase, s: PoseInput, side: Side): ProbePose {
   return stationPose(sim, s, side);
-}
-
-/**
- * Velocidad de la sonda por micro-movimiento de mano (mm/s): derivada
- * analítica del desplazamiento de `currentPose` — temblor (igual que
- * `handTremorVelocityMmS`) más la derivada de las derivas lenta/rápida.
- */
-export function handMotionVelocityMmS(tSec: number, seed: number): Vec3 {
-  const out = handTremorVelocityMmS(tSec, seed);
-  const driftFast = DOPPLER.params.handDriftFastMm.value;
-  const driftSlow = DOPPLER.params.handDriftSlowMm.value;
-  for (let axis = 0; axis < 3; axis += 1) {
-    out[axis]! +=
-      driftFast *
-      2 *
-      Math.PI *
-      0.27 *
-      Math.cos(2 * Math.PI * 0.27 * tSec + 2 * Math.PI * hash3(seed, axis, 7, 0x44524631));
-    out[axis]! +=
-      driftSlow *
-      2 *
-      Math.PI *
-      0.06 *
-      Math.cos(2 * Math.PI * 0.06 * tSec + 2 * Math.PI * hash3(seed, axis, 8, 0x44524632));
-  }
-  return out;
 }

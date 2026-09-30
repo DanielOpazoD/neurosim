@@ -735,10 +735,10 @@ export function classifyHead(h: HeadGeometry, p: Vec3): MaterialId {
   const sylvian = sylvianDist(p);
   if (sylvian < 1.2) return 'cisterna';
 
-  if (isPetrous(h, p)) return 'hueso';
+  if (isPetrous(h, p)) return 'crestaOsea';
 
   // Ala esfenoidal: cresta ecogénica anterior-lateral (referencia M1/ACA).
-  if (isSphenoid(h, p)) return 'hueso';
+  if (isSphenoid(h, p)) return 'crestaOsea';
 
   // Hoz: lámina dural de línea media por encima del cuerpo calloso (sigue el
   // desplazamiento de línea media del caso, si existe).
@@ -952,14 +952,87 @@ function classifyMidbrainSpecial(h: HeadGeometry, p: Vec3): MaterialId | null {
   return null;
 }
 
-function isPetrous(h: HeadGeometry, p: Vec3): boolean {
-  const md = sub(p, h.midbrainCenter);
-  return md[2] < -25 && Math.abs(md[0]) >= 15 && Math.abs(md[0]) <= 35 && Math.abs(md[1] + 4) < 4;
+/**
+ * Crestas óseas de la base del cráneo (N15b) como tubos finos a lo largo de
+ * su cresta, no losas: cualquier plano de barrido las corta como una línea
+ * o un punto brillante (antes, losas alineadas con los ejes de 3–8 mm de
+ * alto contenían casi horizontalmente el plano mesencefálico y se veían como
+ * masas saturadas; la M1 atravesaba la losa esfenoidal y su interfaz
+ * hueso/sangre saturaba a lo largo del vaso).
+ *
+ * - Ala esfenoidal (borde posterior del ala menor): de la apófisis clinoides
+ *   anterior, lateral a la terminación de la ACI, hacia lateral y anterior
+ *   hasta el pterión, ~6 mm por delante e inferior a la M1 (la M1 corre en
+ *   la cisterna silviana detrás de la cresta).
+ * - Cresta del peñasco: del vértice petroso (junto al clivus, bajo el
+ *   mesencéfalo) hacia posterolateral hasta la mastoides, ascendiendo hasta
+ *   el nivel del plano mesencefálico en su extremo lateral.
+ *
+ * Marco paciente absoluto (como el polígono de Willis); `s` = +1 izquierda.
+ */
+export interface BoneRidge {
+  readonly id: 'alaEsfenoidal' | 'penasco';
+  readonly side: Side;
+  readonly points: readonly Vec3[];
+  readonly radiusMm: number;
+  readonly aabb: { readonly min: Vec3; readonly max: Vec3 };
 }
 
-function isSphenoid(h: HeadGeometry, p: Vec3): boolean {
-  const md = sub(p, h.midbrainCenter);
-  return Math.abs(md[1] + 2) < 1.5 && md[2] > 6 && Math.abs(md[0]) > 20 && Math.abs(md[0]) < 28;
+/** Radio de las crestas óseas, mm. */
+export const BONE_RIDGE_RADIUS_MM = 1.2;
+
+function ridge(id: BoneRidge['id'], s: 1 | -1, pts: readonly Vec3[]): BoneRidge {
+  const points = pts.map(([x, y, z]) => [s * x, y, z] as Vec3);
+  const r = BONE_RIDGE_RADIUS_MM;
+  const min: Vec3 = [Infinity, Infinity, Infinity];
+  const max: Vec3 = [-Infinity, -Infinity, -Infinity];
+  for (const q of points) {
+    for (let k = 0; k < 3; k++) {
+      min[k] = Math.min(min[k]!, q[k]! - r);
+      max[k] = Math.max(max[k]!, q[k]! + r);
+    }
+  }
+  return { id, side: s === 1 ? 'izq' : 'der', points, radiusMm: r, aabb: { min, max } };
+}
+
+export const BONE_RIDGES: readonly BoneRidge[] = ([1, -1] as const).flatMap((s) => [
+  ridge('alaEsfenoidal', s, [
+    [12, 11.5, 2], // apófisis clinoides anterior
+    [21, 12, 5],
+    [33, 12.2, 10],
+    [48, 12.5, 17],
+    [56, 12.5, 21], // pterión (tabla interna)
+  ]),
+  ridge('penasco', s, [
+    [14, 5, -4], // vértice petroso, junto al clivus
+    [28, 8, -20],
+    [42, 11, -36], // eminencia arcuata
+    [50, 11, -44], // hacia la mastoides
+  ]),
+]);
+
+function ridgeContains(r: BoneRidge, p: Vec3): boolean {
+  const { min, max } = r.aabb;
+  if (p[0] < min[0] || p[0] > max[0] || p[1] < min[1] || p[1] > max[1] || p[2] < min[2] || p[2] > max[2]) {
+    return false;
+  }
+  for (let i = 0; i + 1 < r.points.length; i++) {
+    if (segDist(p, r.points[i]!, r.points[i + 1]!) <= r.radiusMm) return true;
+  }
+  return false;
+}
+
+function inRidge(p: Vec3, id: BoneRidge['id']): boolean {
+  for (const r of BONE_RIDGES) if (r.id === id && ridgeContains(r, p)) return true;
+  return false;
+}
+
+function isPetrous(_h: HeadGeometry, p: Vec3): boolean {
+  return inRidge(p, 'penasco');
+}
+
+function isSphenoid(_h: HeadGeometry, p: Vec3): boolean {
+  return inRidge(p, 'alaEsfenoidal');
 }
 
 export function landmarkAt(h: HeadGeometry, p: Vec3): LandmarkId | null {

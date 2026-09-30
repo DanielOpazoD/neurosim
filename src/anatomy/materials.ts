@@ -49,6 +49,7 @@ export type MaterialId =
   | 'musculoRecto'
   | 'septoOrbitario' // tabiques fibrosos de la grasa retrobulbar
   | 'hueso' // tabla ósea / pared orbitaria / cráneo
+  | 'crestaOsea' // crestas finas de la base (ala esfenoidal, peñasco): volumen parcial en elevación
   | 'musculoTemporal' // temporalis sobre la ventana: banda hipoecoica
   | 'hoz' // hoz del cerebro (dura): lámina ecogénica en la línea media
   | 'sustanciaBlanca' // parénquima profundo, menos ecogénico que la corteza
@@ -115,6 +116,12 @@ export const MATERIALS: Readonly<Record<MaterialId, Material>> = Object.freeze({
   septoOrbitario: m('septoOrbitario', 1600, 1100, 0.8, 1.1, 0.9, 0.85),
   // Hueso: α₀=4 conserva α(2 MHz)=16 dB/cm del modelo previo.
   hueso: m('hueso', 2800, 1850, 4.0, 2.0, 0.15, 0.9),
+  // Crestas óseas finas (N15b): tubo de 2,4 mm frente a un haz de 3–5 mm
+  // en elevación a 2 MHz — el renderer muestrea solo el plano central, así
+  // que la cresta lleva la reflectividad y la atenuación efectivas del
+  // volumen parcial (≈ 1/3 del haz en hueso): Z ≈ 2,3 MRayl (rc ≈ 0,18
+  // frente al parénquima, ~10 dB bajo la tabla craneal) y α(2 MHz) 8 dB/cm.
+  crestaOsea: m('crestaOsea', 2300, 1400, 2.0, 2.0, 0.9, 0.9),
   // Temporalis: músculo hipoecoico que tapiza la ventana ósea.
   musculoTemporal: m('musculoTemporal', 1590, 1070, 0.8, 1.1, 0.5, 0.3),
   // Hoz: pliegue dural, muy ecogénico.

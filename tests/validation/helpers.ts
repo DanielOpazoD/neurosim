@@ -120,7 +120,6 @@ export function submandibularState(sim: ReferenceCase, side: Side): AppState {
   s.station = 'submandibular';
   s.side = side;
   s.settings = defaultSubmandibularSettings();
-  s.handMotion = false;
   s.pwOn = true;
   s.gateDepthMm = 45;
   s.gateUMm = 0;
@@ -129,7 +128,7 @@ export function submandibularState(sim: ReferenceCase, side: Side): AppState {
 
 /**
  * PW de `seconds` s con la puerta/equipo que construiría la app para el
- * estado `s` (geometría de `PwController.gateGeometry`), sin temblor de mano.
+ * estado `s` (geometría de `PwController.gateGeometry`).
  */
 export function measureIcaWithChain(
   sim: ReferenceCase,

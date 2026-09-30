@@ -44,6 +44,7 @@ calibración.
 - **anatomia-cabeza.windowAzimuthTurns**, **anatomia-cabeza.windowElevationRad**, **anatomia-cabeza.windowAnteriorFactor**, **anatomia-cabeza.m1OriginXmm**, **anatomia-cabeza.m1OriginYmm**, **anatomia-cabeza.m1OriginZmm**, **anatomia-cabeza.m1Point1Xmm**, **anatomia-cabeza.m1Point1Ymm**, **anatomia-cabeza.m1Point1Zmm**, **anatomia-cabeza.m1Point3Xmm**, **anatomia-cabeza.m1Point3Ymm**, **anatomia-cabeza.m1Point3Zmm**, **anatomia-cabeza.m1Point4Xmm**, **anatomia-cabeza.m1Point4Ymm**, **anatomia-cabeza.m1Point4Zmm** — orientación y puntos del segmento M1; calibrar con atlas/angiografía de referencia.
 - **fisica-ultrasonido.axialPulseMmMhz**, **fisica-ultrasonido.interfaceEpsMm** — aproximaciones de resolución axial y normal; calibrar contra secuencias y fantomas.
 - **fisica-ultrasonido.beamDivergenceGamma**, **fisica-ultrasonido.elevationDivergenceGamma**, **fisica-ultrasonido.linearApertureActiveMm**, **fisica-ultrasonido.linearElevationApertureMm**, **fisica-ultrasonido.linearElevationFocusMm**, **fisica-ultrasonido.sectorApertureActiveMm**, **fisica-ultrasonido.sectorElevationApertureMm**, **fisica-ultrasonido.sectorElevationFocusMm** — parámetros geométricos estimados del haz; la lateral combina transmisión desenfocada con recepción de foco dinámico y la elevacional conserva foco fijo; calibrar con la respuesta de cada transductor y fantomas de resolución.
+- **fisica-ultrasonido.txFocusGainDb**, **fisica-ultrasonido.focalZoneLambdaSq**, **fisica-ultrasonido.lateralInterfaceGain** — modelo de zona focal y bordes laterales (DEC-64): el pico de 6 dB en el plano focal y la semianchura ≈4·λ·F#² son la aproximación lorentziana de la confusión axial; la fracción 0,4 del eco especular en bordes paralelos al haz estima la contribución de apertura angular y difracción. Calibrar con fantomas de resolución e imágenes de sondas reales.
 - **materiales.attenuationDbCmMhz**, **materiales.attenuationExponent** — ley de
   potencia α(f)=α₀·fⁿ, con α₀ por material y exponentes entre 1 y 2,2;
   tejidos y líquidos siguen Duck 1990 y Szabo 2014 cap. 4, con ajustes
@@ -73,12 +74,6 @@ calibración.
   la velocidad de pared.
 - **doppler.brainPulsationMm** — `0,15 mm`, pulsación cerebral anterior uniforme;
   aproximación educativa sin una fuente específica verificada en este bloque.
-- **doppler.handTremorMmS** — `0,8 mm/s` por componente, dos senos deterministas
-  entre 8 y 12 Hz; no representa una trayectoria clínica individual.
-- **doppler.handDriftFastMm** — `0,35 mm` por eje, deriva del pulso a ~0,27 Hz;
-  heurística educativa para el micro-movimiento de la sonda.
-- **doppler.handDriftSlowMm** — `0,6 mm` por eje, deriva lenta del pulso a
-  ~0,06 Hz; misma heurística.
 - **fisiologia.heartRateBpm**, **fisiologia.mapMmHg**, **fisiologia.a1PsvCms**, **fisiologia.a1EdvCms**, **fisiologia.p1PsvCms**, **fisiologia.p1EdvCms**, **fisiologia.basilarPsvCms**, **fisiologia.basilarEdvCms** — fisiología vascular del fixture N1; calibrar contra trazas clínicas anonimizadas.
 - **fisiologia.ejectionFraction**, **fisiologia.windkesselTauS**, **fisiologia.backflowFraction**, **fisiologia.backflowDurationFraction** — parámetros del Windkessel de dos elementos; `windkesselTauS = 0,18 s` es una constante efectiva estimada de decaimiento de la onda de velocidad ACM normalizada, ajustada para media de onda entre 0,34 y 0,39; no representa la RC sistémica fisiológica de 1–2 s. El término de rebote positivo `+3 × backflowFraction` es un truco explícito para hacer visible la segunda joroba/incisura dicrota, no una afirmación de flujo medido.
 - **fisiologia.respiratoryRatePerMin**, **fisiologia.respFlowModulation**, **fisiologia.respBrainShiftMm**, **fisiologia.hrvSd**, **fisiologia.rsaAmplitude** — respiración, modulación hemodinámica y variabilidad RR deterministas; son aproximaciones educativas sin autorregulación ni acoplamiento PIC.

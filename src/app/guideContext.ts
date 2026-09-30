@@ -28,7 +28,7 @@ export interface MeasurementMeta {
 
 /**
  * Posición lateral u (mm) en la imagen del centro del nervio a 3 mm
- * retroglobo del ojo explorado, con la pose nominal (sin temblor de mano).
+ * retroglobo del ojo explorado, con la pose de los controles.
  */
 export function eyeNerveImageU(
   sim: ReferenceCase,
@@ -39,7 +39,7 @@ export function eyeNerveImageU(
 ): number | null {
   if (s.station !== 'ojo') return null;
   const eye = sim.eyes[s.side];
-  const pose = currentPose(sim, { ...s, handMotion: false });
+  const pose = currentPose(sim, s);
   const center = fromEyeLocal(eye, nerveCenterline(eye, GUIDE_ONSD_OFFSET_MM));
   return patientToImage(pose, 'linear', center).u;
 }

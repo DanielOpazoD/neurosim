@@ -719,3 +719,237 @@ variante, caso)` que el worker de render. El protocolo vive en
     1,51. Modelo (TAMax verdadera): 55,0 / 35,7 → 1,54; 147,2 / 34,4 → 4,28;
     100,3 / 65,2 → 1,54. **Dorados**: se añaden `submandibularDerBmode` y
     `colorAciDer`; los existentes no cambian.
+58. **DEC-59** — Vistas 3D coordinadas, sin micro-movimiento de mano y cabeza
+    escaneada. Petición clínica: «Exploración» y «Anatomía» no parecían tener
+    las mismas posiciones; quitar los micromovimientos; cara mucho más realista.
+    (a) **Cámaras enlazadas** (`src/ui/viewLink.ts`, puro): un único preset por
+    estación y lado, `viewPreset(station, side)` → dirección objetivo→cámara +
+    «arriba», usado por las dos vistas (antes el navegador miraba el globo desde
+    abajo y medial — yaw −25°, pitch −18° — y la cabeza desde delante-derecha).
+    Presets (azimut desde +z hacia el lado explorado / elevación): ojo 48°/22°
+    (frontal-lateral-superior: la sonda sobre el párpado y el globo/nervio se
+    leen igual), temporal 45°/55° (3/4 desde arriba; la M1 corre hacia la sonda
+    y en una vista lateral pura se ve de punta; el plano mesencefálico es
+    axial), submandibular 58°/−14°. En temporal el objetivo del navegador se
+    desplaza un 40 % desde el centro del polígono hacia la ventana explorada y
+    la distancia pasa de 2,2 a 2,9 radios, para que la sonda y la M1 ipsilateral
+    entren en el encuadre. `ViewLink` es un bus bidireccional: la vista de
+    cabeza (maestra) publica su dirección en cada `change` de OrbitControls y al
+    reiniciar; el navegador coloca su cámara en la misma dirección desde SU
+    objetivo y a SU distancia (encuadre propio), con el mismo «arriba»; orbitar
+    el navegador arrastra la cabeza igual. Guardas contra bucles: no se
+    republica durante el despacho ni una orientación a ≤ 1e-7 de la vigente (el
+    eco de la vista que la aplicó). Prueba: con cualquier dirección de la
+    cabeza, la del navegador coincide a 1e-9; el yaw/pitch del navegador sale
+    del mismo preset (1e-12). (b) **Misma pose**: ambas vistas reciben en cada
+    fotograma el mismo objeto `ProbePose` de `currentPose` en main.ts. Pista de
+    orientación idéntica: muesca del marcador opaca y del mismo color
+    (`MARKER_COLOR`, antes 85 % de opacidad en el navegador) y gizmo de ejes
+    L/R/S/I (+A) en la esquina superior izquierda de las dos vistas
+    (`src/ui/axisGizmo.ts`, segunda escena ortográfica con el cuaternión de la
+    cámara principal). La vista de cabeza solo pinta si hay cambios
+    (`renderIfNeeded`: pose, cámara enlazada, asset cargado); antes una pose
+    cambiada dentro de la ventana de 150 ms podía quedarse sin pintar. (c)
+    **Micro-movimiento eliminado**: fuera `#handMotion` (y `.switchRow`),
+    `AppState.handMotion`, `RenderRequest.handMotion`,
+    `PwStepMessage.handMotion`, `handMotionDisplacementMm`,
+    `handMotionVelocityMmS`, `HAND_MAX_RETREAT_MM`, `handTremorVelocityMmS` y
+    los parámetros `doppler.handTremorMmS`/`handDriftFastMm`/`handDriftSlowMm`
+    (y sus pruebas; deja sin objeto la deriva de mano de DEC-55). `currentPose`
+    es `stationPose`: la sonda solo se mueve si la mueve el usuario; la cadena
+    PW recibe velocidad de sonda nula. Los dorados se generaron sin
+    micro-movimiento y no cambian. (d) **Cabeza escaneada**: «Infinite, 3D Head
+    Scan» de Lee Perry-Smith (Infinite-Realities), distribuida con los ejemplos
+    de three.js (`examples/models/gltf/LeePerrySmith/`, no incluida en el
+    paquete npm; descargada de la etiqueta `r186`, la versión instalada).
+    Licencia verificada en `LeePerrySmith_License.txt` del mismo directorio: «…
+    is licensed under a Creative Commons Attribution 3.0 Unported License» → se
+    usa la opción (a) del plan, no la cabeza procedural. Archivos sin modificar
+    en `public/models/head/` (malla 405 KB, color 148 KB, normales 147 KB +
+    licencia); atribución en `docs/PROVENANCE.md` y en el pie («Acerca de /
+    créditos»); `provenance:check` verifica SHA-256, archivo de licencia y que
+    no haya recursos sin fila. Carga diferida con `GLTFLoader` (import dinámico
+    desde la vista de cabeza); `MeshStandardMaterial` con mapa de color sRGB,
+    normales (×0,8), rugosidad 0,6 y un emisivo cálido mínimo; hemisferio
+    cálido, luz clave, contraluz frío y relleno. La malla es una cabeza completa
+    cerrada (cortada en los hombros) con los ojos cerrados, así que no hace
+    falta completar la nuca con el elipsoide: la cabeza estilizada (incluidos
+    los globos, que atravesarían los párpados) se oculta al cargar y queda como
+    respaldo (`?headmodel=0` la fuerza). **Ajuste** (`src/ui/headFit.ts`, tabla
+    con comentario): centros de las hendiduras palpebrales medidos a mano sobre
+    renders con textura y confirmados por raycast (Ojo D x = −0,71, Ojo I x =
+    +0,50, y = 1,66, z = 1,946, en unidades del asset; +y arriba, +z anterior,
+    −x derecha: el marco del caso); semejanza de escala uniforme 66/1,21 = 54,5
+    mm/unidad y traslación que lleva los centros oculares del asset (párpado −
+    radio medio − 3,2 mm) a `sim.eyes.*.center` (exacto; el párpado queda a ≤
+    0,09 mm del contacto de la sonda por la diferencia de radios D/I).
+    Desviación: la anchura del cráneo escaneado al nivel de `skullCenter`
+    resulta 170 mm frente a los 148 mm de `skullRadii.x·2 + 14` (+15 %): la
+    razón distancia interpupilar/anchura del elipsoide (0,45) es mayor que la
+    del escaneo (0,39) y ninguna anisotropía ≤ 10 % reconcilia ambas sin mover
+    los ojos, que mandan (la sonda debe apoyar en el párpado). **Contacto
+    visual**: solo en esta vista, la sonda y su plano se desplazan a lo largo
+    del haz hasta la piel escaneada (rayo desde 120 mm fuera; corrección ≤ 45
+    mm, si no se deja la pose física): en el ojo cae sobre el párpado cerrado
+    (−0,1 mm en el ojo D por defecto); la pose física no cambia. Los anillos de
+    ventana se recolocan sobre la piel por raycast. Coste medido (SwiftShader,
+    230×230 px CSS, DPR 1, `?perf3d` = `gl.finish()` tras pintar, 12 órbitas):
+    escaneo mediana 0,6 ms (máx. 0,8), estilizada 0,5 ms (máx. 2,8); la vista
+    sigue pintando solo con cambios. GLTFLoader va en su chunk `three-gltf` (44
+    kB, import dinámico al cargar el escaneo); el chunk `three` pasa de ~575 a
+    620 kB por las clases del núcleo que usa el cargador (límite de aviso 600 →
+    650 kB). **Dorados**: sin cambios.
+59. **DEC-60** — «Ventana óptima». Petición clínica: un botón que muestre en
+    todas las ventanas la ventana perfecta para medir. Botón `#optimal`
+    (`.btn-tool`, icono de diana, atajo O, visible en todas las estaciones; a ≤
+    1520 px la fila de herramientas se compacta y en el ojo el botón queda solo
+    con icono para que los 11 botones quepan a 1440 px). Solver puro
+    `src/app/optimalWindow.ts` con caché por (geometría, caso, estación, lado,
+    plano). **Ojo**: rot 0 (o 90 si el protocolo DVNO espera el sagital de ese
+    lado, o la guía está en «Plano sagital»), inclinación y angulación 0; Newton
+    2×2 con jacobiano numérico (≤ 5 pasos) sobre (barrido, desplazamiento
+    vertical) para que el centro del nervio a 3 mm
+    (`fromEyeLocal(nerveCenterline(eye, 3))`) caiga en u = 0 (`patientToImage`)
+    y en el plano; décimas de mm; profundidad 45 mm, foco a la profundidad del
+    nervio, ganancia de fábrica. Resultado: |u| ≤ 0,05 mm en ambos ojos, normal
+    e HIC, transversal y sagital (Ojo D −2,3/−0,1 mm, Ojo I +2,5/−0,1 mm).
+    **Temporal**: rejilla gruesa (inclinación ±10° cada 2,5°, desplazamientos ±6
+    mm cada 3 mm) + ascenso local en los pasos de los deslizadores (1°, 0,5 mm)
+    maximizando la longitud de M1 ipsilateral a ≤ 1 mm del plano y dentro del
+    sector (90 mm); profundidad 90, color encendido con la caja sobre las
+    muestras de M1 (+5°, +8 mm) y puerta PW en el punto de M1 (a ≥ 3 mm de los
+    extremos) con menor ángulo real, comprobado con `insonationAngles` (vaso
+    dominante = M1); el PW no se enciende: pulsar P mide al instante. Resultado
+    (caso normal, ambos lados): inclinación −5°, desplazamiento vertical 6 mm,
+    M1 en el plano 25,2 mm (toda la M1), ángulo 16,4°. **Submandibular**: misma
+    búsqueda (inclinación ±12° cada 4°, desplazamientos ±6 mm cada 3 mm; sin
+    angulación, que gira el haz dentro del plano sin girar el lateral de la pose
+    y descoloca la puerta en coordenadas de imagen) minimizando el ángulo a la
+    ACI con ≥ 10 mm de ACI en el plano: 51,5 mm, 0,2°; con P, PSV/EDV 55/28 cm/s
+    y la ACI medida para el Lindegaard. Tiempos del solver sin caché (vitest,
+    mejor–peor de 3 en frío, máquina cargada): ojo ≤ 1 ms, temporal 3–16 ms (230
+    poses), submandibular 4–11 ms (≈ 190 poses); presupuesto 150 ms (la prueba
+    lo exige al mejor de 3). Con la rejilla anterior (cada 2 mm, ≈ 450 poses) la
+    suite completa en paralelo llegó a 173 ms en frío; la rejilla más gruesa da
+    la misma solución. La sonda se anima 400 ms (interpolación ease-in-out de
+    los controles, las vistas 3D la ven deslizarse; la vista de cabeza pinta a
+    30 fps durante la animación); el usuario la interrumpe con el teclado o
+    cambiando de estación. Debriefing: evento `optimal-window` con la solución,
+    métricas y tiempo. **Guía**: los pasos de «encontrar la ventana»
+    (`findsWindow`: ojo «Profundidad y ganancia» y «Centrar el nervio»; DTC
+    «Plano mesencefálico» y «Color y M1») quedan como ASISTIDOS (⚑,
+    `GuideStepRecord.assisted`) con `assistWindow`, no como completados; un paso
+    previo (elegir lado) solo se completa si ya se cumple. El cajón, el
+    debriefing y el informe exportado distinguen ⚑. **Dorados**: sin cambios.
+60. **DEC-61** — Herramienta de calibre interactiva y correcciones de la fase
+    N15b (UX 3D). **Calibre** (`src/app/measurements.ts` geometría pura,
+    `src/ui/caliperTool.ts` máquina de gestos sin DOM, `src/ui/overlays.ts`
+    `drawCaliperOverlay`, `src/ui/main.ts` cableado): medición por arrastre
+    con banda elástica y distancia en vivo, compatible con el clic a clic
+    anterior (primer clic ancla A, el segundo confirma); edición de extremos
+    arrastrándolos (≤ 10 px) con recálculo sobre SU cuadro y revancha de
+    Escape que restaura los puntos originales; selección por clic en la línea
+    (≤ 8 px) o en la lista nueva del panel Medidas (`#measureList`, filas
+    `n · rótulo · valor` con borrado ×, selección sincronizada con la imagen)
+    y borrado con Supr/Retroceso; cursor de precisión con cruz y lupa circular
+    ×3 copiada del propio canvas (válida en las rutas CPU y GPU, que componen
+    sobre `bmodeCv`). Referencia DVNO (DEC-61, `dvnoReference`): línea
+    discontinua perpendicular al eje del nervio a 3 mm retroglobo proyectada
+    con `patientToImage`; el punto A tiene imán (≤ 8 px) y el extremo libre se
+    restringe perpendicular al nervio en mm del plano (isótropo, no en px del
+    lineal anisótropo) antes de aplicar el mismo imán — medir sobre la
+    referencia reproduce la DVNO interna del modelo. Prioridad de puntero:
+    calibre > caja de color > puerta PW solo en gestos reales; todo gesto
+    consumido por el calibre (medición, selección, edición o cancelado con
+    Escape) suprime su `click` de cierre (`consumeClick` marcado en el `down`,
+    drenado en `pointercancel`), así que la puerta sigue respondiendo al clic
+    directo como antes (los e2e la ponen con un `click` sintético sin
+    pointerdown). Los modos DVNO/DTE se reinician a «none» al salir de la
+    estación ocular y el `#hint` explica los gestos del modo activo. Cada medición confirmada es una
+    `CaliperEntry` (número, puntos de imagen, cuadro, `poseKey`, rótulo y
+    hueco de protocolo): en vivo solo se dibuja con la misma pose/equipo y
+    congelada solo sobre su cuadro; editarla sustituye la `Measurement` en la
+    lista y en el hueco DVNO/DTE, y los ganchos `onCommit/onEdit/onDelete`
+    mantienen la meta de guía y el debriefing. **Crestas óseas** (N15b,
+    `src/anatomy/head.ts`, `src/anatomy/materials.ts`): el ala esfenoidal y la
+    cresta del peñasco pasan de losas alineadas con los ejes (3–8 mm de alto,
+    que contenían casi horizontalmente el plano mesencefálico y se veían como
+    masas saturadas, y la interfaz hueso/sangre de la M1 saturaba a lo largo
+    del vaso) a tubos de 2,4 mm a lo largo de la cresta (`BONE_RIDGES`, radio
+    1,2 mm) con material `crestaOsea` de volumen parcial (Z 2,3 MRayl, α 8
+    dB/cm a 2 MHz — ~10 dB bajo la tabla craneal): cualquier plano las corta
+    como una línea o un punto brillante, como en el TCD real. **Navegador
+    ocular** (N15b, `src/ui/navigator3d.ts`): la escena estática muestra solo
+    la órbita explorada (la del otro ojo se salía del encuadre), rectos muy
+    translúcidos (α 0,25) y `eyeNavigatorFrame` encuadra sonda (huella 50 mm),
+    globo y anillo DVNO — objetivo a medio camino entre la cara de la sonda y
+    el centro del globo, radio < 32 mm. **Dorados**: regenerados
+    `temporalDerBmode`, `pwM1Point2` y `colorM1Der` por el material
+    `crestaOsea` (las crestas cambian la ecogenicidad puntual del plano DTC);
+    el resto sin cambios.
+
+61. **DEC-62** — Calibre de velocidad sobre la traza espectral (N15b). El modo
+    «Caliper» (`caliperMode === 'dist'`) cubre ahora ambos canvas, como en un
+    ecógrafo real: distancia en el B-mode y velocidad en el espectro.
+    **`src/ui/spectralCaliper.ts`** (máquina de gestos sin DOM, activa solo con
+    PW encendido y columnas recibidas): clic coloca una marca puntual (t, v) —
+    un arrastre coloca y afina en el mismo gesto; bajar sobre una marca
+    (≤ 8 px) la reedita en vivo; clic en la marca o en la lista selecciona;
+    Supr/Retroceso borra; Escape cancela y revierte la edición al punto
+    original. La marca se ancla a **tiempo absoluto de columna y velocidad
+    física con signo** (`SpectralMark.tSeconds`/`velocityCms` en
+    `src/app/state.ts`): barre con la traza al hacer scroll y conserva la
+    medida si cambian `invert`, `baseline` o PRF — solo se reposiciona en el
+    canvas o sale del barrido. **Mapeo** (`src/ui/spectrogramRaster.ts`):
+    `spectralGeometry` (t1 de la última columna, barrido, baseline, invert y
+    Nyquist con la corrección de ángulo) y `spectralPixelToPoint` /
+    `spectralPointToPixel` comparten la geometría exacta de `drawSpectrum`, y
+    `rowFrequencyFraction` queda exportada como inversa de
+    `frequencyFractionToY`. **Registro** (`src/app/measurements.ts`): cada
+    marca empuja un `Measurement` `trazado-espectral`/`cm/s` a la lista común
+    (la edición la sustituye por `replaceMeasurement`, el borrado la retira) y
+    comparte la numeración visible `caliperSeq`; el panel Medidas mezcla
+    calibres y marcas por id y los readouts muestran la unidad real del valor.
+    **Dibujo** (`drawSpectralMarks` en `src/ui/overlays.ts`, dentro del key de
+    caché de `drawSpectral`): cruz + punto + etiqueta `±NN cm/s` con el amarillo
+    del calibre, resaltada al pasar el cursor o al estar seleccionada/editada.
+    Selección mutuamente excluyente entre ambas herramientas y `reset()` en
+    cambio de modo, estación y al apagar PW. Debriefing: `measurement` con
+    `valueCms`/`tSeconds` al confirmar, editar y borrar.
+62. **DEC-63** — Métricas de trayectoria de la sonda en el debriefing (LIM-22)
+    e IR manual desde marcas espectrales. **Ergonomía** (`probeTrack` en
+    `src/app/state.ts` + `sampleProbeTrack` en `src/app/debrief.ts`): el bucle
+    de paneles (~4 Hz) muestrea la pose `(tilt, tiltV, rot, offset, offsetV,
+press)` y acumula camino angular `|Δtilt|+|ΔtiltV|+|Δrot|` (°), camino
+    lateral `|Δoffset|+|ΔoffsetV|` (mm) y tiempo en movimiento (s entre
+    muestras consecutivas que difieren — un cambio de `press` también cuenta).
+    `buildDebrief` expone `report.probe` (caminos, `movingS`, `samples` y
+    `tToFirstMeasureS` = primer `measurement` − primer evento); el panel lo
+    muestra solo si hubo movimiento real y `exportPayload` lo serializa como
+    `probe.trayectoria`. Con `clock=fixed` `movingS` queda en 0 — los caminos
+    sí se acumulan — así el e2e (`e2e/probeTrack.spec.ts`) es determinista.
+    **IR manual** (`manualResistanceIndex` en `src/app/measurements.ts`):
+    con ≥ 2 marcas del mismo signo calcula `(|PSV|−|EDV|)/|PSV|` con la mayor
+    y la menor |v|; los readouts PW lo muestran como «IR manual (±)» con la
+    fórmula y Δt entre marcas, al lado del IR automático del controlador.
+63. **DEC-64** — Fidelidad B-mode: ganancia de zona focal y ecos de interfaz
+    laterales (N15c). **Zona focal** (`txGainLin` en `src/ultrasound/bmode.ts`):
+    la apertura focalizada concentra la intensidad transmitida alrededor de
+    `focusMm` — pico `txFocusGainDb` (6 dB) con semianchura a media potencia
+    `focalZoneLambdaSq`·λ·F#² (≈4·λ·F#², confusión axial). Multiplica al eco
+    antes de la atenuación por muestra, así que la zona focal aparece como
+    banda brillante y mover el foco enseña a posicionarlo en la estructura de
+    interés (en el preset transcraneal la zona es ancha — F# alto y λ larga —
+    como en los equipos reales). **Interfaces laterales**: el raymarch guarda
+    `matGrid`/`attGrid` por celda y una pasada detecta bordes de material
+    entre líneas adyacentes (misma distancia radial, válido en lineal y en
+    sector) — las paredes paralelas al haz (vaina del nervio, ventrículos,
+    vasos) ya no dependen solo del speckle. La apertura angular del haz las
+    insona oblicuamente: se aplica la fracción `lateralInterfaceGain` (0,4)
+    del eco perpendicular, atenuada en cada celda receptora, sin réplicas
+    propias. El resultado hace medibles los dos bordes de la vaina en DVNO.
+    Ambas mejoras viven en el raymarch → las heredan la ruta CPU y la GPU, y
+    los ecos laterales se suman también con `speckle:false` (son interfaz,
+    no dispersión). Dorados regenerados: cambio de imagen justificado.
+    `tests/validation/focalYLateral.test.ts` fija ambas leyes (pico focal
+    desplazable, borde de esclera-vítreo > 15 dB sobre el interior).

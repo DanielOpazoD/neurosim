@@ -447,18 +447,6 @@ canvas {
 .probeGrid .ctl span {
   font-size: 10.5px;
 }
-.switchRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 12px;
-}
-.switchRow input {
-  accent-color: var(--accent);
-  margin: 0;
-}
 .chips {
   display: none;
   flex-wrap: wrap;
@@ -583,6 +571,19 @@ button.on {
 /* Anchuras intermedias: sin chips de atajo (siguen en el title/atajo real). */
 @media (max-width: 1520px) {
   .toolbar kbd {
+    display: none;
+  }
+  /* DEC-60: con «Ventana óptima» la fila ocular (11 botones) no cabía a
+     1440 px; botones algo más compactos y, solo en el ojo, ese botón con
+     icono (el title y el atajo O conservan el nombre). */
+  .toolbar {
+    gap: 2px;
+  }
+  .toolbar button {
+    gap: 4px;
+    padding: 5px 6px;
+  }
+  body[data-station='ojo'] .toolbar #optimal > span {
     display: none;
   }
 }
@@ -1042,6 +1043,59 @@ body[data-pw='true'] .grpDoppler {
 .stat.warn .v {
   color: var(--warn);
 }
+/* ── Lista de mediciones del caliper (DEC-61) ── */
+.measureList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  max-height: 168px;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+}
+.measureList:empty {
+  margin-top: 0;
+}
+.mrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 11.5px;
+}
+.mrow:hover {
+  background: rgba(255, 210, 74, 0.08);
+}
+.mrow.sel {
+  background: rgba(255, 210, 74, 0.16);
+  border-color: rgba(255, 210, 74, 0.35);
+}
+.mrow .mtag {
+  flex: 1;
+  color: #ffd24a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mrow .mval {
+  color: var(--text);
+  font-weight: 600;
+}
+.mrow .mdel {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.mrow .mdel:hover {
+  color: #ff7b7b;
+}
 .meas {
   color: var(--accent);
 }
@@ -1118,12 +1172,21 @@ kbd:empty {
 }
 footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   color: var(--muted);
   font-size: 11px;
   min-height: 32px;
   padding: 6px 18px 12px;
+}
+
+footer .credits {
+  font-size: 10.5px;
+}
+footer a {
+  color: inherit;
 }
 
 /* ── Vistas 3D diferidas (DEC-56): esqueleto hasta cargar Three.js ── */
@@ -1326,6 +1389,13 @@ body[data-guide='open'] main {
 }
 .guideChecklist li.skipped .mark {
   color: var(--warn);
+}
+.guideChecklist li.assisted {
+  color: var(--text);
+}
+.guideChecklist li.assisted .mark {
+  background: rgba(77, 163, 255, 0.18);
+  color: var(--accent);
 }
 .guideNav {
   display: flex;

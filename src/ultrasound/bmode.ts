@@ -124,6 +124,9 @@ export function renderBMode(
     extraAttenuationDb?: number;
     speckle?: boolean;
     electronicNoise?: boolean;
+    /** DEC-64: desactivar en tests que validan la PSF pura sin escena real. */
+    txFocusGain?: boolean;
+    lateralInterfaces?: boolean;
   } = {},
 ): BModeFrame {
   const f0 = settings.frequencyMhz;
@@ -148,6 +151,29 @@ export function renderBMode(
   const noiseRng = new SeededRandom(`${seed}-electronic-noise`);
 
   const specularPow = (m: Material): number => (m.id === 'hueso' || m.id === 'duraVaina' ? 2.2 : 1.2);
+
+  // DEC-64: ganancia de transmisión en la zona focal. La apertura focalizada
+  // concentra la intensidad alrededor de focusMm (semianchura a media
+  // potencia ≈ 4·λ·F#²): la zona se ve más brillante y enseña a colocar el
+  // foco en la estructura de interés. Por fila, compartido entre líneas.
+  const wavelengthMm = cRef / (f0 * 1000);
+  const fNumber = Math.max(0.5, beam.focusMm / beam.apertureMm);
+  const halfZoneMm = Math.max(
+    1.5,
+    FISICA_US.params.focalZoneLambdaSq.value * wavelengthMm * fNumber * fNumber,
+  );
+  const txPeakLin = opts.txFocusGain === false ? 1 : Math.pow(10, FISICA_US.params.txFocusGainDb.value / 20);
+  const txGainLin = new Float32Array(height);
+  for (let zi = 0; zi < height; zi++) {
+    const u = (zi * dz - beam.focusMm) / halfZoneMm;
+    txGainLin[zi] = 1 + (txPeakLin - 1) / (1 + u * u);
+  }
+
+  // DEC-64: malla de materiales y atenuación por celda para la pasada de
+  // interfaces laterales (paredes paralelas al haz, invisibles al detector
+  // axial). Los ids son strings internados: `===` los compara por identidad.
+  const matGrid: MaterialId[] = new Array(width * height);
+  const attGrid = new Float32Array(width * height);
 
   for (let li = 0; li < width; li++) {
     const line = scan.lines[li]!;
@@ -220,8 +246,10 @@ export function renderBMode(
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
       const k = (zi * width + li) * 2;
       const noiseStd = noiseFloor;
-      iQ[k] = re * outputAmplitude * attLin + noiseRng.gaussian() * noiseStd;
-      iQ[k + 1] = im * outputAmplitude * attLin + noiseRng.gaussian() * noiseStd;
+      iQ[k] = re * outputAmplitude * attLin * txGainLin[zi]! + noiseRng.gaussian() * noiseStd;
+      iQ[k + 1] = im * outputAmplitude * attLin * txGainLin[zi]! + noiseRng.gaussian() * noiseStd;
+      matGrid[zi * width + li] = matId;
+      attGrid[zi * width + li] = attDb + lensShadowDb;
 
       prevMat = matId;
       prevM = m;
@@ -273,6 +301,34 @@ export function renderBMode(
     }
     for (const event of cometEvents) {
       addCometEchoes(iQ, width, height, li, event.zi, event.rc, dz);
+    }
+  }
+
+  // DEC-64: interfaces laterales. El detector axial solo dispara cuando el
+  // material cambia a lo largo del rayo; las paredes paralelas al haz (vaina
+  // del nervio, ventrículos, vasos) no se cruzan axialmente y quedaban solo
+  // como cambio de speckle. Aquí se detecta el borde entre líneas adyacentes
+  // (misma distancia radial: zi·dz común) y se suma el eco especular
+  // correspondiente, atenuado en cada celda receptora. La apertura angular
+  // del haz las insona oblicuamente → fracción `lateralInterfaceGain` del eco
+  // perpendicular (en la convención del modelo, normal ⊥ haz → cosA≈0 →
+  // peso (0.4+0.6·1) = 1 antes de la fracción). No generan réplicas propias.
+  if (opts.lateralInterfaces !== false) {
+    const latGain = FISICA_US.params.lateralInterfaceGain.value;
+    for (let zi = 0; zi < height; zi++) {
+      for (let li = 1; li < width; li++) {
+        const k = zi * width + li;
+        const a = matGrid[k - 1]!;
+        const b = matGrid[k]!;
+        if (a === b) continue;
+        const rc = Math.abs(reflectionCoeff(MATERIALS[a!], MATERIALS[b!]));
+        if (rc < 0.05) continue;
+        const amp = rc * INTERFACE_ECHO_GAIN * latGain;
+        const attL = Math.pow(10, -attGrid[k - 1]! / 20);
+        const attR = Math.pow(10, -attGrid[k]! / 20);
+        iQ[k * 2]! += amp * attR * txGainLin[zi]!;
+        iQ[(k - 1) * 2]! += amp * attL * txGainLin[zi]!;
+      }
     }
   }
 

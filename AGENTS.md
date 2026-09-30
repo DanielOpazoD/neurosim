@@ -16,4 +16,15 @@
 - Capas: `src/anatomy` no puede importar `src/ultrasound` (`tests/layers.test.ts`);
   los hooks de escena (`eyeScene`, `headScene`) viven en `src/app/renderRequest.ts`.
 - Pruebas e2e deterministas: `?clock=fixed&t=0.4` pausa el `SimulationClock` en
-  `t` y desactiva `handMotion`; úsalo en goto cuando se comparen píxeles.
+  `t` (no hay micro-movimiento de mano desde DEC-59); úsalo en goto cuando se
+  comparen píxeles.
+- Vistas 3D (DEC-59): cámaras enlazadas por `ViewLink` (`src/ui/viewLink.ts`);
+  los presets por estación viven solo en `viewPreset`. `#headView` expone
+  `data-head-model` (`escaneo` cuando carga la cabeza de `public/models/head`,
+  CC BY 3.0; `?headmodel=0` fuerza la estilizada), `data-contact-mm` y
+  `data-render-ms` (`?perf3d` añade `gl.finish()` para medir CPU + GPU). Todo
+  recurso binario nuevo en `public/models` necesita fila con SHA-256 y archivo
+  de licencia en `docs/PROVENANCE.md` (lo exige `provenance:check`).
+- «Ventana óptima» (DEC-60): solver puro en `src/app/optimalWindow.ts`, botón
+  `#optimal` / tecla O; en e2e la solución del caso normal es determinista
+  (Ojo D barrido −2,3 mm; Temporal D inclinación −5°, desplazamiento 6 mm).

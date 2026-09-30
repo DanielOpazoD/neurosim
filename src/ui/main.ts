@@ -23,7 +23,7 @@ import { isTcdStation } from '../domain/contracts';
 import { drawBMode, drawColorOverlay, type ColorOverlayGrid } from './canvasDraw';
 import { createInitialState, imagingMode, type AppState } from '../app/state';
 import { PwController, SyncPwTransport, WorkerPwTransport, type PwTransport } from '../app/pwController';
-import { addCaliperPoint, canvasToImagePoint } from '../app/measurements';
+import { canvasToImagePoint, formatMeasurementMm } from '../app/measurements';
 import { nextCine, pushCine } from '../app/cine';
 import { exportOnsdReport, exportSession } from '../app/exporter';
 import {
@@ -35,7 +35,7 @@ import {
 } from '../app/renderClient';
 import { type RenderResponse } from '../app/renderRequest';
 import {
-  drawCaliperMarks,
+  drawCaliperOverlay,
   drawColorBox,
   drawGateMarker,
   drawTeachingLandmarks,
@@ -44,17 +44,22 @@ import {
   setHtml,
   updateReadouts,
 } from './overlays';
+import { CaliperTool } from './caliperTool';
+import { SpectralCaliper } from './spectralCaliper';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
-import { buildDebrief } from '../app/debrief';
+import { buildDebrief, sampleProbeTrack } from '../app/debrief';
 import { currentPose } from '../app/poses';
+import { solveOptimalWindow, type OnsdPlaneTarget, type ProbeParams } from '../app/optimalWindow';
 import { lindegaardRatio } from '../doppler/measureMca';
 // Three.js se carga aparte (DEC-56): las vistas 3D llegan tras el primer B-mode.
 import type { Navigator3D } from './navigator3d';
 import type { HeadView3D } from './headView3d';
+import { ViewLink } from './viewLink';
 import type { Measurement } from '../domain/contracts';
 import {
   advance,
+  assistWindow,
   completedSince,
   currentStep,
   guideById,
@@ -131,15 +136,23 @@ const headViewEnabled = !new URLSearchParams(location.search).has('nohead');
 let navigator3d: Navigator3D | null = null;
 let headView: HeadView3D | null = null;
 let views3dRequested = false;
+/** Cámaras enlazadas Exploración ↔ Anatomía (DEC-59): una sola dirección de vista. */
+const viewLink = new ViewLink();
+/** `?headmodel=0` fuerza la cabeza estilizada (sin descargar el escaneo). */
+const headScan = urlParams.get('headmodel') !== '0';
 function loadViews3d(): void {
   if (views3dRequested) return;
   views3dRequested = true;
   Promise.all([import('./navigator3d'), headViewEnabled ? import('./headView3d') : Promise.resolve(null)])
     .then(([navModule, headModule]) => {
-      navigator3d = new navModule.Navigator3D(navigatorCv, sim);
+      navigator3d = new navModule.Navigator3D(navigatorCv, sim, viewLink);
       navigator3d.resetCamera(s.station, s.side);
       if (headModule) {
-        headView = new headModule.HeadView3D(headViewCv, sim, s, (st, sd) => setStation(st, sd));
+        headView = new headModule.HeadView3D(headViewCv, sim, s, (st, sd) => setStation(st, sd), {
+          link: viewLink,
+          scan: headScan,
+        });
+        // La vista de cabeza es la maestra: su preset se publica al final.
         headView.resetCamera(s.station, s.side);
       }
     })
@@ -182,7 +195,6 @@ $('casoInfo').innerHTML = `${clinicalCase.summary}<ul>${clinicalCase.teaching
 if (urlParams.get('clock') === 'fixed') {
   const tParam = Number(urlParams.get('t'));
   clock.freezeAt(Number.isFinite(tParam) ? tParam : 0.4);
-  s.handMotion = false;
   // La persistencia GPU es una aproximación por composición alfa: el redondeo
   // de premultiplicar/despre-multiplicar aleja los píxeles de la ruta CPU más
   // que la tolerancia de paridad; en modo reloj fijo se desactiva (los
@@ -190,7 +202,6 @@ if (urlParams.get('clock') === 'fixed') {
   s.persistence = 0;
 }
 let lastRender = 0;
-let lastHeadRender = 0;
 let lastT = performance.now();
 let renderId = 0;
 /** Último id dibujado: con varios workers una respuesta atrasada se descarta. */
@@ -385,11 +396,34 @@ function setFreezeLabel(frozen: boolean): void {
   $('freezeKey').textContent = frozen ? '' : 'Esp';
 }
 
+function stationHint(station: Station): string {
+  return station === 'ojo'
+    ? 'DVNO: activa «DVNO 3 mm» y marca los dos bordes de la vaina a 3 mm retroglobo.'
+    : station === 'submandibular'
+      ? 'Submandibular: puerta PW en la ACI distal (flujo alejándose, 30–55 mm, ángulo ≤ 30°); su TAMax es el denominador del Lindegaard.'
+      : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
+}
+
+/** Hint contextual: protocolo ONSD > modo calibre > estación. */
+function syncCaliperHint(): void {
+  if (s.onsdActive && s.station === 'ojo') return;
+  $('hint').textContent =
+    s.caliperMode === 'dist'
+      ? 'Calibre: arrastra en el B-mode para medir (o dos clics) · clic en el espectro marca velocidad · Supr borra la seleccionada.'
+      : s.caliperMode === 'dvno'
+        ? 'DVNO: arrastra sobre la guía a 3 mm retroglobo; el segmento queda perpendicular a la vaina.'
+        : s.caliperMode === 'dte'
+          ? 'DTE: mide el diámetro transverso del globo de retina a retina con dos puntos.'
+          : stationHint(s.station);
+}
+
 function setStation(station: Station, side: Side): void {
   const previousStation = s.station;
+  probeTween = null;
   s.station = station;
   s.side = side;
   document.body.dataset.station = station;
+  // Mismo preset en ambas vistas; la de cabeza (maestra) publica la última.
   navigator3d?.resetCamera(station, side);
   headView?.resetCamera(station, side);
   s.settings = defaultSettingsFor(station);
@@ -447,12 +481,16 @@ function setStation(station: Station, side: Side): void {
   colorPersist = null;
   bmodePersist = null;
   setFreezeLabel(false);
-  $('hint').textContent =
-    station === 'ojo'
-      ? 'DVNO: activa «DVNO 3 mm» y marca los dos bordes de la vaina a 3 mm retroglobo.'
-      : station === 'submandibular'
-        ? 'Submandibular: puerta PW en la ACI distal (flujo alejándose, 30–55 mm, ángulo ≤ 30°); su TAMax es el denominador del Lindegaard.'
-        : 'PW: activa, haz clic en el B-mode para poner la puerta y ajusta PRF/filtro/ángulo.';
+  // Los modos DVNO/DTE solo tienen sentido en la estación ocular.
+  if (station !== 'ojo' && (s.caliperMode === 'dvno' || s.caliperMode === 'dte')) {
+    s.caliperMode = 'none';
+    s.caliperPts = [];
+    $('dvno').classList.remove('on');
+    $('dte').classList.remove('on');
+    caliperTool.reset();
+    spectralTool.reset();
+  }
+  syncCaliperHint();
   s.debrief.setTime(clock.t);
   s.debrief.record('station', `${station} ${side}`, { station, side });
 }
@@ -473,7 +511,6 @@ interface RenderTiming {
   cardiacPhase: number;
   respiratoryPhase: number;
   flowModulation: number;
-  handMotion: boolean;
 }
 
 function sendRenderRequest(timing: RenderTiming): void {
@@ -496,7 +533,6 @@ function sendRenderRequest(timing: RenderTiming): void {
       t: timing.t,
       cardiacPhase: timing.cardiacPhase,
       respiratoryPhase: timing.respiratoryPhase,
-      handMotion: timing.handMotion,
       flowModulation: timing.flowModulation,
       physiology: sim.patient.physiology,
       color: s.colorOn,
@@ -618,7 +654,7 @@ function drawFrame(response: RenderResponse): void {
   if (grid) drawColorBox(bCtx, s, frame.settings.colorBox);
   // PW sobre escala de grises es válido (DEC-54): la puerta no depende del color.
   if (s.pwOn) drawGateMarker(bCtx, sim, s, scan);
-  drawCaliperMarks(bCtx, s);
+  drawCaliperOverlay(bCtx, sim, s, caliperTool.view);
   drawTeachingLandmarks(bCtx, sim, s, scan);
   drawScale(bCtx, sim, s, s.currentFrame);
 }
@@ -638,6 +674,7 @@ function setPwOn(on: boolean): void {
   document.body.dataset.pw = String(on);
   syncSpectralGainControl();
   fitBmode();
+  if (!on) spectralTool.reset();
 }
 
 /** Enciende/apaga el Doppler color (modo explícito, DEC-54). Apagado: el
@@ -758,6 +795,115 @@ function recordMeasurement(rotDegAtMeasure = s.rotDeg): void {
   });
 }
 
+/**
+ * Herramienta de calibre (DEC-61): gestos de puntero sobre el B-mode.
+ * Sus ganchos mantienen la meta de guía y el debriefing coherentes con el
+ * flujo clic a clic anterior (`recordMeasurement`).
+ */
+const caliperTool = new CaliperTool(sim, s, bmodeCv, {
+  onCommit: (_entry, rotDeg) => recordMeasurement(rotDeg),
+  onEdit: (entry, prev) => {
+    const meta = measurementMeta.get(prev);
+    if (meta) measurementMeta.set(entry.measurement, meta);
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `${entry.tag} editada`, {
+      kind: entry.measurement.kind,
+      valueMm: entry.measurement.value,
+    });
+  },
+  onDelete: (entry) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `${entry.tag} borrada`, {
+      kind: entry.measurement.kind,
+      valueMm: entry.measurement.value,
+    });
+  },
+});
+
+/**
+ * Calibre de velocidad sobre la traza PW (DEC-62): comparte el modo
+ * «Caliper» con el B-mode (distancia en la imagen, velocidad en el espectro)
+ * y la numeración visible con `s.caliperSeq`.
+ */
+const spectralTool = new SpectralCaliper(s, spectralCv, () => pw.columns, {
+  onCommit: (mark) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `Velocidad ${mark.velocityCms.toFixed(0)} cm/s`, {
+      kind: 'trazado-espectral',
+      station: s.station,
+      side: s.side,
+      valueCms: mark.velocityCms,
+      tSeconds: mark.tSeconds,
+    });
+  },
+  onEdit: (mark, prevCms) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `Velocidad ${mark.velocityCms.toFixed(0)} cm/s (editada)`, {
+      kind: 'trazado-espectral',
+      valueCms: mark.velocityCms,
+      prevCms,
+    });
+  },
+  onDelete: (mark) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `Velocidad ${mark.velocityCms.toFixed(0)} cm/s borrada`, {
+      kind: 'trazado-espectral',
+      valueCms: mark.velocityCms,
+    });
+  },
+});
+
+/** Lista de mediciones del panel Medidas (DEC-61): rótulo, valor y borrado;
+ * el clic en la fila selecciona la entrada sobre la imagen. */
+function renderMeasureList(): void {
+  const rows = [
+    ...s.caliperEntries.map((e) => ({
+      id: e.id,
+      src: 'cal' as const,
+      tag: e.tag,
+      val: formatMeasurementMm(e.measurement.kind, e.measurement.value),
+      sel: caliperTool.view.selectedId === e.id,
+    })),
+    ...s.spectralMarks.map((m) => ({
+      id: m.id,
+      src: 'spec' as const,
+      tag: 'Velocidad',
+      val: `${m.velocityCms >= 0 ? '+' : '−'}${Math.abs(m.velocityCms).toFixed(0)} cm/s`,
+      sel: spectralTool.view.selectedId === m.id,
+    })),
+  ].sort((a, b) => a.id - b.id);
+  setHtml(
+    $('measureList'),
+    rows
+      .map(
+        (r) =>
+          `<div class="mrow${r.sel ? ' sel' : ''}" data-id="${r.id}" data-src="${r.src}"><span class="mtag">${r.id} · ${r.tag}</span><span class="mval">${r.val}</span><button class="mdel" data-del="${r.id}" data-src="${r.src}" title="Borrar medición" aria-label="Borrar medición ${r.id}">×</button></div>`,
+      )
+      .join(''),
+  );
+}
+$('measureList').addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const del = target.closest<HTMLElement>('[data-del]');
+  if (del) {
+    if (del.dataset['src'] === 'spec') spectralTool.remove(Number(del.dataset['del']));
+    else caliperTool.remove(Number(del.dataset['del']));
+    renderMeasureList();
+    return;
+  }
+  const row = target.closest<HTMLElement>('.mrow');
+  if (row?.dataset['id']) {
+    if (row.dataset['src'] === 'spec') {
+      caliperTool.select(null);
+      spectralTool.select(Number(row.dataset['id']));
+    } else {
+      spectralTool.select(null);
+      caliperTool.select(Number(row.dataset['id']));
+    }
+    renderMeasureList();
+  }
+});
+
 function updateDebriefPanel(): void {
   const report = buildDebrief(s.debrief, sim, s, pw.hemodynamics());
   const panel = $('debriefReport');
@@ -766,6 +912,12 @@ function updateDebriefPanel(): void {
     panel,
     [
       `<div>Eventos: ${report.summary.nEvents} · Mediciones: ${report.summary.nMeasurements} · Hallazgos: ${report.summary.nFindings}</div>`,
+      ...(report.probe.samples > 0 &&
+      (report.probe.angularDeg + report.probe.lateralMm > 0 || report.probe.movingS > 0)
+        ? [
+            `<div>Sonda: ${report.probe.angularDeg.toFixed(0)}° girados · ${report.probe.lateralMm.toFixed(0)} mm deslizados · ${report.probe.movingS.toFixed(0)} s en movimiento${report.probe.tToFirstMeasureS != null ? ` · 1ª medición a ${report.probe.tToFirstMeasureS.toFixed(0)} s` : ''}</div>`,
+          ]
+        : []),
       ...report.findings.map(
         (finding) =>
           `<div class="${severityClass(finding.severity)}"><b>${finding.severity}</b> ${finding.code}: ${finding.text}</div>`,
@@ -775,7 +927,7 @@ function updateDebriefPanel(): void {
         `<div><b>Guía</b> · ${section.title} · ${section.completed ? 'completa' : 'en curso'} · ${section.totalS.toFixed(0)} s</div>`,
         ...section.steps.map(
           (step) =>
-            `<div>${step.manual ? '↷' : '✓'} ${step.title}: ${step.durationS.toFixed(1)} s${step.manual ? ' (omitido)' : ''}</div>`,
+            `<div>${step.assisted ? '⚑' : step.manual ? '↷' : '✓'} ${step.title}: ${step.durationS.toFixed(1)} s${step.assisted ? ' (asistido)' : step.manual ? ' (omitido)' : ''}</div>`,
         ),
       ]),
       '<hr>',
@@ -906,12 +1058,14 @@ function recordGuideEvents(prev: GuideProgress, next: GuideProgress): void {
   for (const event of completedSince(prev, next)) {
     const step = guide.steps[event.stepIndex]!;
     s.debrief.setTime(clock.t);
-    s.debrief.record('guide', `${guide.title}: ${step.title}${event.manual ? ' (omitido)' : ''}`, {
+    const note = event.assisted ? ' (asistido ⚑)' : event.manual ? ' (omitido)' : '';
+    s.debrief.record('guide', `${guide.title}: ${step.title}${note}`, {
       guideId: event.guideId,
       stepId: event.stepId,
       stepIndex: event.stepIndex,
       durationS: event.durationMs / 1000,
       manual: event.manual,
+      assisted: event.assisted === true,
     });
   }
 }
@@ -1008,10 +1162,115 @@ $('guideExport').addEventListener('click', () => {
   s.debrief.record('export', `informe guía ${progress.guideId}`);
 });
 
+/* ── Ventana óptima (DEC-60) ── */
+const PROBE_KEYS = ['offsetMm', 'offsetVMm', 'tiltDeg', 'tiltVDeg', 'rotDeg', 'press'] as const;
+/** Duración de la transición animada de la sonda, ms. */
+const OPTIMAL_TWEEN_MS = 400;
+/** Transición en curso de los controles de la sonda (null si no hay). */
+let probeTween: { from: ProbeParams; to: ProbeParams; t0: number } | null = null;
+
+function probeParams(): ProbeParams {
+  return {
+    offsetMm: s.offsetMm,
+    offsetVMm: s.offsetVMm,
+    tiltDeg: s.tiltDeg,
+    tiltVDeg: s.tiltVDeg,
+    rotDeg: s.rotDeg,
+    press: s.press,
+  };
+}
+
+/** Interpola los controles de la sonda (ease-in-out): las vistas 3D la ven deslizarse. */
+function stepProbeTween(now: number): void {
+  if (!probeTween) return;
+  const k = Math.min(1, Math.max(0, (now - probeTween.t0) / OPTIMAL_TWEEN_MS));
+  const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+  for (const key of PROBE_KEYS) {
+    const a = probeTween.from[key];
+    const b = probeTween.to[key];
+    s[key] = k >= 1 ? b : a + (b - a) * e;
+  }
+  if (k >= 1) probeTween = null;
+}
+
+/** Plano pedido en el ojo: el siguiente hueco del protocolo DVNO de este lado. */
+function onsdPlaneTarget(): OnsdPlaneTarget {
+  const slot = s.onsdActive ? nextSlot(s.onsd) : null;
+  if (slot && slot.side === s.side) return slot.plane;
+  const progress = guideProgress.get('vaina');
+  if (guideOpen && progress && currentStep(progress)?.id === 'dvno-sagital' && s.side === 'der') {
+    return 'sagital';
+  }
+  return 'transversal';
+}
+
+/** Fija un deslizador por el mismo camino que el usuario (evento `input`). */
+function setRangeValue(id: string, value: number): void {
+  const input = $<HTMLInputElement>(id);
+  input.value = String(value);
+  input.dispatchEvent(new Event('input'));
+}
+
+function applyOptimalWindow(): void {
+  const station = s.station;
+  const side = s.side;
+  const plane = station === 'ojo' ? onsdPlaneTarget() : undefined;
+  const t0 = performance.now();
+  const w = solveOptimalWindow(sim, station, side, { plane });
+  const solveMs = performance.now() - t0;
+  if (s.frozen) toggleFreeze();
+  // Equipo: profundidad, foco y ganancia de fábrica por el camino de los deslizadores.
+  setRangeValue('depth', w.depthMm);
+  setRangeValue('focus', w.focusMm);
+  setRangeValue('gain', defaultSettingsFor(station).gainDb);
+  if (w.colorBox) s.settings = { ...s.settings, colorBox: w.colorBox };
+  if (w.colorOn && !s.colorOn) setColorOn(true);
+  // Puerta lista en el punto de menor ángulo: pulsar P mide al instante.
+  if (w.gate) {
+    s.gateDepthMm = w.gate.depthMm;
+    s.gateUMm = w.gate.uMm;
+  }
+  probeTween = { from: probeParams(), to: w.probe, t0: performance.now() };
+  const m = w.metrics;
+  s.debrief.setTime(clock.t);
+  s.debrief.record('optimal-window', `${station} ${side}${plane ? ` ${plane}` : ''}`, {
+    station,
+    side,
+    plane: plane ?? '',
+    ...w.probe,
+    depthMm: w.depthMm,
+    focusMm: w.focusMm,
+    colorOn: w.colorOn,
+    gateDepthMm: w.gate?.depthMm ?? Number.NaN,
+    gateU: w.gate?.uMm ?? Number.NaN,
+    inPlaneLengthMm: m.inPlaneLengthMm ?? Number.NaN,
+    insonationDeg: m.insonationDeg ?? Number.NaN,
+    nerveImageUMm: m.nerveImageUMm ?? Number.NaN,
+    solveMs,
+  });
+  // Guía: los pasos de encontrar la ventana quedan asistidos (⚑), no completados.
+  const guide = guideForStation(station);
+  const ctx = buildGuideContext(sim, s, pw, measurementMeta);
+  if (guideOpen) {
+    guideAction((p, t) => assistWindow(p, t, ctx));
+  } else {
+    const progress = guideProgress.get(guide.id);
+    if (progress) setGuideProgress(assistWindow(progress, performance.now(), ctx));
+  }
+  const deg = (v: number | undefined) => (v === undefined ? '—' : `${v.toFixed(0)}°`);
+  $('hint').textContent =
+    station === 'ojo'
+      ? `Ventana óptima (${plane}): nervio centrado a 3 mm retroglobo, profundidad ${w.depthMm} mm, foco ${w.focusMm} mm.`
+      : station === 'temporal'
+        ? `Ventana óptima: M1 ${(m.inPlaneLengthMm ?? 0).toFixed(0)} mm en el plano, color sobre M1 y puerta a ${deg(m.insonationDeg)} de insonación — pulsa P para medir.`
+        : `Ventana óptima: ACI ${(m.inPlaneLengthMm ?? 0).toFixed(0)} mm en el plano, puerta a ${deg(m.insonationDeg)} de insonación — pulsa P para medir.`;
+}
+
 function frameLoop(now: number): void {
   const elapsed = Math.min(0.2, (now - lastT) / 1000);
   lastT = now;
   try {
+    stepProbeTween(now);
     const steps = clock.requestSteps(elapsed);
     for (let i = 0; i < steps; i++) clock.advance();
     s.tSec = clock.t;
@@ -1027,13 +1286,13 @@ function frameLoop(now: number): void {
           cardiacPhase: phys.cardiacPhase,
           respiratoryPhase: phys.respiratoryPhase,
           flowModulation: phys.flowModulation,
-          handMotion: s.handMotion,
         });
       }
     } else if (s.cinePlaying && s.cine.length) {
       drawCineFrame();
     }
-    const navPose = currentPose(sim, { ...s, tSec: clock.t, handMotion: s.handMotion });
+    // Una sola pose por fotograma, compartida por ambas vistas 3D (DEC-59).
+    const navPose = currentPose(sim, s);
     const gateCenter = s.pwOn ? pw.gateCenter(navPose) : null;
     if (navigator3d) {
       navigator3d.update(
@@ -1045,22 +1304,20 @@ function frameLoop(now: number): void {
       );
       navigator3d.renderIfNeeded(now);
     }
-    // La vista de cabeza es una segunda superficie WebGL: a ritmo reducido
-    // basta para la interacción y no satura el renderizador por software.
-    if (headView && headView.update(s, navPose, currentScan)) {
-      if (headView.interacting || now - lastHeadRender > 150) {
-        lastHeadRender = now;
-        headView.render();
-      }
-    } else if (headView?.interacting) {
-      headView.render();
+    // La vista de cabeza es una segunda superficie WebGL: solo pinta si hay
+    // cambios, a ritmo reducido salvo al interactuar o al animar la sonda.
+    if (headView) {
+      headView.update(s, navPose, currentScan);
+      headView.renderIfNeeded(now, probeTween ? 33 : 150);
     }
-    drawSpectral(spectralCtx, sim, s, pw);
+    drawSpectral(spectralCtx, sim, s, pw, undefined, spectralTool.view);
     // Paneles DOM a 4 Hz (DEC-54): innerHTML solo si cambia y los <details>
     // cerrados no se recalculan. Cualquier entrada del usuario fuerza el refresco.
     if (now - lastPanelUpdate >= PANEL_INTERVAL_MS) {
       lastPanelUpdate = now;
+      sampleProbeTrack(s, clock.t);
       updateReadouts(readoutsEl, sim, s, pw);
+      renderMeasureList();
       syncProtocolControls();
       if (onsdReportPanel.open) updateOnsdReport();
       if (debriefPanel.open) updateDebriefPanel();
@@ -1181,16 +1438,6 @@ volumeInput.addEventListener('input', () => {
   volumeValue.textContent = `${s.volume}%`;
   pw.setVolume(s.volume);
 });
-const handMotionInput = $('handMotion') as HTMLInputElement;
-handMotionInput.checked = s.handMotion;
-handMotionInput.addEventListener('change', () => {
-  s.handMotion = handMotionInput.checked;
-  s.debrief.setTime(clock.t);
-  s.debrief.record('settings', `microMovimientoMano=${s.handMotion ? 'on' : 'off'}`, {
-    id: 'handMotion',
-    value: s.handMotion,
-  });
-});
 
 $('planoMesencefalico').addEventListener('click', () => setTiltPreset(0));
 $('planoDiencefalico').addEventListener('click', () => setTiltPreset(10));
@@ -1237,6 +1484,7 @@ function probeKey(e: KeyboardEvent): boolean {
   )
     return false;
   const apply = (f: () => void): true => {
+    probeTween = null; // el usuario toma el control de la sonda
     f();
     if (!probeKeyHintShown) {
       probeKeyHintShown = true;
@@ -1308,6 +1556,16 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
+  const el = document.activeElement;
+  const inForm =
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLSelectElement ||
+    el instanceof HTMLTextAreaElement ||
+    (el instanceof HTMLElement && el.isContentEditable);
+  if (!inForm && (spectralTool.key(e.key) || caliperTool.key(e.key))) {
+    e.preventDefault();
+    return;
+  }
   if (e.code === 'Space') {
     e.preventDefault();
     toggleFreeze();
@@ -1316,7 +1574,9 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'c') $('caliper').click();
   else if (e.key === 'd') $('teaching').click();
   else if (e.key === 'g') guideButton.click();
+  else if (e.key === 'o' || e.key === 'O') $('optimal').click();
 });
+$('optimal').addEventListener('click', applyOptimalWindow);
 $('cine').addEventListener('click', () => {
   s.cinePlaying = !s.cinePlaying;
   $('cine').classList.toggle('on', s.cinePlaying);
@@ -1350,12 +1610,18 @@ $('caliper').addEventListener('click', () => {
   $('caliper').classList.toggle('on', s.caliperMode === 'dist');
   if (s.caliperMode === 'dist') $('dvno').classList.remove('on');
   s.caliperPts = [];
+  caliperTool.reset();
+  spectralTool.reset();
+  syncCaliperHint();
 });
 $('dvno').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dvno' ? 'none' : 'dvno';
   $('dvno').classList.toggle('on', s.caliperMode === 'dvno');
   if (s.caliperMode === 'dvno') $('caliper').classList.remove('on');
   s.caliperPts = [];
+  caliperTool.reset();
+  spectralTool.reset();
+  syncCaliperHint();
 });
 $('dte').addEventListener('click', () => {
   s.caliperMode = s.caliperMode === 'dte' ? 'none' : 'dte';
@@ -1363,6 +1629,9 @@ $('dte').addEventListener('click', () => {
   $('caliper').classList.remove('on');
   $('dvno').classList.remove('on');
   s.caliperPts = [];
+  caliperTool.reset();
+  spectralTool.reset();
+  syncCaliperHint();
 });
 $('onsdProtocol').addEventListener('click', () => {
   if (s.station !== 'ojo') return;
@@ -1373,8 +1642,11 @@ $('onsdProtocol').addEventListener('click', () => {
   s.side = 'der';
   s.rotDeg = 0;
   s.caliperPts = [];
+  caliperTool.reset();
+  spectralTool.reset();
   $('onsdProtocol').classList.toggle('on', s.onsdActive);
   $('dvno').classList.toggle('on', s.onsdActive);
+  syncCaliperHint();
   s.debrief.setTime(clock.t);
   s.debrief.record('protocol', s.onsdActive ? 'protocolo DVNO iniciar' : 'protocolo DVNO reiniciar', {
     started: s.onsdActive,
@@ -1382,16 +1654,25 @@ $('onsdProtocol').addEventListener('click', () => {
 });
 let boxDrag: { du: number; dz: number; x0: number; y0: number; moved: boolean } | null = null;
 let suppressClick = false;
-bmodeCv.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || !s.colorOn) return;
+/** Punto del puntero en píxeles de canvas (el CSS puede escalar el <canvas>). */
+function bmodeCanvasPoint(e: PointerEvent): [number, number] {
   const r = bmodeCv.getBoundingClientRect();
-  const point = canvasToImagePoint(
+  return [
     ((e.clientX - r.left) / r.width) * bmodeCv.width,
     ((e.clientY - r.top) / r.height) * bmodeCv.height,
-    s,
-    bmodeCv.width,
-    bmodeCv.height,
-  );
+  ];
+}
+bmodeCv.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const [cx, cy] = bmodeCanvasPoint(e);
+  // DEC-61: con un modo de calibre activo el gesto es de medición, no de caja.
+  if (caliperTool.down(cx, cy)) {
+    spectralTool.select(null);
+    bmodeCv.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (!s.colorOn) return;
+  const point = canvasToImagePoint(cx, cy, s, bmodeCv.width, bmodeCv.height);
   const box = s.settings.colorBox;
   if (Math.abs(point.u - box.uCenter) > box.uHalf || point.z < box.zMinMm || point.z > box.zMaxMm) {
     return;
@@ -1406,17 +1687,13 @@ bmodeCv.addEventListener('pointerdown', (e) => {
   bmodeCv.setPointerCapture(e.pointerId);
 });
 bmodeCv.addEventListener('pointermove', (e) => {
+  const [cx, cy] = bmodeCanvasPoint(e);
+  caliperTool.move(cx, cy);
+  bmodeCv.style.cursor = caliperTool.domCursor;
   if (!boxDrag) return;
   if (Math.hypot(e.clientX - boxDrag.x0, e.clientY - boxDrag.y0) >= 4) boxDrag.moved = true;
   if (!boxDrag.moved) return;
-  const r = bmodeCv.getBoundingClientRect();
-  const point = canvasToImagePoint(
-    ((e.clientX - r.left) / r.width) * bmodeCv.width,
-    ((e.clientY - r.top) / r.height) * bmodeCv.height,
-    s,
-    bmodeCv.width,
-    bmodeCv.height,
-  );
+  const point = canvasToImagePoint(cx, cy, s, bmodeCv.width, bmodeCv.height);
   const box = s.settings.colorBox;
   const halfU = (currentScan?.widthMmOrRad ?? box.uHalf * 2) / 2;
   const uCenter = Math.max(-halfU + box.uHalf, Math.min(halfU - box.uHalf, point.u - boxDrag.du));
@@ -1428,6 +1705,11 @@ bmodeCv.addEventListener('pointermove', (e) => {
   };
 });
 bmodeCv.addEventListener('pointerup', (e) => {
+  const [cx, cy] = bmodeCanvasPoint(e);
+  if (caliperTool.up(cx, cy)) {
+    if (bmodeCv.hasPointerCapture(e.pointerId)) bmodeCv.releasePointerCapture(e.pointerId);
+    return;
+  }
   if (!boxDrag) return;
   if (boxDrag.moved) {
     suppressClick = true;
@@ -1441,31 +1723,56 @@ bmodeCv.addEventListener('pointerup', (e) => {
   boxDrag = null;
   if (bmodeCv.hasPointerCapture(e.pointerId)) bmodeCv.releasePointerCapture(e.pointerId);
 });
+bmodeCv.addEventListener('pointerleave', () => caliperTool.leave());
+bmodeCv.addEventListener('pointercancel', () => {
+  caliperTool.reset();
+  caliperTool.consumeClick(); // un cancel no genera `click`: drena la marca
+});
+
+// Calibre de velocidad sobre el espectrograma (DEC-62): sin puerta ni caja,
+// el puntero entero es del calibre cuando el modo «Caliper» está activo.
+function spectralCanvasPoint(e: PointerEvent): [number, number] {
+  const r = spectralCv.getBoundingClientRect();
+  return [
+    ((e.clientX - r.left) / r.width) * spectralCv.width,
+    ((e.clientY - r.top) / r.height) * spectralCv.height,
+  ];
+}
+spectralCv.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const [cx, cy] = spectralCanvasPoint(e);
+  if (spectralTool.down(cx, cy)) {
+    caliperTool.select(null);
+    spectralCv.setPointerCapture(e.pointerId);
+  }
+});
+spectralCv.addEventListener('pointermove', (e) => {
+  const [cx, cy] = spectralCanvasPoint(e);
+  spectralTool.move(cx, cy);
+  spectralCv.style.cursor = spectralTool.domCursor;
+});
+spectralCv.addEventListener('pointerup', (e) => {
+  const [cx, cy] = spectralCanvasPoint(e);
+  if (spectralTool.up(cx, cy) && spectralCv.hasPointerCapture(e.pointerId)) {
+    spectralCv.releasePointerCapture(e.pointerId);
+  }
+});
+spectralCv.addEventListener('pointerleave', () => spectralTool.leave());
+spectralCv.addEventListener('pointercancel', () => spectralTool.reset());
 bmodeCv.addEventListener('click', (e) => {
-  if (suppressClick) {
+  const fromTool = caliperTool.consumeClick();
+  if (suppressClick || fromTool) {
     suppressClick = false;
     return;
   }
-  const r = bmodeCv.getBoundingClientRect();
-  const point = canvasToImagePoint(
-    ((e.clientX - r.left) / r.width) * bmodeCv.width,
-    ((e.clientY - r.top) / r.height) * bmodeCv.height,
-    s,
-    bmodeCv.width,
-    bmodeCv.height,
-  );
-  if (s.pwOn) {
-    s.gateDepthMm = point.z;
-    s.gateUMm = point.u;
-    return;
-  }
-  // El protocolo DVNO gira el marcador al completar un hueco: la rotación de
-  // la medición es la de antes del clic. Solo se registra una medición nueva
-  // (antes un clic sin caliper activo re-registraba la última).
-  const rotBefore = s.rotDeg;
-  const countBefore = s.measurements.length;
-  addCaliperPoint(sim, s, point);
-  if (s.measurements.length > countBefore) recordMeasurement(rotBefore);
+  // La puerta PW sigue respondiendo al clic directo (prioridad sobre el
+  // calibre, como antes); los gestos reales del calibre ya suprimieron su
+  // propio click de cierre vía consumeClick.
+  if (!s.pwOn) return;
+  const [cx, cy] = bmodeCanvasPoint(e);
+  const point = canvasToImagePoint(cx, cy, s, bmodeCv.width, bmodeCv.height);
+  s.gateDepthMm = point.z;
+  s.gateUMm = point.u;
 });
 $('export').addEventListener('click', () => {
   const download = (name: string, href: string) => {

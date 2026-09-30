@@ -61,6 +61,11 @@ export function exportPayload(sim: ReferenceCase, s: AppState): object {
       tiltVDeg: s.tiltVDeg,
       rotDeg: s.rotDeg,
       press: s.press,
+      trayectoria: {
+        angularDeg: s.probeTrack.angularDeg,
+        lateralMm: s.probeTrack.lateralMm,
+        movingS: s.probeTrack.movingS,
+      },
     },
     acousticOutput: acousticOutput({
       transducer: s.settings.transducer,
@@ -126,6 +131,7 @@ export function guideReportPayload(
         title: step.title,
         durationS: progress.records[step.id] ? progress.records[step.id]!.durationMs / 1000 : null,
         manual: progress.records[step.id]?.manual ?? null,
+        assisted: progress.records[step.id]?.assisted === true,
         capture: progress.captures[step.id] ?? null,
       })),
       summary,

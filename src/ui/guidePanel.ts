@@ -58,10 +58,27 @@ export function renderGuidePanel(view: GuideView): void {
     guide.steps
       .map((s, i) => {
         const record = view.progress.records[s.id];
-        const cls = record ? (record.manual ? 'skipped' : 'done') : i === index ? 'current' : '';
-        const mark = record ? (record.manual ? '↷' : '✓') : i === index ? '›' : String(i + 1);
+        const cls = record
+          ? record.assisted
+            ? 'assisted'
+            : record.manual
+              ? 'skipped'
+              : 'done'
+          : i === index
+            ? 'current'
+            : '';
+        const mark = record
+          ? record.assisted
+            ? '⚑'
+            : record.manual
+              ? '↷'
+              : '✓'
+          : i === index
+            ? '›'
+            : String(i + 1);
+        const title = record?.assisted ? ' title="Asistido: «Ventana óptima»"' : '';
         const time = record ? `<small>${(record.durationMs / 1000).toFixed(0)} s</small>` : '';
-        return `<li class="${cls}"><span class="mark">${mark}</span><span class="t">${esc(s.title)}</span>${time}</li>`;
+        return `<li class="${cls}"${title}><span class="mark">${mark}</span><span class="t">${esc(s.title)}</span>${time}</li>`;
       })
       .join(''),
   );

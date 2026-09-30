@@ -1,7 +1,8 @@
 /**
- * Vista interactiva "cabeza + transductor": una cabeza estilizada construida
- * desde la geometría del caso (elipsoide de cuero cabelludo, ojos, orejas,
- * hotspots de ventana temporal y globos) con la sonda encima. Permite
+ * Vista interactiva "cabeza + transductor": cabeza escaneada «Lee Perry-Smith»
+ * (CC BY 3.0, DEC-59) ajustada a los ojos del caso, con la cabeza estilizada
+ * (elipsoide de cuero cabelludo, ojos, orejas, globos) como respaldo mientras
+ * carga o si falla, hotspots de ventana y la sonda encima. Permite
  * arrastrar la sonda sobre la piel (escribe offsetMm/offsetVMm), rueda sobre
  * la sonda para el marcador, Mayús+arrastrar para inclinación/angulación y
  * clic en hotspots para cambiar de estación. Las matemáticas testables son
@@ -18,6 +19,15 @@ import { stationPose } from '../app/poses';
 import { buildProbeGroup, probeBasis, updateProbePose } from './probeMesh';
 import type { ProbePose } from '../domain/contracts';
 import type { ScanGeometry } from '../ultrasound/probe';
+import { AxisGizmo } from './axisGizmo';
+import { fitHeadScan, lidTarget } from './headFit';
+import {
+  linkedCameraPosition,
+  viewFromCamera,
+  viewPreset,
+  type ViewLink,
+  type ViewOrientation,
+} from './viewLink';
 
 const v3 = (p: Vec3): THREE.Vector3 => new THREE.Vector3(p[0], p[1], p[2]);
 
@@ -102,6 +112,18 @@ interface Hotspot {
   side: Side;
 }
 
+/** Distancia (mm) desde la que se lanza el rayo de contacto visual hacia la piel. */
+const CONTACT_RAY_START_MM = 120;
+/** Corrección visual máxima del contacto (mm); más allá se deja la pose física. */
+const CONTACT_MAX_SHIFT_MM = 45;
+
+export interface HeadViewOptions {
+  /** Cargar la cabeza escaneada (false → cabeza estilizada; `?headmodel=0`). */
+  readonly scan?: boolean;
+  /** Enlace de cámaras con el navegador anatómico (DEC-59). */
+  readonly link?: ViewLink | null;
+}
+
 /**
  * Vista de cabeza con sonda arrastrable. `onStationChange` reutiliza el
  * camino de las pestañas (`setStation`); `apply` muta AppState.
@@ -122,31 +144,64 @@ export class HeadView3D {
   private readonly scalp: THREE.Mesh;
   private readonly hotspots: Hotspot[] = [];
   private readonly raycaster = new THREE.Raycaster();
+  private readonly gizmo = new AxisGizmo();
+  private readonly link: ViewLink | null;
+  /** Partes de la cabeza estilizada: se ocultan si carga el escaneo. */
+  private readonly stylised: THREE.Object3D[] = [];
+  /** Malla escaneada ya ajustada al caso (null: estilizada). */
+  private scanMesh: THREE.Mesh | null = null;
   private dragging: 'slide' | 'tilt' | null = null;
   private lastXY: [number, number] = [0, 0];
   private hoverProbe = false;
   private station: Station = 'ojo';
   private side: Side = 'der';
+  private applyingLink = false;
+  /** Hay algo nuevo que pintar (pose, cámara enlazada, asset cargado). */
+  private dirty = true;
+  private lastRenderMs = -Infinity;
+  /** Coste de CPU de `renderer.render` (ms): último y máximo (diagnóstico, DEC-59). */
+  readonly renderStats = { count: 0, lastMs: 0, maxMs: 0, totalMs: 0 };
+  /** `?perf3d`: `gl.finish()` tras cada pintado para medir CPU + GPU (diagnóstico). */
+  private readonly perfSync =
+    typeof location !== 'undefined' && new URLSearchParams(location.search).has('perf3d');
+  /** 'escaneo' tras cargar el asset; 'estilizada' mientras tanto o si falla. */
+  model: 'escaneo' | 'estilizada' = 'estilizada';
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly sim: ReferenceCase,
     private readonly state: AppState,
     private readonly onStationChange: (station: Station, side: Side) => void,
+    opts: HeadViewOptions = {},
   ) {
-    this.renderer = new THREE.WebGLRenderer({ canvas });
+    this.link = opts.link ?? null;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setClearColor('#17191d');
     this.camera = new THREE.PerspectiveCamera(32, 1, 0.5, 2000);
-    this.scene.add(new THREE.HemisphereLight('#e8f0fa', '#1a1d21', 1.0));
-    const key = new THREE.DirectionalLight('#ffffff', 1.5);
-    key.position.set(90, 130, 160);
-    this.scene.add(key);
+    // Luz cálida de hemisferio + clave + contraluz frío: sensación de piel
+    // (dispersión subsuperficial sugerida por el rebote cálido de las sombras).
+    this.scene.add(new THREE.HemisphereLight('#fff1e4', '#4a3830', 0.95));
+    const key = new THREE.DirectionalLight('#fff4ea', 1.55);
+    key.position.set(110, 150, 230);
+    const rim = new THREE.DirectionalLight('#c4d8ff', 0.85);
+    rim.position.set(-160, 90, -220);
+    const fill = new THREE.DirectionalLight('#ffd9c4', 0.35);
+    fill.position.set(-140, -40, 160);
+    this.scene.add(key, rim, fill);
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.15;
     this.controls.enablePan = false;
     this.controls.minDistance = 150;
-    this.controls.maxDistance = 500;
+    this.controls.maxDistance = 700;
+    this.controls.addEventListener('start', () => (this.orbiting = true));
+    this.controls.addEventListener('end', () => (this.orbiting = false));
+    // Maestra del enlace: cada cambio de órbita publica la dirección de vista.
+    this.controls.addEventListener('change', () => {
+      this.dirty = true;
+      if (!this.applyingLink) this.publishView();
+    });
+    this.link?.subscribe('cabeza', (view) => this.applyLinkedView(view));
     this.buildHead();
     this.scalp = this.scene.getObjectByName('scalp') as THREE.Mesh;
     this.scene.add(this.probe, this.planeGroup);
@@ -156,7 +211,14 @@ export class HeadView3D {
     canvas.addEventListener('pointerleave', () => this.onPointerUp());
     canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     canvas.addEventListener('dblclick', () => this.resetCamera(this.station, this.side));
+    this.canvas.dataset.headModel = this.model;
     this.resetCamera('ojo', 'der');
+    if (opts.scan !== false) {
+      this.loadScan().catch(() => {
+        // Sin red o sin WebGL suficiente: se queda la cabeza estilizada.
+        this.canvas.dataset.headModel = 'estilizada';
+      });
+    }
   }
 
   dispose(): void {
@@ -164,40 +226,106 @@ export class HeadView3D {
     this.renderer.dispose();
   }
 
+  /** Objetivo de la cámara: centro del cráneo (estilizada) o de la cabeza escaneada. */
+  private frameTarget(station: Station): Vec3 {
+    const c = this.sim.head.skullCenter;
+    const dy = station === 'submandibular' ? 30 : 0;
+    // El escaneo incluye cara completa y mentón (~140 mm bajo los ojos):
+    // el encuadre baja para que quepan cráneo y mentón.
+    const y = this.scanMesh ? c[1] - 20 : c[1];
+    return [c[0], y - dy, c[2] + 12];
+  }
+
+  private frameDistance(): number {
+    const r = Math.max(...this.sim.head.skullRadii);
+    return Math.min(this.controls.maxDistance, (this.scanMesh ? 6.1 : 4.8) * r);
+  }
+
   resetCamera(station: Station, side: Side): void {
     this.station = station;
     this.side = side;
-    const c = this.sim.head.skullCenter;
-    // Vista 3/4 sobre el lado examinado, ligeramente desde arriba; encuadre de
-    // cabeza completa (la cabeza ocupa ~75 % de la altura del canvas).
-    const sign = side === 'der' ? -1 : 1;
-    const az = ((station === 'ojo' ? 30 : 55) * Math.PI) / 180;
-    // Submandibular: cámara algo por debajo para ver el ángulo mandibular.
-    const el = ((station === 'ojo' ? 8 : station === 'submandibular' ? -14 : 12) * Math.PI) / 180;
-    const dist = Math.min(500, 4.8 * Math.max(...this.sim.head.skullRadii));
-    this.controls.target.set(c[0], c[1] - (station === 'submandibular' ? 30 : 0), c[2] + 12);
-    this.camera.position.set(
-      c[0] + sign * dist * Math.sin(az) * Math.cos(el),
-      c[1] + dist * Math.sin(el),
-      c[2] + dist * Math.cos(az) * Math.cos(el),
-    );
-    this.controls.update();
+    // Preset ÚNICO compartido con el navegador (DEC-59); encuadre propio.
+    const view = viewPreset(station, side);
+    const target = this.frameTarget(station);
+    this.applyingLink = true;
+    try {
+      this.controls.target.copy(v3(target));
+      this.camera.position.copy(v3(linkedCameraPosition(target, view, this.frameDistance())));
+      this.camera.up.copy(v3(view.up));
+      this.camera.lookAt(this.controls.target);
+      this.controls.update();
+    } finally {
+      this.applyingLink = false;
+    }
+    this.publishView();
+    this.dirty = true;
+  }
+
+  private publishView(): void {
+    const p = this.camera.position;
+    const t = this.controls.target;
+    const u = this.camera.up;
+    this.link?.publish('cabeza', viewFromCamera([p.x, p.y, p.z], [t.x, t.y, t.z], [u.x, u.y, u.z]));
+  }
+
+  /** Aplica la orientación enlazada desde su objetivo y a su distancia actual. */
+  applyLinkedView(view: ViewOrientation): void {
+    const t = this.controls.target;
+    const dist = this.camera.position.distanceTo(t);
+    this.applyingLink = true;
+    try {
+      this.camera.position.copy(v3(linkedCameraPosition([t.x, t.y, t.z], view, dist)));
+      this.camera.up.copy(v3(view.up));
+      this.camera.lookAt(t);
+    } finally {
+      this.applyingLink = false;
+    }
+    this.dirty = true;
+  }
+
+  /** Dirección de vista actual (tests/diagnóstico). */
+  viewDir(): Vec3 {
+    const p = this.camera.position;
+    const t = this.controls.target;
+    return normalize([p.x - t.x, p.y - t.y, p.z - t.z]);
   }
 
   private lastKey = '';
+  /**
+   * Actualiza sonda y plano con la MISMA `ProbePose` que recibe el navegador
+   * en el mismo fotograma (`currentPose` en main.ts, DEC-59).
+   */
   update(s: AppState, pose: ProbePose, scan: ScanGeometry | null): boolean {
     if (s.station !== this.station || s.side !== this.side) this.resetCamera(s.station, s.side);
-    const key = `${s.station}|${s.side}|${pose.origin.join(',')}|${pose.forward.join(',')}|${pose.lateral.join(',')}|${s.rotDeg}|${s.press}|${s.pwOn}|${s.settings.depthMm}`;
+    const key = `${s.station}|${s.side}|${pose.origin.join(',')}|${pose.forward.join(',')}|${pose.lateral.join(',')}|${s.rotDeg}|${s.press}|${s.pwOn}|${s.settings.depthMm}|${this.model}`;
     const changed = key !== this.lastKey;
     this.lastKey = key;
     if (changed) {
       updateProbePose(this.probe, pose, s.station === 'ojo');
       this.updateScanPlane(s, pose, scan);
+      this.applyContact(pose);
+      this.dirty = true;
     }
     return changed;
   }
 
-  render(): void {
+  /**
+   * Pinta si hay cambios (pose, cámara, asset) como mucho cada
+   * `minIntervalMs`, o siempre mientras se interactúa. La vista es una
+   * segunda superficie WebGL: a ritmo reducido basta.
+   */
+  renderIfNeeded(nowMs: number, minIntervalMs = 150): boolean {
+    const cameraMoved = this.controls.update();
+    if (cameraMoved) this.dirty = true;
+    if (!this.dirty) return false;
+    if (!this.interacting && !cameraMoved && nowMs - this.lastRenderMs < minIntervalMs) return false;
+    this.lastRenderMs = nowMs;
+    this.dirty = false;
+    this.render(false);
+    return true;
+  }
+
+  render(updateControls = true): void {
     const w = this.canvas.clientWidth || 280;
     const h = this.canvas.clientHeight || 280;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -207,8 +335,136 @@ export class HeadView3D {
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
     }
-    this.controls.update();
+    if (updateControls) this.controls.update();
+    const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
+    this.gizmo.render(this.renderer, this.camera);
+    if (this.perfSync) this.renderer.getContext().finish();
+    const ms = performance.now() - t0;
+    const st = this.renderStats;
+    st.count += 1;
+    st.lastMs = ms;
+    st.totalMs += ms;
+    st.maxMs = Math.max(st.maxMs, ms);
+    this.canvas.dataset.renderMs = ms.toFixed(2);
+    this.canvas.dataset.renderAvgMs = (st.totalMs / st.count).toFixed(2);
+  }
+
+  // ── cabeza escaneada (DEC-59) ──
+
+  /**
+   * Carga «Lee Perry-Smith» (CC BY 3.0, ver docs/PROVENANCE.md), ajusta la
+   * malla a los ojos del caso y oculta la cabeza estilizada (incluidos los
+   * globos: los ojos del escaneo están cerrados). Los anillos de las
+   * ventanas se recolocan sobre la piel escaneada.
+   */
+  private async loadScan(): Promise<void> {
+    const base = `${import.meta.env.BASE_URL}models/head/`;
+    const tex = new THREE.TextureLoader();
+    // GLTFLoader en su propio chunk (≈ 60 kB): solo se descarga con el escaneo.
+    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const [gltf, map, normalMap] = await Promise.all([
+      new GLTFLoader().loadAsync(`${base}LeePerrySmith.glb`),
+      tex.loadAsync(`${base}Map-COL.jpg`),
+      tex.loadAsync(`${base}Infinite-Level_02_Tangent_SmoothUV.jpg`),
+    ]);
+    let source: THREE.Mesh | null = null;
+    gltf.scene.traverse((o) => {
+      if (!source && o instanceof THREE.Mesh) source = o;
+    });
+    if (!source) throw new Error('LeePerrySmith.glb sin malla');
+    const geometry = (source as THREE.Mesh).geometry;
+    map.colorSpace = THREE.SRGBColorSpace;
+    const aniso = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
+    map.anisotropy = aniso;
+    normalMap.anisotropy = aniso;
+    const material = new THREE.MeshStandardMaterial({
+      map,
+      normalMap,
+      normalScale: new THREE.Vector2(0.8, 0.8),
+      roughness: 0.6,
+      metalness: 0,
+      // Rebote cálido mínimo: sombras de piel algo rojizas, no negras.
+      emissive: new THREE.Color('#3b1d14'),
+      emissiveIntensity: 0.18,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = 'headScan';
+    const fit = fitHeadScan(this.sim);
+    mesh.scale.set(fit.scale[0], fit.scale[1], fit.scale[2]);
+    mesh.position.set(fit.offset[0], fit.offset[1], fit.offset[2]);
+    mesh.updateMatrixWorld(true);
+    geometry.computeBoundingSphere();
+    this.scene.add(mesh);
+    this.scanMesh = mesh;
+    for (const o of this.stylised) o.visible = false;
+    this.placeHotspotsOnScan();
+    this.model = 'escaneo';
+    this.canvas.dataset.headModel = 'escaneo';
+    this.lastKey = '';
+    this.resetCamera(this.station, this.side);
+    this.dirty = true;
+  }
+
+  /** Primer impacto sobre la piel escaneada del rayo `from` + t·`dir` (mm). */
+  private scanHit(from: Vec3, dir: Vec3, far: number): { t: number; point: Vec3 } | null {
+    if (!this.scanMesh) return null;
+    this.raycaster.set(v3(from), v3(normalize(dir)));
+    this.raycaster.far = far;
+    const hits = this.raycaster.intersectObject(this.scanMesh, false);
+    this.raycaster.far = Infinity;
+    const h = hits[0];
+    return h ? { t: h.distance, point: [h.point.x, h.point.y, h.point.z] } : null;
+  }
+
+  /**
+   * Contacto VISUAL (solo esta vista; la pose física no cambia): se desliza
+   * la sonda y su plano a lo largo del haz hasta que la cara toca la piel
+   * escaneada (p. ej. el párpado cerrado).
+   */
+  private applyContact(pose: ProbePose): void {
+    let shift = 0;
+    if (this.scanMesh) {
+      const fwd = normalize(pose.forward);
+      const hit = this.scanHit(
+        add(pose.origin, scale(fwd, -CONTACT_RAY_START_MM)),
+        fwd,
+        CONTACT_RAY_START_MM + CONTACT_MAX_SHIFT_MM,
+      );
+      const s = hit ? hit.t - CONTACT_RAY_START_MM : 0;
+      shift = Math.abs(s) <= CONTACT_MAX_SHIFT_MM ? s : 0;
+      const d = scale(fwd, shift);
+      this.probe.position.add(v3(d));
+      this.planeGroup.position.copy(v3(d));
+    } else {
+      this.planeGroup.position.set(0, 0, 0);
+    }
+    // Desplazamiento visual (mm, a lo largo del haz) hasta la piel escaneada.
+    this.canvas.dataset.contactMm = shift.toFixed(1);
+  }
+
+  /** Recoloca los anillos de las ventanas sobre la superficie escaneada. */
+  private placeHotspotsOnScan(): void {
+    for (const hs of this.hotspots) {
+      let origin: Vec3;
+      let inward: Vec3;
+      if (hs.station === 'ojo') {
+        origin = lidTarget(this.sim, hs.side);
+        inward = [0, 0, -1];
+      } else if (hs.station === 'temporal') {
+        const wc = this.sim.head.windowCenter[hs.side];
+        origin = wc;
+        inward = normalize(sub(this.sim.head.midbrainCenter, wc));
+      } else {
+        const f = this.sim.neck[hs.side].frame;
+        origin = f.origin;
+        inward = normalize(f.beam);
+      }
+      const hit = this.scanHit(add(origin, scale(inward, -150)), inward, 220);
+      if (!hit) continue;
+      hs.mesh.position.copy(v3(add(hit.point, scale(inward, -1.5))));
+      hs.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), v3(scale(inward, -1)));
+    }
   }
 
   // ── cabeza estilizada ──
@@ -224,6 +480,11 @@ export class HeadView3D {
     return c[2] + rz * Math.sqrt(Math.max(0.02, k));
   }
 
+  private addStylised(...objs: THREE.Object3D[]): void {
+    this.scene.add(...objs);
+    this.stylised.push(...objs);
+  }
+
   private buildHead(): void {
     const h = this.sim.head;
     const skin = new THREE.MeshStandardMaterial({ color: '#c9a184', roughness: 0.8, metalness: 0 });
@@ -235,7 +496,7 @@ export class HeadView3D {
     scalp.name = 'scalp';
     scalp.position.copy(v3(c));
     scalp.scale.set(r[0] + 7, r[1] + 7, r[2] + 7);
-    this.scene.add(scalp);
+    this.addStylised(scalp);
     // Cabello: casquete del elipsoide +9 mm recortado a y > centro + 20 mm.
     const hairCap = new THREE.Mesh(
       new THREE.SphereGeometry(1, 48, 24, 0, Math.PI * 2, 0, Math.acos(20 / (r[1] + 9))),
@@ -243,16 +504,16 @@ export class HeadView3D {
     );
     hairCap.position.copy(v3(c));
     hairCap.scale.set(r[0] + 9, r[1] + 9, r[2] + 9);
-    this.scene.add(hairCap);
+    this.addStylised(hairCap);
     // Cuello.
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(34, 38, 70, 24), skin);
     neck.position.set(c[0], c[1] - r[1] - 24, c[2] - 8);
-    this.scene.add(neck);
+    this.addStylised(neck);
     // Mandíbula estilizada: el punto submandibular queda en su cara inferior.
     const jaw = new THREE.Mesh(new THREE.SphereGeometry(1, 36, 24), skin);
     jaw.position.set(c[0], -56, 12);
     jaw.scale.set(50, 24, 52);
-    this.scene.add(jaw);
+    this.addStylised(jaw);
     // Hotspots submandibulares (DEC-58): anillos bajo el ángulo mandibular,
     // perpendiculares al haz craneal por defecto.
     for (const side of ['der', 'izq'] as const) {
@@ -296,7 +557,7 @@ export class HeadView3D {
       const brow = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 17, 8), hairMat);
       brow.position.set(eye.center[0], eye.center[1] + r0 + 7, gz + r0 * 0.45);
       brow.rotation.z = Math.PI / 2 + (side === 'der' ? 0.12 : -0.12);
-      this.scene.add(globe, iris, pupil, lidU, lidL, brow);
+      this.addStylised(globe, iris, pupil, lidU, lidL, brow);
       // Hotspot ocular: anillo fino alrededor de la órbita mirando a +z.
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(r0 + 6, 0.9, 8, 40),
@@ -325,14 +586,14 @@ export class HeadView3D {
     );
     const mouthY = c[1] - 66;
     mouth.position.set(c[0], mouthY, this.faceZ(c[0], mouthY) - 1);
-    this.scene.add(nose, noseTip, mouth);
+    this.addStylised(nose, noseTip, mouth);
     // Orejas: toros achatados a ±x a la altura de la ventana.
     for (const sx of [-1, 1] as const) {
       const ear = new THREE.Mesh(new THREE.TorusGeometry(10, 3.4, 10, 24), skin);
       ear.position.set(c[0] + sx * (r[0] + 5), c[1] - 10, c[2] + 2);
       ear.rotation.y = Math.PI / 2;
       ear.scale.set(1, 1.3, 0.6);
-      this.scene.add(ear);
+      this.addStylised(ear);
     }
     // Hotspots de la ventana temporal: anillos sutiles sobre la piel.
     for (const side of ['der', 'izq'] as const) {
@@ -429,7 +690,7 @@ export class HeadView3D {
 
   private raycastScalp(e: PointerEvent): Vec3 | null {
     this.raycaster.setFromCamera(this.ndc(e), this.camera);
-    const hits = this.raycaster.intersectObject(this.scalp, false);
+    const hits = this.raycaster.intersectObject(this.scanMesh ?? this.scalp, false);
     if (!hits.length) return null;
     const p = hits[0]!.point;
     return [p.x, p.y, p.z];

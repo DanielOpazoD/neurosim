@@ -3,8 +3,8 @@ import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { eyeLocalDir, nerveCenterline, nerveFrame, fromEyeLocal } from '../../src/anatomy/eye';
 import { currentPose } from '../../src/app/poses';
 import { createInitialState } from '../../src/app/state';
-import { describeStaticScene, flowColor, probeBasis } from '../../src/ui/navigator3d';
-import { dot } from '../../src/core/vec3';
+import { describeStaticScene, eyeNavigatorFrame, flowColor, probeBasis } from '../../src/ui/navigator3d';
+import { dist, dot, type Vec3 } from '../../src/core/vec3';
 
 const sim = buildReferenceCase();
 
@@ -14,33 +14,60 @@ describe('navegador 3D (escena estática)', () => {
     expect(desc.tubes.filter((t) => t.vesselId)).toHaveLength(sim.head.vessels.length);
   });
 
-  it('la estación ocular describe ambos ojos con nervio, vaina y anillo ONSD', () => {
-    const desc = describeStaticScene(sim, 'ojo');
-    // Dos globos + dos córneas.
-    expect(desc.ellipsoids).toHaveLength(4);
-    // Dos nervios + dos vainas.
-    expect(desc.tubes).toHaveLength(4);
-    expect(desc.lenses).toHaveLength(2);
-    expect(desc.bands).toHaveLength(8);
-    for (const ring of desc.rings) {
-      const expected = fromEyeLocal(sim.eyes.der, nerveCenterline(sim.eyes.der, 3));
-      const expectedIzq = fromEyeLocal(sim.eyes.izq, nerveCenterline(sim.eyes.izq, 3));
-      const match =
-        ring.center.every((v, i) => Math.abs(v - expected[i]!) < 1e-9) ||
-        ring.center.every((v, i) => Math.abs(v - expectedIzq[i]!) < 1e-9);
-      expect(match).toBe(true);
+  it('la estación ocular describe solo la órbita explorada con nervio, vaina y anillo ONSD', () => {
+    for (const side of ['der', 'izq'] as const) {
+      const desc = describeStaticScene(sim, 'ojo', side);
+      // Globo + córnea, nervio + vaina, cristalino, 4 rectos (N15b: sin el otro ojo).
+      expect(desc.ellipsoids).toHaveLength(2);
+      expect(desc.tubes).toHaveLength(2);
+      expect(desc.lenses).toHaveLength(1);
+      expect(desc.bands).toHaveLength(4);
+      // Rectos muy translúcidos: el nervio y la vaina se leen a través.
+      for (const band of desc.bands) expect(band.opacity).toBe(0.25);
+      expect(desc.rings).toHaveLength(1);
+      const expected = fromEyeLocal(sim.eyes[side], nerveCenterline(sim.eyes[side], 3));
+      expect(desc.rings[0]!.center.every((v, i) => Math.abs(v - expected[i]!) < 1e-9)).toBe(true);
+      const other = sim.eyes[side === 'der' ? 'izq' : 'der'];
+      for (const e of desc.ellipsoids) expect(dist(e.center, other.center)).toBeGreaterThan(30);
+    }
+  });
+
+  it('encuadre ocular: huella de la sonda, globo y anillo a 3 mm dentro del radio', () => {
+    for (const side of ['der', 'izq'] as const) {
+      const eye = sim.eyes[side];
+      const { target, radiusMm } = eyeNavigatorFrame(sim, side);
+      const pose = currentPose(sim, { ...createInitialState(), station: 'ojo', side });
+      // Objetivo entre la cara de la sonda y el centro del globo.
+      const toProbe = dist(target, pose.origin);
+      const toCenter = dist(target, eye.center);
+      expect(Math.abs(toProbe - toCenter)).toBeLessThan(1e-9);
+      expect(toProbe + toCenter).toBeCloseTo(dist(pose.origin, eye.center), 9);
+      // Extremos de la huella (±25 mm lateral), polo posterior y anillo DVNO.
+      const lat = pose.lateral;
+      for (const sgn of [-1, 1]) {
+        const end: Vec3 = [
+          pose.origin[0] + lat[0] * 25 * sgn,
+          pose.origin[1] + lat[1] * 25 * sgn,
+          pose.origin[2] + lat[2] * 25 * sgn,
+        ];
+        expect(dist(end, target)).toBeLessThan(radiusMm);
+      }
+      const ring = fromEyeLocal(eye, nerveCenterline(eye, 3));
+      expect(dist(ring, target)).toBeLessThan(radiusMm);
+      expect(dist(eye.center, target) + eye.globeRadiusMm).toBeLessThan(radiusMm);
+      expect(radiusMm).toBeLessThan(32);
     }
   });
 
   it('vaina y anillo DVNO usan el marco de la sección (DEC-57) en coordenadas del paciente', () => {
-    const desc = describeStaticScene(sim, 'ojo');
-    const sheaths = desc.tubes.filter((t) => t.section);
-    expect(sheaths).toHaveLength(2);
-    expect(desc.rings).toHaveLength(2);
-    (['der', 'izq'] as const).forEach((side, i) => {
+    (['der', 'izq'] as const).forEach((side) => {
+      const desc = describeStaticScene(sim, 'ojo', side);
+      const sheaths = desc.tubes.filter((t) => t.section);
+      expect(sheaths).toHaveLength(1);
+      expect(desc.rings).toHaveLength(1);
       const eye = sim.eyes[side];
       const f = nerveFrame(eye, 3);
-      const ring = desc.rings[i]!;
+      const ring = desc.rings[0]!;
       const t = eyeLocalDir(eye, f.t);
       const u = eyeLocalDir(eye, f.u);
       for (let k = 0; k < 3; k++) {
@@ -51,7 +78,7 @@ describe('navegador 3D (escena estática)', () => {
       expect(ring.minorScale).toBeCloseTo(eye.sheathEcc, 9);
       // El marco local se transforma al paciente (en el ojo izquierdo
       // temporal = −x): antes la tangente del anillo se copiaba sin rotar.
-      const sheath = sheaths[i]!.section!;
+      const sheath = sheaths[0]!.section!;
       expect(sheath.u[3]!.every((v, k) => Math.abs(v - u[k]!) < 1e-9)).toBe(true);
     });
   });

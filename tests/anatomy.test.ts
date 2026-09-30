@@ -13,7 +13,15 @@ import {
   trueOnsdMm,
 } from '../src/anatomy/eye';
 import { CASES } from '../src/domain/cases';
-import { classifyHead, inTemporalWindow, landmarkAt, skullThicknessAt, vesselAt } from '../src/anatomy/head';
+import {
+  BONE_RIDGE_RADIUS_MM,
+  BONE_RIDGES,
+  classifyHead,
+  inTemporalWindow,
+  landmarkAt,
+  skullThicknessAt,
+  vesselAt,
+} from '../src/anatomy/head';
 import { smoothPolyline } from '../src/anatomy/willis';
 import { ANATOMIA_CABEZA, ANATOMIA_OJO } from '../src/anatomy/params';
 import { buildReferenceCase } from '../src/domain/referenceCase';
@@ -388,9 +396,32 @@ describe('cráneo de referencia N1', () => {
     );
     expect(landmarkAt(h, [h.midbrainCenter[0], h.midbrainCenter[1], h.midbrainCenter[2] - 2])).toBe('rafe');
     expect(landmarkAt(h, [c[0] + 10, c[1], c[2] + 15])).toBe('cuernoFrontal');
-    expect(landmarkAt(h, [h.midbrainCenter[0] + 20, h.midbrainCenter[1] - 4, h.midbrainCenter[2] - 30])).toBe(
-      'penasco',
-    );
+    // Crestas óseas (N15b): tubos a lo largo de la cresta.
+    expect(landmarkAt(h, [28, 8, -20])).toBe('penasco');
+    expect(landmarkAt(h, [-21, 12, 5])).toBe('alaEsfenoidal');
+    expect(classifyHead(h, [-21, 12, 5])).toBe('crestaOsea');
+  });
+
+  it('las crestas óseas son tubos finos que no tocan la M1 ni sus ramas', () => {
+    for (const ridge of BONE_RIDGES) {
+      expect(ridge.radiusMm).toBe(BONE_RIDGE_RADIUS_MM);
+      for (let i = 0; i + 1 < ridge.points.length; i++) {
+        const a = ridge.points[i]!;
+        const b = ridge.points[i + 1]!;
+        for (let t = 0; t <= 1; t += 0.1) {
+          const q: Vec3 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+          // Eje: cresta; a 1,5 mm en vertical (fuera del tubo) ya no.
+          expect(landmarkAt(h, q)).toBe(ridge.id);
+          expect(['penasco', 'alaEsfenoidal']).not.toContain(landmarkAt(h, [q[0], q[1] + 1.5, q[2]]));
+          for (const v of h.vessels) {
+            if (!/^(m1|m2|ica|a1|pcoa|p1|p2)-/.test(v.id)) continue;
+            for (const c of v.points) {
+              expect(dist(q, c) - v.radiusMm - ridge.radiusMm).toBeGreaterThan(1.5);
+            }
+          }
+        }
+      }
+    }
   });
 
   it('separa el plano mesencefálico del diencefálico mediante el tilt', () => {

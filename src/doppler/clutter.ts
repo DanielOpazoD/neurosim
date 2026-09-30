@@ -1,6 +1,5 @@
 import type { Vec3 } from '../core/vec3';
 import { normalize, scale, sub } from '../core/vec3';
-import { hash3 } from '../core/random';
 import type { VesselScene } from '../anatomy/head';
 import { vesselClosest, vesselDistance, vesselLowerBound } from '../anatomy/head';
 import { arterialShape } from '../physiology/flow';
@@ -93,18 +92,4 @@ export function tissueVelocityMmS(inp: TissueMotionInput): Vec3 {
     inp.heartRateBpm,
     inp.tSec,
   );
-}
-
-export function handTremorVelocityMmS(tSec: number, seed: number): Vec3 {
-  const out: Vec3 = [0, 0, 0];
-  for (let axis = 0; axis < 3; axis += 1) {
-    let value = 0;
-    for (let harmonic = 0; harmonic < 2; harmonic += 1) {
-      const frequency = 8 + 4 * hash3(seed, axis, harmonic, 0x54524d46);
-      const phase = 2 * Math.PI * hash3(seed, axis, harmonic, 0x54525048);
-      value += Math.sin(2 * Math.PI * frequency * tSec + phase);
-    }
-    out[axis] = value * DOPPLER.params.handTremorMmS.value;
-  }
-  return out;
 }
