@@ -104,7 +104,40 @@ test('calibre: arrastre mide, la lista enumera y Supr/× borran', async ({ page 
   expect(pageErrors).toEqual([]);
 });
 
-test('DVNO: referencia a 3 mm visible y medición con etiqueta de protocolo', async ({ page }) => {
+test('calibre: arrastrar un extremo edita el valor; Escape revierte', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto('/?clock=fixed&t=0.4');
+  await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
+
+  await page.locator('#caliper').click();
+  const box = await canvasBox(page);
+  await dragOnBMode(page, at(box, 0.4, 0.6), at(box, 0.6, 0.6));
+  await expect(page.locator('#measureList')).toContainText('7.6 mm');
+
+  // Edición del extremo B: 160 px → 9,5 mm (una sola medición, no duplicada).
+  const [bx, by] = at(box, 0.6, 0.6);
+  const [bx2] = at(box, 0.65, 0.6);
+  await page.mouse.move(bx, by);
+  await page.mouse.down();
+  await page.mouse.move(bx2, by, { steps: 4 });
+  await page.mouse.up();
+  await expect(page.locator('#measureList')).toContainText('9.5 mm');
+  await expect(page.locator('.mrow')).toHaveCount(1);
+
+  // Segundo intento de edición cancelado con Escape: vuelve a 9,5 mm.
+  const [bx3] = at(box, 0.65, 0.6);
+  const [bx4, by4] = at(box, 0.8, 0.8);
+  await page.mouse.move(bx3, by);
+  await page.mouse.down();
+  await page.mouse.move(bx4, by4, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(page.locator('#measureList')).toContainText('9.5 mm');
+  expect(pageErrors).toEqual([]);
+});
+
+test('DVNO: referencia a 3 mm visible y medición con etiqueta de protocolo', async ({ page }, testInfo) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.goto('/?clock=fixed&t=0.4');
@@ -122,9 +155,20 @@ test('DVNO: referencia a 3 mm visible y medición con etiqueta de protocolo', as
   await page.mouse.move(mx, my, { steps: 3 });
   await expect.poll(() => caliperPixels(page), { timeout: 5_000 }).toBeGreaterThan(base + 200);
 
-  // Arrastre cerca de la referencia (vaina a ~0,66 de alto): confirma DVNO.
-  await dragOnBMode(page, at(box, 0.42, 0.66), at(box, 0.55, 0.66));
-  await expect(page.locator('#measureList')).toContainText('1 · DVNO D transversal');
+  // Captura a medio gesto: banda elástica + etiqueta flotante + lupa + referencia.
+  const [ax, ay] = at(box, 0.42, 0.66);
+  const [mx2, my2] = at(box, 0.5, 0.66);
+  await page.mouse.move(ax, ay);
+  await page.mouse.down();
+  await page.mouse.move(mx2, my2, { steps: 4 });
+  await page
+    .screenshot()
+    .then((png) => testInfo.attach('calibre-dvno-medio-gesto', { body: png, contentType: 'image/png' }));
+  await page.mouse.up();
+
+  // Segundo arrastre en zona libre del primer segmento: confirma otra DVNO.
+  await dragOnBMode(page, at(box, 0.3, 0.45), at(box, 0.45, 0.45));
+  await expect(page.locator('#measureList')).toContainText('2 · DVNO D transversal');
   await expect(page.locator('#measureList')).toContainText(/\d+\.\d\d mm/);
   expect(pageErrors).toEqual([]);
 });

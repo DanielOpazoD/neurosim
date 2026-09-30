@@ -1654,7 +1654,10 @@ bmodeCv.addEventListener('pointerup', (e) => {
   if (bmodeCv.hasPointerCapture(e.pointerId)) bmodeCv.releasePointerCapture(e.pointerId);
 });
 bmodeCv.addEventListener('pointerleave', () => caliperTool.leave());
-bmodeCv.addEventListener('pointercancel', () => caliperTool.reset());
+bmodeCv.addEventListener('pointercancel', () => {
+  caliperTool.reset();
+  caliperTool.consumeClick(); // un cancel no genera `click`: drena la marca
+});
 bmodeCv.addEventListener('click', (e) => {
   const fromTool = caliperTool.consumeClick();
   if (suppressClick || fromTool) {

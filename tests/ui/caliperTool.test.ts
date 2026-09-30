@@ -231,6 +231,36 @@ describe('herramienta de calibre (DEC-61)', () => {
     expect(s.side).toBe('der');
   });
 
+  it('seleccionar con clic también suprime el click de cierre', () => {
+    const s = eyeState('der');
+    s.caliperMode = 'dist';
+    const tool = new CaliperTool(sim, s, surface);
+    tool.down(100, 200);
+    tool.move(200, 200);
+    tool.up(200, 200);
+    tool.consumeClick(); // drena el click del arrastre de medición
+    // Un clic sobre la línea solo selecciona, pero su click DOM de cierre no
+    // debe colocar una puerta PW con `pwOn`.
+    tool.down(150, 200);
+    tool.up(150, 200);
+    expect(tool.view.selectedId).not.toBeNull();
+    expect(tool.consumeClick()).toBe(true);
+    expect(tool.consumeClick()).toBe(false);
+  });
+
+  it('Escape a medio gesto suprime el click de cierre', () => {
+    const s = eyeState('der');
+    s.caliperMode = 'dist';
+    const tool = new CaliperTool(sim, s, surface);
+    tool.down(100, 200);
+    tool.move(160, 200);
+    expect(tool.key('Escape')).toBe(true);
+    tool.up(160, 200);
+    expect(s.measurements).toHaveLength(0);
+    expect(tool.consumeClick()).toBe(true);
+    expect(tool.consumeClick()).toBe(false);
+  });
+
   it('borrar desde la lista (remove) limpia selección y huecos de protocolo', () => {
     const s = eyeState('der');
     s.caliperMode = 'dvno';

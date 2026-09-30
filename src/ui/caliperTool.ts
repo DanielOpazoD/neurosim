@@ -123,6 +123,10 @@ export class CaliperTool {
   /** Botón principal abajo. Devuelve si el gesto es del calibre. */
   down(x: number, y: number): boolean {
     if (!this.active) return false;
+    // Todo gesto consumido suprime el `click` DOM que lo cierra, incluidos
+    // selección por clic y gestos luego cancelados con Escape (sin esta marca
+    // el `click` colocaría una puerta PW espuria con `pwOn`).
+    this.clickSuppressed = true;
     this.downX = x;
     this.downY = y;
     this.dragging = false;
@@ -201,8 +205,6 @@ export class CaliperTool {
   /** Botón principal arriba. Devuelve si el gesto era del calibre. */
   up(x: number, y: number): boolean {
     if (!this.active) return false;
-    // Solo gestos iniciados en el canvas suprimen el `click` de cierre.
-    if (this.gesture !== 'idle' || this.v.pending) this.clickSuppressed = true;
     if (this.gesture === 'editing') {
       const entry = this.s.caliperEntries.find((e) => e.id === this.v.editingId);
       const prev = this.editPrev;

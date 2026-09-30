@@ -859,10 +859,13 @@ variante, caso)` que el worker de render. El protocolo vive en
     restringe perpendicular al nervio en mm del plano (isótropo, no en px del
     lineal anisótropo) antes de aplicar el mismo imán — medir sobre la
     referencia reproduce la DVNO interna del modelo. Prioridad de puntero:
-    calibre > caja de color > puerta PW solo en gestos reales; el `click` de
-    cierre de un gesto de calibre queda suprimido (`consumeClick`), así que la
-    puerta sigue respondiendo al clic directo como antes (los e2e la ponen con
-    un `click` sintético sin pointerdown). Cada medición confirmada es una
+    calibre > caja de color > puerta PW solo en gestos reales; todo gesto
+    consumido por el calibre (medición, selección, edición o cancelado con
+    Escape) suprime su `click` de cierre (`consumeClick` marcado en el `down`,
+    drenado en `pointercancel`), así que la puerta sigue respondiendo al clic
+    directo como antes (los e2e la ponen con un `click` sintético sin
+    pointerdown). Los modos DVNO/DTE se reinician a «none» al salir de la
+    estación ocular y el `#hint` explica los gestos del modo activo. Cada medición confirmada es una
     `CaliperEntry` (número, puntos de imagen, cuadro, `poseKey`, rótulo y
     hueco de protocolo): en vivo solo se dibuja con la misma pose/equipo y
     congelada solo sobre su cuadro; editarla sustituye la `Measurement` en la
