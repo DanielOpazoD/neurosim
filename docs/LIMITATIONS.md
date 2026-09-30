@@ -49,8 +49,11 @@ siguiente existe todavía por diseño del plan:
   parámetro latente del paciente, nunca derivado de la imagen. La DVNO sigue
   `onsdForIcpMm` (lineal, saturada en `onsdMaxMm`).
 - **LIM-04 · Realismo acústico parcial**: el renderer B-mode es CPU con haz
-  gaussiano por apertura, lóbulos laterales y refracción del cristalino; aún
-  no modela reverb de multicamino ni shadowing complejo fuera de esa interfaz.
+  gaussiano por apertura, lóbulos laterales, ganancia de zona focal, ecos de
+  interfaz axiales y laterales (DEC-64) y refracción del cristalino; aún no
+  modela reverb de multicamino, shadowing complejo fuera de esa interfaz ni
+  espesor de corte elevacional (el haz B-mode es infinitamente fino en
+  elevación: `elevationFwhmMm` solo alimenta el Doppler color).
 - **LIM-05 · Normal de interfaz**: se estima contando cambios de material por
   eje (±0,3 mm); es no signada y cuantizada, suficiente para el peso
   especular.

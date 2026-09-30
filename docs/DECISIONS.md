@@ -932,3 +932,24 @@ press)` y acumula camino angular `|Δtilt|+|ΔtiltV|+|Δrot|` (°), camino
     con ≥ 2 marcas del mismo signo calcula `(|PSV|−|EDV|)/|PSV|` con la mayor
     y la menor |v|; los readouts PW lo muestran como «IR manual (±)» con la
     fórmula y Δt entre marcas, al lado del IR automático del controlador.
+63. **DEC-64** — Fidelidad B-mode: ganancia de zona focal y ecos de interfaz
+    laterales (N15c). **Zona focal** (`txGainLin` en `src/ultrasound/bmode.ts`):
+    la apertura focalizada concentra la intensidad transmitida alrededor de
+    `focusMm` — pico `txFocusGainDb` (6 dB) con semianchura a media potencia
+    `focalZoneLambdaSq`·λ·F#² (≈4·λ·F#², confusión axial). Multiplica al eco
+    antes de la atenuación por muestra, así que la zona focal aparece como
+    banda brillante y mover el foco enseña a posicionarlo en la estructura de
+    interés (en el preset transcraneal la zona es ancha — F# alto y λ larga —
+    como en los equipos reales). **Interfaces laterales**: el raymarch guarda
+    `matGrid`/`attGrid` por celda y una pasada detecta bordes de material
+    entre líneas adyacentes (misma distancia radial, válido en lineal y en
+    sector) — las paredes paralelas al haz (vaina del nervio, ventrículos,
+    vasos) ya no dependen solo del speckle. La apertura angular del haz las
+    insona oblicuamente: se aplica la fracción `lateralInterfaceGain` (0,4)
+    del eco perpendicular, atenuada en cada celda receptora, sin réplicas
+    propias. El resultado hace medibles los dos bordes de la vaina en DVNO.
+    Ambas mejoras viven en el raymarch → las heredan la ruta CPU y la GPU, y
+    los ecos laterales se suman también con `speckle:false` (son interfaz,
+    no dispersión). Dorados regenerados: cambio de imagen justificado.
+    `tests/validation/focalYLateral.test.ts` fija ambas leyes (pico focal
+    desplazable, borde de esclera-vítreo > 15 dB sobre el interior).

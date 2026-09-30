@@ -67,9 +67,13 @@ function psfSetup() {
 }
 
 describe('validación del PSF', () => {
+  // La placa fina tiene bordes laterales reales: los tests miden el kernel
+  // separable puro, así que desactivan la ganancia focal y los ecos
+  // laterales (DEC-64), que ensanchan/deforman el perfil físicamente.
+  const pureKernel = { txFocusGain: false, lateralInterfaces: false };
   it('la placa de 0,8 mm reproduce la predicción caja-gaussiana', () => {
     const { settings, pitch, scan, plateRow, scene } = psfSetup();
-    const frame = renderBMode(scene, scan, settings, 'psf');
+    const frame = renderBMode(scene, scan, settings, 'psf', pureKernel);
     const lateral = Array.from({ length: frame.width }, (_, li) => frame.db[plateRow * frame.width + li]!);
     const measured = fwhm(lateral, pitch);
     const beam = probeBeamSpec(settings.transducer, settings);
@@ -86,7 +90,7 @@ describe('validación del PSF', () => {
         return Math.abs(p[2] - settings.focusMm) < 0.25 && Math.abs(p[0]) < 0.05 ? 'paredGlobo' : 'vitrio';
       },
     };
-    const frame = renderBMode(scene, scan, settings, 'psf-pura', { speckle: false });
+    const frame = renderBMode(scene, scan, settings, 'psf-pura', { speckle: false, ...pureKernel });
     const lateral = Array.from({ length: frame.width }, (_, li) => frame.db[plateRow * frame.width + li]!);
     const measured = fwhm(lateral, pitch);
     const beam = probeBeamSpec(settings.transducer, settings);
@@ -98,7 +102,7 @@ describe('validación del PSF', () => {
 
   it('mide el ancho axial y el ensanchamiento por desenfoque', () => {
     const { settings, pitch, scan, plateRow, dz, scene } = psfSetup();
-    const frame = renderBMode(scene, scan, settings, 'psf-limpio', { speckle: false });
+    const frame = renderBMode(scene, scan, settings, 'psf-limpio', { speckle: false, ...pureKernel });
     const centerLine = Math.floor(scan.lineCount / 2);
     const axial = Array.from({ length: frame.height }, (_, zi) => frame.db[zi * frame.width + centerLine]!);
     const sigmaAxial = Math.max(1, 2.2 / settings.frequencyMhz / dz);
