@@ -887,3 +887,32 @@ variante, caso)` que el worker de render. El protocolo vive en
     `temporalDerBmode`, `pwM1Point2` y `colorM1Der` por el material
     `crestaOsea` (las crestas cambian la ecogenicidad puntual del plano DTC);
     el resto sin cambios.
+
+61. **DEC-62** — Calibre de velocidad sobre la traza espectral (N15b). El modo
+    «Caliper» (`caliperMode === 'dist'`) cubre ahora ambos canvas, como en un
+    ecógrafo real: distancia en el B-mode y velocidad en el espectro.
+    **`src/ui/spectralCaliper.ts`** (máquina de gestos sin DOM, activa solo con
+    PW encendido y columnas recibidas): clic coloca una marca puntual (t, v) —
+    un arrastre coloca y afina en el mismo gesto; bajar sobre una marca
+    (≤ 8 px) la reedita en vivo; clic en la marca o en la lista selecciona;
+    Supr/Retroceso borra; Escape cancela y revierte la edición al punto
+    original. La marca se ancla a **tiempo absoluto de columna y velocidad
+    física con signo** (`SpectralMark.tSeconds`/`velocityCms` en
+    `src/app/state.ts`): barre con la traza al hacer scroll y conserva la
+    medida si cambian `invert`, `baseline` o PRF — solo se reposiciona en el
+    canvas o sale del barrido. **Mapeo** (`src/ui/spectrogramRaster.ts`):
+    `spectralGeometry` (t1 de la última columna, barrido, baseline, invert y
+    Nyquist con la corrección de ángulo) y `spectralPixelToPoint` /
+    `spectralPointToPixel` comparten la geometría exacta de `drawSpectrum`, y
+    `rowFrequencyFraction` queda exportada como inversa de
+    `frequencyFractionToY`. **Registro** (`src/app/measurements.ts`): cada
+    marca empuja un `Measurement` `trazado-espectral`/`cm/s` a la lista común
+    (la edición la sustituye por `replaceMeasurement`, el borrado la retira) y
+    comparte la numeración visible `caliperSeq`; el panel Medidas mezcla
+    calibres y marcas por id y los readouts muestran la unidad real del valor.
+    **Dibujo** (`drawSpectralMarks` en `src/ui/overlays.ts`, dentro del key de
+    caché de `drawSpectral`): cruz + punto + etiqueta `±NN cm/s` con el amarillo
+    del calibre, resaltada al pasar el cursor o al estar seleccionada/editada.
+    Selección mutuamente excluyente entre ambas herramientas y `reset()` en
+    cambio de modo, estación y al apagar PW. Debriefing: `measurement` con
+    `valueCms`/`tSeconds` al confirmar, editar y borrar.

@@ -79,7 +79,8 @@ function interpolateBin(powerDb: Float32Array, index: number): number {
   return powerDb[lo]! * (1 - f) + powerDb[hi]! * f;
 }
 
-function rowFrequencyFraction(y: number, height: number, baseline: number, invert: boolean): number {
+/** Fracción de Nyquist física (−1…1, + hacia la sonda) en la fila `y`. */
+export function rowFrequencyFraction(y: number, height: number, baseline: number, invert: boolean): number {
   const center = baseline * height;
   const raw = y <= center ? (center - y) / Math.max(1, center) : -(y - center) / Math.max(1, height - center);
   return invert ? -raw : raw;
@@ -198,6 +199,63 @@ export function spectralVelocityTicks(
     });
   }
   return ticks;
+}
+
+/** Geometría de presentación del espectrograma (la misma que usa `drawSpectrum`). */
+export interface SpectralGeometry {
+  /** Tiempo de la última columna (borde derecho del barrido), s. */
+  readonly t1: number;
+  readonly sweepSeconds: number;
+  readonly baseline: number;
+  readonly invert: boolean;
+  readonly nyquistCms: number;
+}
+
+export function spectralGeometry(
+  columns: readonly SpectralColumn[],
+  sweepSeconds: number,
+  baseline: number,
+  invert: boolean,
+  f0Mhz: number,
+  angleCorrectionDeg: number,
+): SpectralGeometry | null {
+  const last = columns.at(-1);
+  if (!last || last.prfHz <= 0) return null;
+  return {
+    t1: last.t,
+    sweepSeconds,
+    baseline,
+    invert,
+    nyquistCms: nyquistVelocityCms(last.prfHz, f0Mhz * 1e6, (angleCorrectionDeg * Math.PI) / 180),
+  };
+}
+
+/** Píxel del espectrograma → punto (t absoluto, velocidad con signo en cm/s). */
+export function spectralPixelToPoint(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  g: SpectralGeometry,
+): { t: number; vCms: number } {
+  const t = g.t1 - g.sweepSeconds + (x / width) * g.sweepSeconds;
+  const vCms = rowFrequencyFraction(y, height, g.baseline, g.invert) * g.nyquistCms;
+  return { t, vCms };
+}
+
+/** Punto (t, v) → píxel; `null` si la marca quedó fuera del barrido o del rango. */
+export function spectralPointToPixel(
+  t: number,
+  vCms: number,
+  width: number,
+  height: number,
+  g: SpectralGeometry,
+): [number, number] | null {
+  const x = ((t - (g.t1 - g.sweepSeconds)) / g.sweepSeconds) * width;
+  if (x < 0 || x >= width) return null;
+  const fraction = vCms / g.nyquistCms;
+  if (Math.abs(fraction) > 1.02) return null;
+  return [x, frequencyFractionToY(fraction, height, g.baseline, g.invert)];
 }
 
 export function spectralFloorDb(

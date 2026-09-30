@@ -15,7 +15,7 @@ import { caliperDistanceMm, recordDistance, type ImagePoint } from '../domain/me
 import { ANATOMIA_OJO } from '../anatomy/params';
 import { beamDirAt, LINEAR_APERTURE_MM, patientToImage, type ScanGeometry } from '../ultrasound/probe';
 import { currentPose } from './poses';
-import type { AppState, CaliperEntry } from './state';
+import type { AppState, CaliperEntry, SpectralMark } from './state';
 import {
   addProtocolMeasurement,
   nextSlot,
@@ -350,6 +350,51 @@ export function deleteMeasurement(s: AppState, entry: CaliperEntry): void {
   const dte = { ...s.onsd.dte };
   for (const side of ['der', 'izq'] as const) if (dte[side] === m) delete dte[side];
   s.onsd = { ...s.onsd, dvno, dte };
+}
+
+// ── Marcas de velocidad sobre la traza espectral (DEC-62) ────────────────
+// El mapeo píxel ↔ (t, cm/s) es de presentación y vive en
+// `src/ui/spectralCaliper.ts`; aquí solo se registra el estado.
+
+function recordSpectral(s: AppState, tSeconds: number, velocityCms: number): Measurement {
+  return {
+    kind: 'trazado-espectral',
+    frameTSeconds: tSeconds,
+    side: s.side,
+    pointsMm: [],
+    value: Math.abs(velocityCms),
+    unit: 'cm/s',
+  };
+}
+
+/** Registra una marca de velocidad en la traza y la devuelve. */
+export function addSpectralMark(s: AppState, tSeconds: number, velocityCms: number): SpectralMark {
+  const m = recordSpectral(s, tSeconds, velocityCms);
+  const mark: SpectralMark = { id: s.caliperSeq++, tSeconds, velocityCms, measurement: m };
+  s.spectralMarks.push(mark);
+  s.measurements.push(m);
+  return mark;
+}
+
+/** Reposiciona una marca: actualiza (t, v) y sustituye su `Measurement`. */
+export function editSpectralMark(
+  s: AppState,
+  mark: SpectralMark,
+  tSeconds: number,
+  velocityCms: number,
+): Measurement {
+  const prev = mark.measurement;
+  mark.tSeconds = tSeconds;
+  mark.velocityCms = velocityCms;
+  mark.measurement = recordSpectral(s, tSeconds, velocityCms);
+  replaceMeasurement(s, prev, mark.measurement);
+  return prev;
+}
+
+/** Borra una marca espectral (lista de marcas y de mediciones). */
+export function deleteSpectralMark(s: AppState, mark: SpectralMark): void {
+  s.spectralMarks = s.spectralMarks.filter((x) => x !== mark);
+  s.measurements = s.measurements.filter((x) => x !== mark.measurement);
 }
 
 /** Clic a clic (compatibilidad): el segundo punto confirma la medición. */

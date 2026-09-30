@@ -45,6 +45,7 @@ import {
   updateReadouts,
 } from './overlays';
 import { CaliperTool } from './caliperTool';
+import { SpectralCaliper } from './spectralCaliper';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport, createOnsdProtocolState, nextSlot } from '../domain/onsdProtocol';
 import { buildDebrief } from '../app/debrief';
@@ -408,7 +409,7 @@ function syncCaliperHint(): void {
   if (s.onsdActive && s.station === 'ojo') return;
   $('hint').textContent =
     s.caliperMode === 'dist'
-      ? 'Calibre: arrastra para medir (o dos clics) · arrastra un extremo para editar · clic en la línea selecciona y Supr borra.'
+      ? 'Calibre: arrastra en el B-mode para medir (o dos clics) · clic en el espectro marca velocidad · Supr borra la seleccionada.'
       : s.caliperMode === 'dvno'
         ? 'DVNO: arrastra sobre la guía a 3 mm retroglobo; el segmento queda perpendicular a la vaina.'
         : s.caliperMode === 'dte'
@@ -487,6 +488,7 @@ function setStation(station: Station, side: Side): void {
     $('dvno').classList.remove('on');
     $('dte').classList.remove('on');
     caliperTool.reset();
+    spectralTool.reset();
   }
   syncCaliperHint();
   s.debrief.setTime(clock.t);
@@ -672,6 +674,7 @@ function setPwOn(on: boolean): void {
   document.body.dataset.pw = String(on);
   syncSpectralGainControl();
   fitBmode();
+  if (!on) spectralTool.reset();
 }
 
 /** Enciende/apaga el Doppler color (modo explícito, DEC-54). Apagado: el
@@ -817,17 +820,65 @@ const caliperTool = new CaliperTool(sim, s, bmodeCv, {
   },
 });
 
+/**
+ * Calibre de velocidad sobre la traza PW (DEC-62): comparte el modo
+ * «Caliper» con el B-mode (distancia en la imagen, velocidad en el espectro)
+ * y la numeración visible con `s.caliperSeq`.
+ */
+const spectralTool = new SpectralCaliper(s, spectralCv, () => pw.columns, {
+  onCommit: (mark) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `Velocidad ${mark.velocityCms.toFixed(0)} cm/s`, {
+      kind: 'trazado-espectral',
+      station: s.station,
+      side: s.side,
+      valueCms: mark.velocityCms,
+      tSeconds: mark.tSeconds,
+    });
+  },
+  onEdit: (mark, prevCms) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `Velocidad ${mark.velocityCms.toFixed(0)} cm/s (editada)`, {
+      kind: 'trazado-espectral',
+      valueCms: mark.velocityCms,
+      prevCms,
+    });
+  },
+  onDelete: (mark) => {
+    s.debrief.setTime(clock.t);
+    s.debrief.record('measurement', `Velocidad ${mark.velocityCms.toFixed(0)} cm/s borrada`, {
+      kind: 'trazado-espectral',
+      valueCms: mark.velocityCms,
+    });
+  },
+});
+
 /** Lista de mediciones del panel Medidas (DEC-61): rótulo, valor y borrado;
  * el clic en la fila selecciona la entrada sobre la imagen. */
 function renderMeasureList(): void {
+  const rows = [
+    ...s.caliperEntries.map((e) => ({
+      id: e.id,
+      src: 'cal' as const,
+      tag: e.tag,
+      val: formatMeasurementMm(e.measurement.kind, e.measurement.value),
+      sel: caliperTool.view.selectedId === e.id,
+    })),
+    ...s.spectralMarks.map((m) => ({
+      id: m.id,
+      src: 'spec' as const,
+      tag: 'Velocidad',
+      val: `${m.velocityCms >= 0 ? '+' : '−'}${Math.abs(m.velocityCms).toFixed(0)} cm/s`,
+      sel: spectralTool.view.selectedId === m.id,
+    })),
+  ].sort((a, b) => a.id - b.id);
   setHtml(
     $('measureList'),
-    s.caliperEntries
-      .map((e) => {
-        const sel = caliperTool.view.selectedId === e.id ? ' sel' : '';
-        const val = formatMeasurementMm(e.measurement.kind, e.measurement.value);
-        return `<div class="mrow${sel}" data-id="${e.id}"><span class="mtag">${e.id} · ${e.tag}</span><span class="mval">${val}</span><button class="mdel" data-del="${e.id}" title="Borrar medición" aria-label="Borrar medición ${e.id}">×</button></div>`;
-      })
+    rows
+      .map(
+        (r) =>
+          `<div class="mrow${r.sel ? ' sel' : ''}" data-id="${r.id}" data-src="${r.src}"><span class="mtag">${r.id} · ${r.tag}</span><span class="mval">${r.val}</span><button class="mdel" data-del="${r.id}" data-src="${r.src}" title="Borrar medición" aria-label="Borrar medición ${r.id}">×</button></div>`,
+      )
       .join(''),
   );
 }
@@ -835,13 +886,20 @@ $('measureList').addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
   const del = target.closest<HTMLElement>('[data-del]');
   if (del) {
-    caliperTool.remove(Number(del.dataset['del']));
+    if (del.dataset['src'] === 'spec') spectralTool.remove(Number(del.dataset['del']));
+    else caliperTool.remove(Number(del.dataset['del']));
     renderMeasureList();
     return;
   }
   const row = target.closest<HTMLElement>('.mrow');
   if (row?.dataset['id']) {
-    caliperTool.select(Number(row.dataset['id']));
+    if (row.dataset['src'] === 'spec') {
+      caliperTool.select(null);
+      spectralTool.select(Number(row.dataset['id']));
+    } else {
+      spectralTool.select(null);
+      caliperTool.select(Number(row.dataset['id']));
+    }
     renderMeasureList();
   }
 });
@@ -1246,7 +1304,7 @@ function frameLoop(now: number): void {
       headView.update(s, navPose, currentScan);
       headView.renderIfNeeded(now, probeTween ? 33 : 150);
     }
-    drawSpectral(spectralCtx, sim, s, pw);
+    drawSpectral(spectralCtx, sim, s, pw, undefined, spectralTool.view);
     // Paneles DOM a 4 Hz (DEC-54): innerHTML solo si cambia y los <details>
     // cerrados no se recalculan. Cualquier entrada del usuario fuerza el refresco.
     if (now - lastPanelUpdate >= PANEL_INTERVAL_MS) {
@@ -1497,7 +1555,7 @@ document.addEventListener('keydown', (e) => {
     el instanceof HTMLSelectElement ||
     el instanceof HTMLTextAreaElement ||
     (el instanceof HTMLElement && el.isContentEditable);
-  if (!inForm && caliperTool.key(e.key)) {
+  if (!inForm && (spectralTool.key(e.key) || caliperTool.key(e.key))) {
     e.preventDefault();
     return;
   }
@@ -1546,6 +1604,7 @@ $('caliper').addEventListener('click', () => {
   if (s.caliperMode === 'dist') $('dvno').classList.remove('on');
   s.caliperPts = [];
   caliperTool.reset();
+  spectralTool.reset();
   syncCaliperHint();
 });
 $('dvno').addEventListener('click', () => {
@@ -1554,6 +1613,7 @@ $('dvno').addEventListener('click', () => {
   if (s.caliperMode === 'dvno') $('caliper').classList.remove('on');
   s.caliperPts = [];
   caliperTool.reset();
+  spectralTool.reset();
   syncCaliperHint();
 });
 $('dte').addEventListener('click', () => {
@@ -1563,6 +1623,7 @@ $('dte').addEventListener('click', () => {
   $('dvno').classList.remove('on');
   s.caliperPts = [];
   caliperTool.reset();
+  spectralTool.reset();
   syncCaliperHint();
 });
 $('onsdProtocol').addEventListener('click', () => {
@@ -1575,6 +1636,7 @@ $('onsdProtocol').addEventListener('click', () => {
   s.rotDeg = 0;
   s.caliperPts = [];
   caliperTool.reset();
+  spectralTool.reset();
   $('onsdProtocol').classList.toggle('on', s.onsdActive);
   $('dvno').classList.toggle('on', s.onsdActive);
   syncCaliperHint();
@@ -1598,6 +1660,7 @@ bmodeCv.addEventListener('pointerdown', (e) => {
   const [cx, cy] = bmodeCanvasPoint(e);
   // DEC-61: con un modo de calibre activo el gesto es de medición, no de caja.
   if (caliperTool.down(cx, cy)) {
+    spectralTool.select(null);
     bmodeCv.setPointerCapture(e.pointerId);
     return;
   }
@@ -1658,6 +1721,37 @@ bmodeCv.addEventListener('pointercancel', () => {
   caliperTool.reset();
   caliperTool.consumeClick(); // un cancel no genera `click`: drena la marca
 });
+
+// Calibre de velocidad sobre el espectrograma (DEC-62): sin puerta ni caja,
+// el puntero entero es del calibre cuando el modo «Caliper» está activo.
+function spectralCanvasPoint(e: PointerEvent): [number, number] {
+  const r = spectralCv.getBoundingClientRect();
+  return [
+    ((e.clientX - r.left) / r.width) * spectralCv.width,
+    ((e.clientY - r.top) / r.height) * spectralCv.height,
+  ];
+}
+spectralCv.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const [cx, cy] = spectralCanvasPoint(e);
+  if (spectralTool.down(cx, cy)) {
+    caliperTool.select(null);
+    spectralCv.setPointerCapture(e.pointerId);
+  }
+});
+spectralCv.addEventListener('pointermove', (e) => {
+  const [cx, cy] = spectralCanvasPoint(e);
+  spectralTool.move(cx, cy);
+  spectralCv.style.cursor = spectralTool.domCursor;
+});
+spectralCv.addEventListener('pointerup', (e) => {
+  const [cx, cy] = spectralCanvasPoint(e);
+  if (spectralTool.up(cx, cy) && spectralCv.hasPointerCapture(e.pointerId)) {
+    spectralCv.releasePointerCapture(e.pointerId);
+  }
+});
+spectralCv.addEventListener('pointerleave', () => spectralTool.leave());
+spectralCv.addEventListener('pointercancel', () => spectralTool.reset());
 bmodeCv.addEventListener('click', (e) => {
   const fromTool = caliperTool.consumeClick();
   if (suppressClick || fromTool) {

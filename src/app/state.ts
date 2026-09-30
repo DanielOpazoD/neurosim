@@ -39,6 +39,21 @@ export interface CaliperEntry {
   readonly dteSide?: Side;
 }
 
+/**
+ * Marca de caliper sobre la traza espectral (DEC-62): un punto (t, v).
+ * `tSeconds` es el tiempo absoluto de la columna PW — la marca barre con la
+ * traza — y `velocityCms` la velocidad física con signo (+ hacia la sonda),
+ * independiente de `invert`/`baseline` de la presentación.
+ */
+export interface SpectralMark {
+  /** Número visible compartido con los calibres de imagen (caliperSeq). */
+  readonly id: number;
+  tSeconds: number;
+  velocityCms: number;
+  /** Medición registrada en `s.measurements` (la edición la sustituye). */
+  measurement: Measurement;
+}
+
 export interface CineItem {
   frame: AcquiredFrame;
   bmode: BModeFrame;
@@ -86,6 +101,8 @@ export interface AppState {
   measurements: Measurement[];
   /** Mediciones dibujables/editables sobre la imagen (DEC-61). */
   caliperEntries: CaliperEntry[];
+  /** Marcas de velocidad sobre la traza espectral PW (DEC-62). */
+  spectralMarks: SpectralMark[];
   /** Siguiente número de etiqueta. */
   caliperSeq: number;
   cine: CineItem[];
@@ -130,6 +147,7 @@ export function createInitialState(): AppState {
     caliperPts: [],
     measurements: [],
     caliperEntries: [],
+    spectralMarks: [],
     caliperSeq: 1,
     cine: [],
     cinePlaying: false,

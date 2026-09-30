@@ -137,6 +137,42 @@ test('calibre: arrastrar un extremo edita el valor; Escape revierte', async ({ p
   expect(pageErrors).toEqual([]);
 });
 
+test('calibre espectral: clic en la traza mide velocidad en cm/s', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto('/?clock=fixed&t=0.4');
+  await expect.poll(() => nonEmptyBModePixels(page), { timeout: 15_000 }).toBeGreaterThan(100_000);
+
+  await page.locator('#pw').click();
+  await page.locator('#caliper').click();
+  const specBox = await page.locator('#spectral').boundingBox();
+  if (!specBox) throw new Error('#spectral sin bounding box');
+  // Espera a que la traza llegue al raster (brillo por encima del fondo).
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const canvas = document.querySelector('#spectral') as HTMLCanvasElement;
+          const d = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+          let bright = 0;
+          for (let i = 0; i < d.length; i += 4) if (d[i]! > 40) bright++;
+          return bright;
+        }),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(1000);
+
+  // Clic sobre la mitad superior (velocidad positiva): marca «Velocidad».
+  await page.mouse.click(specBox.x + specBox.width * 0.5, specBox.y + specBox.height * 0.3);
+  await expect(page.locator('#measureList')).toContainText(/\d+ · Velocidad/);
+  await expect(page.locator('#measureList')).toContainText(/[+\u2212]\d+ cm\/s/);
+
+  // Segunda marca en la mitad inferior (velocidad negativa, signo −).
+  await page.mouse.click(specBox.x + specBox.width * 0.4, specBox.y + specBox.height * 0.8);
+  await expect(page.locator('#measureList')).toContainText(/\u2212\d+ cm\/s/);
+  expect(pageErrors).toEqual([]);
+});
+
 test('DVNO: referencia a 3 mm visible y medición con etiqueta de protocolo', async ({ page }, testInfo) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));

@@ -11,7 +11,8 @@ import { drawSpectrum } from './canvasDraw';
 import type { ScanGeometry } from '../ultrasound/probe';
 import { imageToPatient, LINEAR_APERTURE_MM, patientToImage } from '../ultrasound/probe';
 import { currentPose } from '../app/poses';
-import { imagingMode, type AppState } from '../app/state';
+import { imagingMode, type AppState, type SpectralMark } from '../app/state';
+import { spectralGeometry, spectralPointToPixel, type SpectralGeometry } from './spectrogramRaster';
 import {
   imagePointToCanvas,
   canvasToImagePoint,
@@ -472,14 +473,70 @@ const spectralDrawn = new WeakMap<CanvasRenderingContext2D, { key: string; at: n
  * que afecta al dibujo (barrido, mapa, ganancia, línea de base, inversión…),
  * y como mucho a 30 Hz. Devuelve si redibujó.
  */
+/** Vista que consume `drawSpectralMarks`: marcas de velocidad (DEC-62). */
+export interface SpectralMarksView {
+  /** Punto (t, v) en colocación, siguiendo al cursor hasta confirmar. */
+  readonly pending: { readonly t: number; readonly vCms: number } | null;
+  readonly hoverId: number | null;
+  readonly selectedId: number | null;
+  readonly editingId: number | null;
+  readonly cursorPx: readonly [number, number] | null;
+}
+
+/** Marcas de velocidad sobre la traza: cruz, etiqueta con signo y resaltado. */
+export function drawSpectralMarks(
+  ctx: CanvasRenderingContext2D,
+  marks: readonly SpectralMark[],
+  view: SpectralMarksView | undefined,
+  geom: SpectralGeometry,
+): void {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  const drawOne = (x: number, y: number, text: string, hot: boolean): void => {
+    const color = hot ? CALIPER_HOT : CALIPER_COLOR;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = hot ? 2 : 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y);
+    ctx.lineTo(x + 6, y);
+    ctx.moveTo(x, y - 6);
+    ctx.lineTo(x, y + 6);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 1;
+    caliperLabel(ctx, text, x + 8, y - 10, color);
+  };
+  const label = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(0)} cm/s`;
+  for (const m of marks) {
+    const p = spectralPointToPixel(m.tSeconds, m.velocityCms, W, H, geom);
+    if (!p) continue;
+    const hot = m.id === view?.hoverId || m.id === view?.selectedId || m.id === view?.editingId;
+    drawOne(p[0], p[1], `${m.id} · ${label(m.velocityCms)}`, hot);
+  }
+  if (view?.pending) {
+    const p = spectralPointToPixel(view.pending.t, view.pending.vCms, W, H, geom);
+    if (p) drawOne(p[0], p[1], label(view.pending.vCms), true);
+  }
+}
+
 export function drawSpectral(
   ctx: CanvasRenderingContext2D,
   sim: ReferenceCase,
   s: AppState,
   controller: PwController,
   now = performance.now(),
+  marksView?: SpectralMarksView,
 ): boolean {
   const live = s.pwOn && controller.chainSceneKey === `${s.station}-${s.side}`;
+  const marksKey = live
+    ? s.spectralMarks.map((m) => `${m.id}@${m.tSeconds.toFixed(2)}=${m.velocityCms.toFixed(1)}`).join(',') +
+      `|${marksView?.hoverId}|${marksView?.selectedId}|${marksView?.editingId}|${
+        marksView?.pending ? `${marksView.pending.t.toFixed(2)}=${marksView.pending.vCms.toFixed(0)}` : ''
+      }`
+    : '';
   const key = live
     ? [
         'pw',
@@ -496,6 +553,7 @@ export function drawSpectral(
         s.sweepSeconds,
         s.spectralColormap,
         s.teachingMode,
+        marksKey,
       ].join('|')
     : `off|${s.pwOn}|${ctx.canvas.width}|${ctx.canvas.height}`;
   const last = spectralDrawn.get(ctx);
@@ -536,6 +594,17 @@ export function drawSpectral(
         })
       : undefined,
   });
+  const geom = spectralGeometry(
+    columns,
+    s.sweepSeconds,
+    s.settings.baseline,
+    s.settings.invertColor,
+    s.settings.frequencyMhz,
+    s.settings.angleCorrectionDeg,
+  );
+  if (geom && (s.spectralMarks.length || marksView?.pending)) {
+    drawSpectralMarks(ctx, s.spectralMarks, marksView, geom);
+  }
   return true;
 }
 
@@ -652,14 +721,18 @@ export function updateReadouts(
   }
   if (s.measurements.length) {
     const last = s.measurements[s.measurements.length - 1]!;
+    const label =
+      last.kind === 'dvno'
+        ? `DVNO ${last.convention ?? ''}`
+        : last.kind === 'dte'
+          ? 'DTE'
+          : last.kind === 'trazado-espectral'
+            ? 'Velocidad'
+            : 'Distancia';
     setHtml(
       el,
       [
-        row(
-          last.kind === 'dvno' ? `DVNO ${last.convention ?? ''}` : last.kind === 'dte' ? 'DTE' : 'Distancia',
-          last.value.toFixed(2),
-          { unit: 'mm' },
-        ),
+        row(label, last.unit === 'cm/s' ? last.value.toFixed(0) : last.value.toFixed(2), { unit: last.unit }),
         row('Cuadro', `t=${last.frameTSeconds.toFixed(2)}`, { unit: 's' }),
         row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'}`, { unit: 'mm' }),
         row('Medidas', `${s.measurements.length}`),
