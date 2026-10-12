@@ -166,16 +166,32 @@ export function applyPsfAndCompression(
   return { db, envelope };
 }
 
-export function gaussKernel(sigma: number): Kernel {
-  const r = Math.max(1, Math.ceil(sigma * 2.5));
-  const w = new Float32Array(2 * r + 1);
-  let sum = 0;
-  for (let i = -r; i <= r; i++) {
-    const v = Math.exp(-(i * i) / (2 * sigma * sigma));
-    w[i + r] = v;
-    sum += v;
+/** Normalización completa sin arrays proporcionales a sigma. */
+function gaussianSum(sigma: number, radius: number): number {
+  if (radius <= 4096) {
+    let sum = 0;
+    for (let i = -radius; i <= radius; i++) sum += Math.exp(-(i * i) / (2 * sigma * sigma));
+    return sum;
   }
-  for (let i = 0; i < w.length; i++) w[i]! /= sum;
+  // Simpson en coordenadas x/sigma, más corrección de punto medio.
+  // A partir de este radio, la corrección residual discreta es O(sigma^-3).
+  const bound = (radius + 0.5) / sigma;
+  const steps = 128;
+  const step = bound / steps;
+  let integral = 1 + Math.exp((-bound * bound) / 2);
+  for (let i = 1; i < steps; i++) integral += (i % 2 ? 4 : 2) * Math.exp(-((i * step) ** 2) / 2);
+  return (2 * sigma * step * integral) / 3 + (bound * Math.exp((-bound * bound) / 2)) / (12 * sigma);
+}
+
+export function gaussKernel(sigma: number, maxRadius = Number.POSITIVE_INFINITY): Kernel {
+  const fullRadius = Math.max(1, Math.ceil(sigma * 2.5));
+  const r = Math.min(maxRadius, fullRadius);
+  const w = new Float32Array(2 * r + 1);
+  const sum = gaussianSum(sigma, fullRadius);
+  for (let i = -r; i <= r; i++) {
+    w[i + r] = Math.exp(-(i * i) / (2 * sigma * sigma));
+    w[i + r]! /= sum;
+  }
   return { w, r };
 }
 
@@ -184,8 +200,8 @@ export function beamKernel(
   sidelobeEpsilon: number,
   maxRadius = Number.POSITIVE_INFINITY,
 ): Kernel {
-  const main = gaussKernel(sigma);
-  const broad = gaussKernel(3 * sigma);
+  const main = gaussKernel(sigma, maxRadius);
+  const broad = gaussKernel(3 * sigma, maxRadius);
   const r = Math.min(maxRadius, Math.max(main.r, broad.r));
   const w = new Float32Array(2 * r + 1);
   let sum = 0;
