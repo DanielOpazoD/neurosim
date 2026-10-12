@@ -40,7 +40,9 @@ export interface BModeFrame {
   readonly scan: ScanGeometry;
 }
 
-interface SceneQuery {
+export interface SceneQuery {
+  /** Pérdida adicional ida y vuelta al cruzar una interfaz (dB). */
+  interfaceLossDb?(p: Vec3, from: MaterialId, to: MaterialId): number;
   classify(p: Vec3): MaterialId;
   /** Factor local sobre `scatterAmp` (p. ej. heterogeneidad septal de la grasa). */
   scatterScale?(p: Vec3): number;
@@ -79,7 +81,7 @@ export function interfaceNormal(scene: SceneQuery, p: Vec3, mat: MaterialId): Ve
   for (let i = 0; i < 3; i++) {
     const a = scene.classify(addScaled(p, axes[i]!, EPS));
     const b = scene.classify(addScaled(p, axes[i]!, -EPS));
-    const d = a === b ? 0 : a === mat || b === mat ? 1 : 0;
+    const d = Number(a === mat) - Number(b === mat);
     if (i === 0) nx = d;
     else if (i === 1) ny = d;
     else nz = d;
@@ -95,9 +97,16 @@ function addScaled(p: Vec3, d: Vec3, s: number): Vec3 {
 
 /**
  * Refracción vectorial según Snell. La normal se orienta contra el rayo
- * incidente; una razón que produzca reflexión total conserva la dirección.
+ * incidente; sin(θt) = (ct/ci)·sin(θi). Una razón que produzca reflexión
+ * total conserva la dirección como aproximación (no modela el rayo reflejado).
  */
-export function refractDirection(dir: Vec3, normal: Vec3, indexRatio: number): Vec3 {
+export function refractDirection(
+  dir: Vec3,
+  normal: Vec3,
+  incidentSpeedMs: number,
+  transmittedSpeedMs: number,
+): Vec3 {
+  const indexRatio = transmittedSpeedMs / incidentSpeedMs;
   const n: Vec3 = dot(normal, dir) > 0 ? [-normal[0], -normal[1], -normal[2]] : normal;
   const cosIncident = -dot(n, dir);
   const sinTransmittedSquared = indexRatio * indexRatio * (1 - cosIncident * cosIncident);
@@ -200,11 +209,12 @@ export function renderBMode(
       let im = 0;
 
       if (matId !== prevMat) {
+        attDb += scene.interfaceLossDb?.(q, prevMat, matId) ?? 0;
         // Eco de interfaz: |ΔZ| con peso especular según normal local.
         const rc = Math.abs(reflectionCoeff(prevM, m));
         const n = interfaceNormal(scene, q, prevMat);
         const cosA = n ? Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) : 0.5;
-        const gain = Math.pow(Math.max(0, 1 - cosA), specularPow(m)); // ⊥ a la interfaz = 0 deg → máx
+        const gain = Math.pow(Math.min(1, cosA), specularPow(m)); // haz ∥ normal → retorno máximo
         const amp = rc * (0.4 + 0.6 * gain) * INTERFACE_ECHO_GAIN;
         re += amp;
         const involvesLens = matId === 'cristalino' || prevMat === 'cristalino';
@@ -230,7 +240,7 @@ export function renderBMode(
           lensShadowDb += edge * 3.5;
         }
         if ((matId === 'cristalino' || prevMat === 'cristalino') && n) {
-          dir = refractDirection(dir, n, prevM.cMs / m.cMs);
+          dir = refractDirection(dir, n, prevM.cMs, m.cMs);
         }
       }
 
@@ -245,9 +255,8 @@ export function renderBMode(
       // DEC-19: ensanchamiento lateral por apertura, foco y lóbulos laterales.
       const attLin = Math.pow(10, -(attDb + lensShadowDb) / 20);
       const k = (zi * width + li) * 2;
-      const noiseStd = noiseFloor;
-      iQ[k] = re * outputAmplitude * attLin * txGainLin[zi]! + noiseRng.gaussian() * noiseStd;
-      iQ[k + 1] = im * outputAmplitude * attLin * txGainLin[zi]! + noiseRng.gaussian() * noiseStd;
+      iQ[k] = re * attLin * txGainLin[zi]!;
+      iQ[k + 1] = im * attLin * txGainLin[zi]!;
       matGrid[zi * width + li] = matId;
       attGrid[zi * width + li] = attDb + lensShadowDb;
 
@@ -311,8 +320,8 @@ export function renderBMode(
   // (misma distancia radial: zi·dz común) y se suma el eco especular
   // correspondiente, atenuado en cada celda receptora. La apertura angular
   // del haz las insona oblicuamente → fracción `lateralInterfaceGain` del eco
-  // perpendicular (en la convención del modelo, normal ⊥ haz → cosA≈0 →
-  // peso (0.4+0.6·1) = 1 antes de la fracción). No generan réplicas propias.
+  // perpendicular. Es una aproximación de apertura finita, no una ley
+  // especular para una onda plana. No generan réplicas propias.
   if (opts.lateralInterfaces !== false) {
     const latGain = FISICA_US.params.lateralInterfaceGain.value;
     for (let zi = 0; zi < height; zi++) {
@@ -329,6 +338,18 @@ export function renderBMode(
         iQ[k * 2]! += amp * attR * txGainLin[zi]!;
         iQ[(k - 1) * 2]! += amp * attL * txGainLin[zi]!;
       }
+    }
+  }
+
+  // DEC-65: una única escala de emisión para TODA la señal acústica,
+  // incluidas interfaces laterales y réplicas. El ruido del receptor se añade
+  // después: no se emite, no se refleja y no disminuye al bajar la potencia.
+  // Conservar el orden línea→profundidad mantiene la misma realización RNG.
+  for (let li = 0; li < width; li++) {
+    for (let zi = 0; zi < height; zi++) {
+      const k = (zi * width + li) * 2;
+      iQ[k] = iQ[k]! * outputAmplitude + noiseRng.gaussian() * noiseFloor;
+      iQ[k + 1] = iQ[k + 1]! * outputAmplitude + noiseRng.gaussian() * noiseFloor;
     }
   }
 
