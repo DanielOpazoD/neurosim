@@ -131,7 +131,6 @@ export class GlBmodePipeline {
     bindTexture(gl, this.tgcTexture, 1, this.compressProgram, 'uTgc');
     uniform1f(gl, this.compressProgram, 'uMaxRef', 4);
     uniform1f(gl, this.compressProgram, 'uGainDb', params.settings.gainDb);
-    uniform2f(gl, this.compressProgram, 'uSize', width, height);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     gl.useProgram(this.scanProgram);

@@ -15,3 +15,8 @@ Phantom uniforme 5×5, dz=2 mm, profundidad nominal 10 mm y TGC escalón
 −15/+15 dB: error CPU/GPU máximo 63 niveles, media 12,75 antes; cero después.
 Capturas reales de ambos renderizadores: [antes](evidence/b02-tgc/b02-antes.png),
 [después](evidence/b02-tgc/b02-despues.png). Goldens sin cambios.
+
+Revisión adicional: `e2e/tgc.spec.ts` ejecuta el pipeline WebGL2 real con tres
+bandas no uniformes [-15, 12, -3] dB y muestreo axial conocido. Mantiene los
+umbrales de paridad habituales. Falla en main (error medio 17,4475 niveles)
+y pasa con la corrección. Se elimina el uniform `uSize` obsoleto de compresión.
