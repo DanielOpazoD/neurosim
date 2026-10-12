@@ -974,9 +974,11 @@ El muestreo lateral usa milímetros y una base perpendicular al haz local.
 Se regenera el dorado sectorial para reflejar el volumen corregido;
 la modalidad lineal permanece invariante (docs/B07-VOLUMEN-COLOR.md).
 
-## DEC-69 · Ruido color independiente de transmisión
+## DEC-69 · Recepción y detección color separadas de transmisión
 
-El ruido receptor se suma después de atenuar el eco. Se regeneran los dorados
-color afectados por la SNR corregida, conservando umbrales y usando el nivel
-receptor PW existente (0,0004) en lugar de la escala relativa antigua.
-Contrato y límites de falsas detecciones: docs/B08-RUIDO-COLOR.md.
+El ruido receptor usa el nivel PW existente (0,0004). Se rechaza ruido mediante
+una cota chi-cuadrado por celda (falsa alarma <=1e-4); presentación usa potencia
+recibida menos media de ruido y una referencia fija de SNR 20 dB, estimada.
+No se divide por transmisión. Se conservan umbrales de varianza y velocidad.
+Se regeneran solo dorados color. Contrato, fuente primaria y límites de clutter:
+docs/B08-RUIDO-COLOR.md. No es calibración clínica externa.

@@ -1,33 +1,50 @@
-# B08 · Ruido receptor Doppler color
+# B08 · Señal recibida y ruido receptor Doppler color
 
-Defecto: transmisión multiplicaba señal y ruido y después se dividía potencia
-por transmisión al cuadrado. La atenuación no deterioraba SNR ni estimación de
-velocidad. Mecanismo: generar ruido electrónico después de transmisión, con
-amplitud receptora fija compartida con PW (ruidoElectronico=0,0004). La pérdida sigue afectando al eco y no al receptor.
+Defectos: transmisión multiplicaba ruido; después su cuadrado dividía potencia.
+La pérdida podía conservar una velocidad falsa y llevar ruido puro a brillo
+máximo. El detector separa ahora recepción, detección y presentación:
 
-Invariantes: geometría, PRF, semilla, ganancia, señal sin pérdida, umbrales existentes. Refutación: ante 120 dB de pérdida, varianza y error de
-velocidad no pueden seguir idénticos. La prueba falla antes y pasa después.
-La intensidad del ruido es estimada, sin calibración clínica. El umbral Kasai
-existente permite falsos colores por ruido; no se afirma desaparición de todos
-los píxeles en ventanas imposibles ni sensibilidad diagnóstica validada.
+- Ruido electrónico fijo compartido con PW: sigma=0,0004, escala IQ existente.
+- Después de quitar la media compleja, ruido gaussiano puro tiene 2(N−1)
+  grados de libertad. Se rechaza potencia inferior a la cota superior
+  sigma²[nu+2√(nu·ln(10000))+2ln(10000)]. Probabilidad teórica por celda ≤10⁻⁴.
+- Se resta la potencia media de ruido de R0 para presentación. La referencia
+  de brillo corresponde a SNR 20 dB (parámetro de presentación estimado),
+  nunca dividida por transmisión ni
+  calculada desde anatomía, caudal verdadero o calidad de ventana del paciente.
+- Ganancia escala potencia de presentación; se conservan filtros de velocidad
+  y varianza existentes. La ganancia no convierte ruido rechazado en flujo.
 
-La escala relativa anterior no se reutiliza como absoluta: rompía las pruebas
-de velocidad M1 y signo venoso ocular. Se comparte la escala receptora PW ya
-existente, sin modificar sus valores ni tolerancias. Se elimina el parámetro
-colorNoiseRel obsoleto. Es consistencia interna, no calibración clínica.
+Fuente primaria de la cota: Hsu, Kakade y Zhang, Proposition 1,
+<https://arxiv.org/html/1110.2842v1>. Es una aplicación a la proyección que
+resta la media; no valida clínicamente el ruido estimado del simulador.
 
-La regresión adicional de caché compara potencia, velocidad y varianza con un
-oráculo que recalcula todos los trayectos de pérdida variable por fila. La
-mutación a la clave antigua debe fallar también en la salida, no solo llamadas.
+Refutación: sin eco o con pérdidas crecientes no debe persistir color saturado.
+El fantoma sin eco llena toda la caja, usa cuatro semillas y ganancia +30 dB:
+49152 celdas, cero falsas detecciones observadas. La cota teórica no significa
+cero falsos positivos garantizados. El barrido 0/40/60/80/100/120/infinito dB
+produce 893/840/842/533/0/0/0 celdas disponibles (semilla de referencia).
 
-La regresión de referencia sin caché usa un vaso fantoma que cubre toda la
-caja y pérdida variable por profundidad. Las dos pruebas fallan al restaurar
-la clave antigua y pasan con la clave corregida. Se conserva igualdad exacta
-de los mapas de potencia, velocidad y varianza frente al cálculo sin caché.
+La prueba de ganancia usa una pérdida fija de 70 dB para mantener muestras sin
+saturación con la nueva referencia receptora. Sigue exigiendo ×10 por +10 dB,
+igualdad de velocidades/varianzas comunes y mayor aceptación, sin relajar
+ninguna tolerancia. La caché se contrasta contra un cálculo sin caché sobre un
+vaso fantoma que llena la caja y pérdida variable por fila; restaurar la clave
+antigua falla tanto en consultas como en mapas observables.
 
-Verificación final: `npm run check` completo (331 pruebas), signo ACR/VCR,
-velocidad M1 y flujo docente E2E aprobados. Cambian solo los tres dorados color.
-Captura final real: temporal derecha, 2 MHz, 90 mm, color activado, semilla
-20261012, t=0,4 fijo; nivel receptor compartido con PW.
+Límites: ruido gaussiano conocido y fijo, ensembles cortos y filtro de pared
+que solo resta media. El generador aún limita clutter a vecindades de vasos;
+no se afirma validación de falsos positivos tisulares de todo el campo ni
+sensibilidad clínica. Ningún resultado usa la verdad de flujo como medición.
 
-![Ruido receptor corregido](evidence/b08-ruido/b08-despues.png)
+Verificación final: `npm run check` pasa con 332 pruebas; las 11 E2E pasan.
+Se mantienen velocidad M1 y signo ACR/VCR. Captura real temporal derecha,
+2 MHz, 90 mm, color activado, semilla 20261012 y t=0,4 fijo:
+
+![Detección desde potencia recibida](evidence/b08-ruido/b08-despues.png)
+
+El hash espacial se convierte de [0,1) a uint32 antes del XOR. La fracción
+anterior se truncaba a cero, reutilizando la secuencia entre celdas. El test
+instrumenta las gaussianas generadas por la adquisición y exige >99 % de
+primeras muestras distintas, además de contar falsas detecciones. Dispersores
+y ruido usan sales separadas. No se supone independencia clínica real.

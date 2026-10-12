@@ -11,7 +11,7 @@ it('la ganancia cambia potencia y aceptación, sin cambiar velocidad ni varianza
   const settings = defaultTemporalSettings();
   const render = (dopplerGainDb: number) =>
     renderColorDoppler(
-      sim.head,
+      { ...sim.head, attenuationDb: () => 70 },
       sim.flow,
       buildScan(pose, 'sector', 64),
       pose,

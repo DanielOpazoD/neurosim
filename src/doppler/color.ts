@@ -61,7 +61,7 @@ function cellScatterers(
   hemo: HemodynamicState,
   primaryVessel: Vessel,
 ): ColorScatterer[] {
-  const rng = new SeededRandom((seed ^ hash3(zi, ci, 0, 0x4b534149)) >>> 0);
+  const rng = new SeededRandom((seed ^ Math.floor(hash3(zi, ci, 0, 0x4b534149) * 4294967296)) >>> 0);
   const result: ColorScatterer[] = [];
   for (let j = 0; j < DOPPLER.params.colorScatterers.value; j += 1) {
     const da = rng.range(-axialHalf, axialHalf);
@@ -171,6 +171,16 @@ export function renderColorDoppler(
       paco2MmHg: FISIOLOGIA.params.paco2MmHg.value,
       icpMmHg: FISIOLOGIA.params.icpMmHg.value,
     });
+  // Media compleja sustraída: 2*(N-1) grados de libertad de ruido gaussiano.
+  // Cota superior de cola chi-cuadrado (Hsu/Kakade/Zhang, 2012, Prop. 1).
+  const noise = DOPPLER.params.ruidoElectronico.value;
+  const noiseDof = 2 * (ensemble - 1);
+  const noiseMeanPower = noiseDof * noise ** 2;
+  const logFalseAlarm = -Math.log(DOPPLER.params.colorFalseAlarmProbability.value);
+  const noiseRejectPower =
+    noise ** 2 * (noiseDof + 2 * Math.sqrt(noiseDof * logFalseAlarm) + 2 * logFalseAlarm);
+  // Referencia del receptor, independiente del paciente y la transmisión.
+  const displayReferencePower = noiseMeanPower * 10 ** (DOPPLER.params.colorReferenceSnrDb.value / 10);
   const outputAmplitude = 10 ** (settings.outputPowerDb / 20);
   const wallVelocityCms = (SOUND_SPEED_MS * settings.wallFilterHz * 100) / (2 * f0Hz);
   const elevation = elevationDirection(pose);
@@ -219,7 +229,9 @@ export function renderColorDoppler(
       );
       const re = new Float32Array(ensemble);
       const im = new Float32Array(ensemble);
-      const noiseRng = new SeededRandom((seed ^ hash3(zi, ci, ensemble, 0x4e4f4953)) >>> 0);
+      const noiseRng = new SeededRandom(
+        (seed ^ Math.floor(hash3(zi, ci, ensemble, 0x4e4f4953) * 4294967296)) >>> 0,
+      );
       const attenuationKey = zi * Math.ceil(cols / 4) + Math.floor(ci / 4);
       let attDb = attenuationCache.get(attenuationKey);
       if (attDb === undefined) {
@@ -238,7 +250,6 @@ export function renderColorDoppler(
           re[k] = re[k]! + outputAmplitude * scatterer.amplitude * transmission * Math.cos(phase);
           im[k] = im[k]! + outputAmplitude * scatterer.amplitude * transmission * Math.sin(phase);
         }
-        const noise = DOPPLER.params.ruidoElectronico.value;
         re[k] = re[k]! + noiseRng.gaussian() * noise;
         im[k] = im[k]! + noiseRng.gaussian() * noise;
       }
@@ -247,11 +258,14 @@ export function renderColorDoppler(
       const vCms = kasaiVelocityCms(estimate.r1Re, estimate.r1Im, settings.prfHz, f0Hz, SOUND_SPEED_MS);
       const varNorm = kasaiVariance(estimate.r0, estimate.r1Re, estimate.r1Im);
       const gainLinear = Math.pow(10, settings.dopplerGainDb / 10);
-      const bloodReferencePower =
-        ensemble * scatterers.length * DOPPLER.params.amplitudSangre.value ** 2 * transmission ** 2;
-      const power = Math.min(1, (gainLinear * estimate.r0) / Math.max(Number.EPSILON, bloodReferencePower));
+      const receivedSignalPower = Math.max(0, estimate.r0 - noiseMeanPower);
+      const power = Math.min(
+        1,
+        (gainLinear * receivedSignalPower) / Math.max(Number.EPSILON, displayReferencePower),
+      );
       const idx = zi * cols + ci;
       if (
+        estimate.r0 > noiseRejectPower &&
         power >= DOPPLER.params.colorPowerThreshold.value &&
         varNorm <= DOPPLER.params.colorVarianceMax.value &&
         Math.abs(vCms) >= wallVelocityCms
