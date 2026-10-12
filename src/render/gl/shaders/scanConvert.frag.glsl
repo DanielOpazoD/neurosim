@@ -6,6 +6,7 @@ uniform sampler2D uDb;
 uniform vec2 uSourceSize;
 uniform vec2 uCanvasSize;
 uniform float uDepthMm;
+uniform float uDzMm;
 uniform float uDynamicRangeDb;
 uniform float uWidthMmOrRad;
 uniform int uKind;
@@ -33,9 +34,8 @@ void main() {
   vec2 pixel = vec2(gl_FragCoord.x - 0.5, uCanvasSize.y - gl_FragCoord.y - 0.5);
   float db;
   if (uKind == 0) {
-    float sx = uCanvasSize.x / uSourceSize.x;
-    float sy = uCanvasSize.y / uSourceSize.y;
-    db = sampleDb(vec2((pixel.x + 0.5) / sx - 0.5, (pixel.y + 0.5) / sy - 0.5));
+    db = sampleDb(vec2((pixel.x + 0.5) / uCanvasSize.x * (uSourceSize.x - 1.0),
+      (pixel.y + 0.5) / uCanvasSize.y * uDepthMm / uDzMm));
   } else {
     float halfWidth = uWidthMmOrRad * 0.5;
     float cx = uCanvasSize.x * 0.5;
@@ -50,8 +50,8 @@ void main() {
       return;
     }
     db = sampleDb(vec2(
-      ((a + halfWidth) / (2.0 * halfWidth)) * uSourceSize.x - 0.5,
-      (r / uDepthMm) * uSourceSize.y - 0.5));
+      ((a + halfWidth) / (2.0 * halfWidth)) * (uSourceSize.x - 1.0),
+      r / uDzMm));
   }
   float x = clamp(db / uDynamicRangeDb + 1.0, 0.0, 1.0);
   // Mapas compartidos con ui/scanConvert.ts (grayMap): mantener idénticos.

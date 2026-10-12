@@ -45,8 +45,7 @@ export function pixelToImage(
  * coordenadas de imagen (z, u) para la superposición de color. Depende solo
  * de (tipo de sonda, ancho lateral, profundidad, tamaño de malla y de
  * canvas) — no de la pose — así que se reutiliza fotograma a fotograma y
- * evita `atan2`/`hypot` por píxel. Los valores son exactamente los que
- * calculaba el muestreo bilineal por píxel (salida bit a bit idéntica).
+ * evita `atan2`/`hypot` por píxel. El muestreo invierte las posiciones de líneas y muestras de adquisición.
  */
 export interface ScanLut {
   readonly key: string;
@@ -74,8 +73,9 @@ export function scanLut(
   sourceHeight: number,
   width: number,
   height: number,
+  dzMm = depthMm / sourceHeight,
 ): ScanLut {
-  const key = `${scan.kind}|${scan.widthMmOrRad}|${depthMm}|${sourceWidth}x${sourceHeight}|${width}x${height}`;
+  const key = `${scan.kind}|${scan.widthMmOrRad}|${depthMm}|${sourceWidth}x${sourceHeight}|${width}x${height}|${dzMm}`;
   const cached = lutCache.get(key);
   if (cached) return cached;
   const n = width * height;
@@ -101,13 +101,11 @@ export function scanLut(
     ty[k] = yy - y0;
   };
   if (scan.kind === 'linear') {
-    const sx = width / sourceWidth;
-    const sy = height / sourceHeight;
     for (let y = 0; y < height; y++) {
-      const fzi = (y + 0.5) / sy - 0.5;
+      const fzi = (((y + 0.5) / height) * depthMm) / dzMm;
       for (let x = 0; x < width; x++) {
         const k = y * width + x;
-        set(k, (x + 0.5) / sx - 0.5, fzi);
+        set(k, ((x + 0.5) / width) * (sourceWidth - 1), fzi);
         const p = pixelToImage(scan, depthMm, width, height, x, y)!;
         z[k] = p.z;
         u[k] = p.u;
@@ -120,7 +118,7 @@ export function scanLut(
         const p = pixelToImage(scan, depthMm, width, height, x, y);
         if (!p) continue;
         const k = y * width + x;
-        set(k, ((p.u + half) / (2 * half)) * sourceWidth - 0.5, (p.z / depthMm) * sourceHeight - 0.5);
+        set(k, ((p.u + half) / (2 * half)) * (sourceWidth - 1), p.z / dzMm);
         z[k] = p.z;
         u[k] = p.u;
       }
@@ -141,7 +139,7 @@ export function scanConvertInto(
   height: number,
 ): void {
   const { width: sourceWidth, height: sourceHeight, db, scan, depthMm } = frame;
-  const lut = scanLut(scan, depthMm, sourceWidth, sourceHeight, width, height);
+  const lut = scanLut(scan, depthMm, sourceWidth, sourceHeight, width, height, frame.dzMm);
   const { i00, dx, dy, tx, ty } = lut;
   const dr = opts.dynamicRangeDb;
   const map = GRAY_MAP_CODE[opts.grayMap ?? 'lineal'];

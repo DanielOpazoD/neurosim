@@ -140,6 +140,7 @@ export class GlBmodePipeline {
     uniform2f(gl, this.scanProgram, 'uSourceSize', width, height);
     uniform2f(gl, this.scanProgram, 'uCanvasSize', this.canvas.width, this.canvas.height);
     uniform1f(gl, this.scanProgram, 'uDepthMm', params.settings.depthMm);
+    uniform1f(gl, this.scanProgram, 'uDzMm', params.dz);
     uniform1f(gl, this.scanProgram, 'uDynamicRangeDb', params.settings.dynamicRangeDb);
     uniform1f(gl, this.scanProgram, 'uWidthMmOrRad', params.scan.widthMmOrRad);
     uniform1i(gl, this.scanProgram, 'uKind', params.scan.kind === 'linear' ? 0 : 1);
