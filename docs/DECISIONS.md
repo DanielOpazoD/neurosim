@@ -953,3 +953,15 @@ press)` y acumula camino angular `|Δtilt|+|ΔtiltV|+|Δrot|` (°), camino
     no dispersión). Dorados regenerados: cambio de imagen justificado.
     `tests/validation/focalYLateral.test.ts` fija ambas leyes (pico focal
     desplazable, borde de esclera-vítreo > 15 dB sobre el interior).
+64. **DEC-65** — Causalidad B-mode: normales signadas, retorno especular
+    máximo con haz paralelo a la normal y refracción acústica `sin θt =
+(ct/ci)·sin θi`. Una única escala de emisión se aplica tras componer
+    todo el IQ acústico; el ruido receptor se añade después y ya no genera
+    réplicas en el espejo. Anatomía, fisiología, PSF, parámetros y Doppler
+    permanecen. Se regeneran únicamente los dorados B-mode porque cambian
+    orientación, refracción y amplitud de interfaces/artefactos; no se trata
+    de una recalibración visual. Contrato, fuentes y límites en
+    `FIDELIDAD-ECO-20261012.md`. La prueba axial de PSF corrige su interpolación
+    derecha y usa dos superficies en vez de una caja llena para una placa
+    sin speckle; tolerancia ±10 % intacta. El desenfoque se verifica ahora
+    sobre una segunda placa real, no sobre una fila vacía del primer frame.
