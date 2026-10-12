@@ -967,3 +967,9 @@ respuesta de potencia y aceptación a +10 dB (docs/B05-GANANCIA-COLOR.md).
 Cada fila reserva sus 24 grupos laterales, evitando reutilizar la pérdida de
 una fila vecina. Se regenera el dorado color afectado por el trayecto correcto;
 no se modifica la física de flujo ni los umbrales (docs/B06-CACHE-COLOR.md).
+
+## DEC-68 · Volumen físico de celda color sectorial
+
+El muestreo lateral usa milímetros y una base perpendicular al haz local.
+Se regenera el dorado sectorial para reflejar el volumen corregido;
+la modalidad lineal permanece invariante (docs/B07-VOLUMEN-COLOR.md).

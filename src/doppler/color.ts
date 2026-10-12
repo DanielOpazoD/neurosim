@@ -117,6 +117,29 @@ export interface ColorGrid {
   readonly box: ColorBox;
 }
 
+/** Base tangencial y semiancho físico de una celda de adquisición. */
+export function colorSampleGeometry(
+  scan: ScanGeometry,
+  pose: ProbePose,
+  u: number,
+  zMm: number,
+  angularOrLinearStep: number,
+): { lateral: [number, number, number]; lateralHalf: number } {
+  if (scan.kind === 'linear') return { lateral: scan.lateralDir, lateralHalf: angularOrLinearStep / 2 };
+  const axial = beamDirAt(pose, scan.kind, u);
+  const e = elevationDirection(pose);
+  const tangent: [number, number, number] = [
+    e[1] * axial[2] - e[2] * axial[1],
+    e[2] * axial[0] - e[0] * axial[2],
+    e[0] * axial[1] - e[1] * axial[0],
+  ];
+  const norm = Math.hypot(...tangent);
+  return {
+    lateral: tangent.map((v) => v / norm) as [number, number, number],
+    lateralHalf: zMm * Math.tan(angularOrLinearStep / 2),
+  };
+}
+
 export function renderColorDoppler(
   scene: VesselScene,
   flow: CerebralFlow,
@@ -174,8 +197,7 @@ export function renderColorDoppler(
       if (bestExtra >= sliceHalfMm) continue;
       if (!primaryVessel) continue;
       const axial = beamDirAt(pose, scan.kind, u);
-      const lateral = scan.lateralDir;
-      const lateralHalf = uSpan / cols / 2;
+      const { lateral, lateralHalf } = colorSampleGeometry(scan, pose, u, zMm, uSpan / cols);
       const scatterers = cellScatterers(
         scene,
         flow,
