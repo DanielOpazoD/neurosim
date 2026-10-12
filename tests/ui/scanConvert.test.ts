@@ -55,8 +55,11 @@ describe('scanConvert', () => {
     };
     for (const grayMap of ['lineal', 'sigmoide', 'gamma'] as const) {
       const px = scanConvert(frame, { dynamicRangeDb: 60, grayMap }, 64, 1);
-      expect(px[0]).toBe(0); // x=0 → 0
-      expect(px[63 * 4 + 0]).toBe(255); // x=1 → 255
+      // Centros de píxel interiores a los extremos adquiridos.
+      const map = (x: number) =>
+        grayMap === 'lineal' ? x : grayMap === 'gamma' ? x ** 0.8 : 0.5 * x + 0.5 * x * x * (3 - 2 * x);
+      expect(px[0]).toBe(Math.round(255 * map(0.5 / 64)));
+      expect(px[63 * 4]).toBe(Math.round(255 * map(63.5 / 64)));
       for (let i = 1; i < 64; i += 1) {
         expect(px[i * 4]!).toBeGreaterThanOrEqual(px[(i - 1) * 4]!); // monótono
       }
@@ -64,7 +67,7 @@ describe('scanConvert', () => {
   });
 });
 
-/* Referencia por píxel previa a la LUT (DEC-54): la tabla precalculada debe
+/* Referencia por píxel en coordenadas físicas: la tabla precalculada debe
  * producir exactamente los mismos bytes. */
 function referenceBilinear(db: Float32Array, sw: number, sh: number, fli: number, fzi: number): number {
   const x = Math.min(Math.max(fli, 0), sw - 1);
@@ -104,13 +107,13 @@ function referenceScanConvert(
       let fli: number;
       let fzi: number;
       if (kind === 'linear') {
-        fli = (x + 0.5) / (W / sw) - 0.5;
-        fzi = (y + 0.5) / (H / sh) - 0.5;
+        fli = ((x + 0.5) / W) * (sw - 1);
+        fzi = ((y + 0.5) / H) * sh;
       } else {
         const p = pixelToImage({ kind, widthMmOrRad }, depthMm, W, H, x, y);
         if (!p) continue;
-        fzi = (p.z / depthMm) * sh - 0.5;
-        fli = ((p.u + widthMmOrRad / 2) / widthMmOrRad) * sw - 0.5;
+        fzi = (p.z / depthMm) * sh;
+        fli = ((p.u + widthMmOrRad / 2) / widthMmOrRad) * (sw - 1);
       }
       const g = referenceGray(referenceBilinear(db, sw, sh, fli, fzi), 60);
       const k = (y * W + x) * 4;
