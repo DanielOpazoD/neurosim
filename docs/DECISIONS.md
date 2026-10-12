@@ -953,3 +953,11 @@ press)` y acumula camino angular `|Δtilt|+|ΔtiltV|+|Δrot|` (°), camino
     no dispersión). Dorados regenerados: cambio de imagen justificado.
     `tests/validation/focalYLateral.test.ts` fija ambas leyes (pico focal
     desplazable, borde de esclera-vítreo > 15 dB sobre el interior).
+
+## DEC-66 · Ganancia color efectiva
+
+La ganancia Doppler se aplica a la potencia detectada con referencia fija.
+Antes se cancelaba algebraicamente. Se regeneran exclusivamente los dorados
+color que emplean ganancia distinta de cero; B-mode y PW conservan sus hashes.
+La regresión causal conserva velocidad y varianza de celdas comunes y exige
+respuesta de potencia y aceptación a +10 dB (docs/B05-GANANCIA-COLOR.md).
