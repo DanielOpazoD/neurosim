@@ -40,7 +40,9 @@ export interface BModeFrame {
   readonly scan: ScanGeometry;
 }
 
-interface SceneQuery {
+export interface SceneQuery {
+  /** Pérdida adicional ida y vuelta al cruzar una interfaz (dB). */
+  interfaceLossDb?(p: Vec3, from: MaterialId, to: MaterialId): number;
   classify(p: Vec3): MaterialId;
   /** Factor local sobre `scatterAmp` (p. ej. heterogeneidad septal de la grasa). */
   scatterScale?(p: Vec3): number;
@@ -207,6 +209,7 @@ export function renderBMode(
       let im = 0;
 
       if (matId !== prevMat) {
+        attDb += scene.interfaceLossDb?.(q, prevMat, matId) ?? 0;
         // Eco de interfaz: |ΔZ| con peso especular según normal local.
         const rc = Math.abs(reflectionCoeff(prevM, m));
         const n = interfaceNormal(scene, q, prevMat);

@@ -54,13 +54,13 @@ export function skullAttenuationDb(head: HeadGeometry, from: Vec3, to: Vec3, f0M
     ];
     const id = classifyHead(head, p);
     acc += attenuationDbCm(MATERIALS[id], f0Mhz) * ds;
-    if (id === 'hueso' && inTemporalWindow(head, 'der', p)) windowHit = true;
+    if (id === 'hueso' && (inTemporalWindow(head, 'der', p) || inTemporalWindow(head, 'izq', p)))
+      windowHit = true;
   }
   // Ventana de mala calidad: pérdida de transmisión respecto a la de referencia
   // (dispersión/difrasión ósea adicional, no absorbida por el espesor).
   if (windowHit) {
-    const ref = ANATOMIA_CABEZA.params.windowQuality.value;
-    acc += Math.max(0, -10 * Math.log10(head.windowQuality / ref));
+    acc += windowTransmissionLossDb(head.windowQuality) / 2;
   }
   return 2 * acc;
 }
@@ -68,4 +68,10 @@ export function skullAttenuationDb(head: HeadGeometry, from: Vec3, to: Vec3, f0M
 /** Transmisión de amplitud ida y vuelta (0–1) hasta un punto. */
 export function transmissionTo(head: HeadGeometry, from: Vec3, to: Vec3, f0Mhz: number): number {
   return Math.pow(10, -skullAttenuationDb(head, from, to, f0Mhz) / 20);
+}
+
+/** Pérdida adicional ida y vuelta de amplitud, relativa a la ventana de referencia. */
+export function windowTransmissionLossDb(quality: number): number {
+  const ref = ANATOMIA_CABEZA.params.windowQuality.value;
+  return Math.max(0, -20 * Math.log10(Math.max(1e-6, quality) / ref));
 }
