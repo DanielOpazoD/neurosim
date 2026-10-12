@@ -11,13 +11,14 @@ import {
   butterflyLevel,
   classifyHead,
   insideInnerTable,
+  inTemporalWindow,
   type HeadGeometry,
   type Vessel,
   type VesselScene,
 } from '../anatomy/head';
 import { classifyNeck, type NeckGeometry } from '../anatomy/neck';
 import { DOPPLER } from '../doppler/params';
-import { pathAttenuationDb } from '../ultrasound/attenuation';
+import { pathAttenuationDb, windowTransmissionLossDb } from '../ultrasound/attenuation';
 import { FISIOLOGIA } from '../physiology/params';
 import { arterialShape, CerebralFlow } from '../physiology/flow';
 import type {
@@ -32,7 +33,7 @@ import type { ReferenceCase } from '../domain/referenceCase';
 import { renderColorDoppler, type ColorGrid } from '../doppler/color';
 import { buildReferenceCase } from '../domain/referenceCase';
 import { caseById } from '../domain/cases';
-import { renderBMode, type BModeFrame } from '../ultrasound/bmode';
+import { renderBMode, type BModeFrame, type SceneQuery } from '../ultrasound/bmode';
 import { buildScan, linesFor, type ScanGeometry } from '../ultrasound/probe';
 import { currentPose, type PoseInput } from './poses';
 
@@ -256,7 +257,7 @@ export function headScene(
   motion?: HeadMotion,
   /** Multiplicador de amplitud de `sustanciaNegra` (caso Parkinson; 1 = normal). */
   snEchogenicity = 1,
-): { classify: (p: Vec3) => MaterialId; scatterScale: (p: Vec3) => number; warp?: (p: Vec3) => Vec3 } {
+) {
   // renderBMode llama classify y scatterScale sobre el mismo punto por
   // muestra: memoizar la última clasificación evita una pasada doble.
   let lastP: Vec3 | null = null;
@@ -335,6 +336,13 @@ export function headScene(
       }
     : undefined;
   return {
+    interfaceLossDb: (p, from, to) =>
+      from === 'hueso' &&
+      to !== 'hueso' &&
+      insideInnerTable(head, p) &&
+      (inTemporalWindow(head, 'der', p) || inTemporalWindow(head, 'izq', p))
+        ? windowTransmissionLossDb(head.windowQuality)
+        : 0,
     warp,
     classify: classifyCached,
     scatterScale: (p: Vec3): number => {
@@ -348,7 +356,7 @@ export function headScene(
       }
       return 1;
     },
-  };
+  } satisfies SceneQuery;
 }
 
 export function renderCase(
