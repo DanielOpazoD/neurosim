@@ -53,10 +53,11 @@ describe('modelo analítico del haz', () => {
 
 describe('refracción del cristalino', () => {
   it('rota el rayo según Snell y conserva la dirección en reflexión total', () => {
-    const refracted = refractDirection([Math.sin(0.2), 0, Math.cos(0.2)], [0, 0, -1], 1532 / 1641);
-    expect(refracted[0]).toBeLessThan(Math.sin(0.2));
+    const refracted = refractDirection([Math.sin(0.2), 0, Math.cos(0.2)], [0, 0, -1], 1532, 1641);
+    expect(refracted[0]).toBeGreaterThan(Math.sin(0.2));
+    expect(refracted[0] / 1641).toBeCloseTo(Math.sin(0.2) / 1532, 12);
     expect(refracted[2]).toBeGreaterThan(0);
-    expect(refractDirection([1, 0, 0], [0, 0, -1], 2)).toEqual([1, 0, 0]);
+    expect(refractDirection([1, 0, 0], [0, 0, -1], 1500, 3000)).toEqual([1, 0, 0]);
   });
 
   it('hace aparecer más superficial una placa posterior al cristalino', () => {
