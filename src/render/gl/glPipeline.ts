@@ -1,3 +1,4 @@
+import { tgcProfile } from '../../ultrasound/tgc';
 import type { AcquisitionSettings } from '../../domain/contracts';
 import type { BeamSpec } from '../../ultrasound/beam';
 import { psfKernelsTexture } from '../../ultrasound/postIq';
@@ -102,9 +103,9 @@ export class GlBmodePipeline {
     );
     this.uploadFloatTexture(
       this.tgcTexture,
-      params.settings.tgcDb.length,
+      height,
       1,
-      Float32Array.from(params.settings.tgcDb),
+      tgcProfile(params.settings.tgcDb, params.settings.depthMm, height, params.dz),
       gl.RED,
     );
     this.uploadFloatTexture(this.rowGainTexture, 1, height, kernels.rowGain, gl.RED);
@@ -131,7 +132,6 @@ export class GlBmodePipeline {
     uniform1f(gl, this.compressProgram, 'uMaxRef', 4);
     uniform1f(gl, this.compressProgram, 'uGainDb', params.settings.gainDb);
     uniform2f(gl, this.compressProgram, 'uSize', width, height);
-    uniform1f(gl, this.compressProgram, 'uDepthMm', params.settings.depthMm);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     gl.useProgram(this.scanProgram);
@@ -171,7 +171,7 @@ export class GlBmodePipeline {
     allocateFloatTexture(gl, this.iqTexture, width, height, 2);
     allocateFloatTexture(gl, this.axialTexture, axialLength, 1, 1);
     allocateFloatTexture(gl, this.lateralTexture, lateralRadius * 2 + 1, height, 1);
-    allocateFloatTexture(gl, this.tgcTexture, 8, 1, 1);
+    allocateFloatTexture(gl, this.tgcTexture, height, 1, 1);
     allocateFloatTexture(gl, this.rowGainTexture, 1, height, 1);
     allocateFloatTexture(gl, this.psfTexture, width, height, 2);
     allocateFloatTexture(gl, this.dbTexture, width, height, 1);
