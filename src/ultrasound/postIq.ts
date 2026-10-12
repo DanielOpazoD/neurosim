@@ -1,3 +1,4 @@
+import { tgcProfile } from './tgc';
 import type { AcquisitionSettings } from '../domain/contracts';
 import { FISICA_US } from './params';
 import { lateralFwhmMm, sigmaFromFwhm, sidelobeLevelDb, type BeamSpec } from './beam';
@@ -154,15 +155,9 @@ export function applyPsfAndCompression(
 
   const db = new Float32Array(width * height);
   const maxRef = 4.0;
-  const tgcAt = (zMm: number): number => {
-    const n = settings.tgcDb.length;
-    const f = Math.min(1, Math.max(0, zMm / Math.max(1, settings.depthMm))) * (n - 1);
-    const i0 = Math.floor(f);
-    const i1 = Math.min(n - 1, i0 + 1);
-    return settings.tgcDb[i0]! * (i1 - f) + settings.tgcDb[i1]! * (f - i0);
-  };
+  const tgc = tgcProfile(settings.tgcDb, settings.depthMm, height, dz);
   for (let zi = 0; zi < height; zi++) {
-    const tgcDb = tgcAt(zi * dz);
+    const tgcDb = tgc[zi]!;
     for (let li = 0; li < width; li++) {
       const v = envelope[zi * width + li]! / maxRef;
       db[zi * width + li] = 20 * Math.log10(v + 1e-6) + settings.gainDb + tgcDb;
