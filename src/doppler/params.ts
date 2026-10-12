@@ -333,14 +333,6 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['aium-tcd-guia', 'evans-mcdicken-doppler-2000'],
     note: 'Dispersores virtuales por celda de color.',
   },
-  colorNoiseRel: {
-    value: 0.05,
-    unit: 'fracción',
-    range: [0, 0.2],
-    evidence: 'estimado',
-    sources: ['plan-simulador-2026'],
-    note: 'Ruido complejo relativo de la señal color.',
-  },
   colorPowerThreshold: {
     value: 0.05,
     unit: 'fracción',

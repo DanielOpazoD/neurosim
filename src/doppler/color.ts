@@ -238,7 +238,7 @@ export function renderColorDoppler(
           re[k] = re[k]! + outputAmplitude * scatterer.amplitude * transmission * Math.cos(phase);
           im[k] = im[k]! + outputAmplitude * scatterer.amplitude * transmission * Math.sin(phase);
         }
-        const noise = DOPPLER.params.colorNoiseRel.value * DOPPLER.params.amplitudSangre.value * transmission;
+        const noise = DOPPLER.params.ruidoElectronico.value;
         re[k] = re[k]! + noiseRng.gaussian() * noise;
         im[k] = im[k]! + noiseRng.gaussian() * noise;
       }

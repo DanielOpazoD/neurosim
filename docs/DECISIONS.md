@@ -973,3 +973,10 @@ no se modifica la física de flujo ni los umbrales (docs/B06-CACHE-COLOR.md).
 El muestreo lateral usa milímetros y una base perpendicular al haz local.
 Se regenera el dorado sectorial para reflejar el volumen corregido;
 la modalidad lineal permanece invariante (docs/B07-VOLUMEN-COLOR.md).
+
+## DEC-69 · Ruido color independiente de transmisión
+
+El ruido receptor se suma después de atenuar el eco. Se regeneran los dorados
+color afectados por la SNR corregida, conservando umbrales y usando el nivel
+receptor PW existente (0,0004) en lugar de la escala relativa antigua.
+Contrato y límites de falsas detecciones: docs/B08-RUIDO-COLOR.md.
