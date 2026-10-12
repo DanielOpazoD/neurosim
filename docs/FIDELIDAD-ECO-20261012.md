@@ -133,3 +133,7 @@ intermedias de kernels grandes cerca del ápice. La documentación aclara que CP
 y GPU comparten el límite de radio; eso no implica que todas las asignaciones
 previas estén acotadas. Requieren su propia refutación antes de corregirlos.
 Ninguna dependencia externa, peso o dataset clínico fue incorporado.
+
+Comparación visual incluida para revisión remota (mismos controles):
+[antes](evidence/causal-20261012/antes-ojo-compensado.png) y
+[después](evidence/causal-20261012/despues-ojo-compensado.png).
