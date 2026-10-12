@@ -21,3 +21,10 @@ Capturas reales Playwright: caso ventanaPobre, temporal derecha, 2 MHz,
 
 El cambio atenúa el retorno intracraneal; no demuestra validez clínica externa
 ni incorpora aberración de fase. Paridad CPU/WebGL2 verificada en ojo y temporal.
+
+Límite comprobado en revisión: la relación de amplitud 1/2 se exige a la señal
+imaginaria difusa; la energía IQ total profunda también debe disminuir. No
+se exige esa relación a todas las réplicas reales simplificadas: su pérdida
+completa por ventana sigue pendiente. B01 separa ruido y emisión, pero eso por
+sí solo no resuelve el trayecto físico de cada réplica. No se afirma que toda
+la imagen conserve una relación exacta de transmisión.

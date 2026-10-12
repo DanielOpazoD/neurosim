@@ -30,7 +30,9 @@ describe('ventana temporal y B-mode', () => {
         electronicNoise: false,
       });
       let energy = 0,
-        error = 0;
+        error = 0,
+        totalHigh = 0,
+        totalLow = 0;
       for (let z = 0; z < high.height; z++) {
         if (z * high.dzMm < 3) {
           expect(low.iq[z * 2]).toBe(high.iq[z * 2]);
@@ -39,10 +41,13 @@ describe('ventana temporal y B-mode', () => {
         if (z * high.dzMm > 40 && z * high.dzMm < 70) {
           const h = high.iq[z * 2 + 1]!,
             l = low.iq[z * 2 + 1]!;
+          totalHigh += high.iq[z * 2]! ** 2 + h * h;
+          totalLow += low.iq[z * 2]! ** 2 + l * l;
           energy += h * h;
           error += (l - h / 2) ** 2;
         }
       }
+      expect(totalLow).toBeLessThan(totalHigh);
       expect(energy).toBeGreaterThan(1e-8);
       expect(error / energy).toBeLessThan(1e-8);
       const from = scan.apex,
