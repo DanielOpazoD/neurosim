@@ -15,3 +15,8 @@ sobre un sector curvo. Sin validación clínica externa.
 `npm run check`: 329 pruebas aprobadas. Cambian los dos dorados sectoriales
 (M1 y ACI); color ocular lineal, B-mode y PW permanecen idénticos.
 Depende de B06, que corrige la identificación de los trayectos de estas celdas.
+
+Captura real de la app, temporal derecha, 2 MHz, 90 mm, color activado,
+semilla 20261012 y reloj fijo t=0,4; compara con B05 bajo los mismos controles.
+
+![Volumen corregido](evidence/b07-volumen/b07-despues.png)
