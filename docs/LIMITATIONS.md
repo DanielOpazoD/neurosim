@@ -55,8 +55,11 @@ siguiente existe todavía por diseño del plan:
   espesor de corte elevacional (el haz B-mode es infinitamente fino en
   elevación: `elevationFwhmMm` solo alimenta el Doppler color).
 - **LIM-05 · Normal de interfaz**: se estima contando cambios de material por
-  eje (±0,3 mm); es no signada y cuantizada, suficiente para el peso
-  especular.
+  eje (±0,3 mm); desde DEC-65 conserva los signos relativos, pero sigue
+  cuantizada. No estima una normal continua ni el Jacobiano de la deformación.
+  El retorno normal es máximo; exponentes y fracción difusa son aproximados.
+  Snell solo desvía el rayo en el cristalino; en reflexión total se conserva
+  su dirección como fallback, sin resolver el rayo reflejado.
 - **LIM-06 · Tejido estático**: la anatomía no se deforma con el pulso ni con
   la presión de la sonda (contactPressure aún no deforma tejido).
 - **LIM-07 · Audio**: separación estéreo por signo de frecuencia en bloques de
@@ -88,7 +91,10 @@ siguiente existe todavía por diseño del plan:
   `?pwworker=0` la cadena vuelve al hilo principal con el mismo manejador.
 - **LIM-14 · Artefactos 1D**: espejo y cola de cometa se aproximan copiando
   muestras sobre una línea de adquisición; no modelan propagación 2D/3D,
-  aperturas múltiples ni trayectorias reverberantes completas.
+  aperturas múltiples ni trayectorias reverberantes completas. Desde DEC-65
+  todos escalan con emisión y el ruido receptor se añade después. Las réplicas
+  conservan amplitudes heurísticas: no integran la pérdida completa ni el foco
+  de cada trayecto múltiple. No constituyen validación cuantitativa de artefactos.
 - **LIM-15 · Flujo vascular simplificado**: el índice de pulsatilidad es
   uniforme por segmento, no hay autorregulación territorial ni resistencia
   distal explícita; las comunicantes normales se modelan como tubos con
@@ -109,7 +115,8 @@ a WebGL2 en bloques posteriores.
   igualdad bit a bit entre CPU y GPU: la equivalencia se evalúa con tolerancias
   de intensidad y puede depender de la implementación de WebGL2 del navegador.
   En sectores, la textura lateral GPU limita el radio a 64 taps para mantener
-  un tamaño finito cerca del ápice; la ruta CPU conserva el kernel de referencia.
+  un tamaño finito cerca del ápice; la ruta CPU usa el mismo límite. La
+  construcción intermedia aún puede reservar gaussianas mayores que ese límite.
 - **LIM-25 · Estenosis focal idealizada**: el caso `estenosisM1` modela una
   garganta gaussiana sobre la línea central (`vesselRadiusAt`) con aceleración
   por continuidad (R/r(s))² y una turbulencia post-estenótica determinista de

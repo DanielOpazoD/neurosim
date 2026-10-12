@@ -619,7 +619,9 @@ function windowDistance(h: HeadGeometry, p: Vec3): number {
 
 /** ¿Está el punto dentro de la ventana temporal del lado indicado? */
 export function inTemporalWindow(h: HeadGeometry, side: Side, p: Vec3): boolean {
-  return skullThicknessAt(h, p) < (h.skullThicknessMm + h.windowThicknessMm) / 2;
+  const weight = Math.exp(-((dist(p, h.windowCenter[side]) / h.windowRadiusMm) ** 2));
+  const thickness = h.skullThicknessMm - (h.skullThicknessMm - h.windowThicknessMm) * weight;
+  return thickness < (h.skullThicknessMm + h.windowThicknessMm) / 2;
 }
 
 /**

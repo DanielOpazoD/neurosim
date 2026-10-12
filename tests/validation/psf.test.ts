@@ -23,7 +23,7 @@ function fwhm(values: ArrayLike<number>, pitch: number): number {
     const va = values[a]!;
     const vb = values[b]!;
     if (va === vb) return a;
-    return a + (threshold - va) / (vb - va);
+    return a + ((threshold - va) / (vb - va)) * (b - a);
   };
   const leftEdge = left > 0 ? crossing(left - 1, left) : left;
   const rightEdge = right + 1 < values.length ? crossing(right + 1, right) : right;
@@ -41,6 +41,19 @@ function sampledBoxGaussianFwhm(boxSamples: number, sigmaSamples: number, pitch:
     }
   }
   const db = values.map((value) => 20 * Math.log10(value));
+  return fwhm(db, pitch);
+}
+
+/** Dos superficies especulares, no una caja de dispersores volumétricos. */
+function sampledInterfacesGaussianFwhm(thicknessMm: number, sigmaSamples: number, pitch: number): number {
+  const halfSpacing = thicknessMm / pitch / 2;
+  const radius = Math.ceil(halfSpacing + sigmaSamples * 4);
+  const db = Array.from({ length: 2 * radius + 1 }, (_, i) => {
+    const x = i - radius;
+    const front = Math.exp(-((x + halfSpacing) ** 2) / (2 * sigmaSamples ** 2));
+    const back = Math.exp(-((x - halfSpacing) ** 2) / (2 * sigmaSamples ** 2));
+    return 20 * Math.log10(front + back);
+  });
   return fwhm(db, pitch);
 }
 
@@ -67,6 +80,10 @@ function psfSetup() {
 }
 
 describe('validación del PSF', () => {
+  it('el medidor interpola ambos flancos sin extrapolar el derecho', () => {
+    expect(fwhm([-12, -6, 0, -6, -12], 1)).toBe(2);
+    expect(fwhm([-12, -3, 0, -3, -12], 1)).toBeCloseTo(8 / 3, 10);
+  });
   // La placa fina tiene bordes laterales reales: los tests miden el kernel
   // separable puro, así que desactivan la ganancia focal y los ecos
   // laterales (DEC-64), que ensanchan/deforman el perfil físicamente.
@@ -106,15 +123,27 @@ describe('validación del PSF', () => {
     const centerLine = Math.floor(scan.lineCount / 2);
     const axial = Array.from({ length: frame.height }, (_, zi) => frame.db[zi * frame.width + centerLine]!);
     const sigmaAxial = Math.max(1, 2.2 / settings.frequencyMhz / dz);
-    const axialExpected = sampledBoxGaussianFwhm(Math.ceil(0.5 / dz), sigmaAxial, dz);
+    const axialExpected = sampledInterfacesGaussianFwhm(0.5, sigmaAxial, dz);
     expect(fwhm(axial, dz)).toBeGreaterThan(axialExpected * 0.9);
     expect(fwhm(axial, dz)).toBeLessThan(axialExpected * 1.1);
 
     const lateral = Array.from({ length: frame.width }, (_, li) => frame.db[plateRow * frame.width + li]!);
-    const defocusRow = Math.round((settings.focusMm + 15) / dz);
+    // Un reflector real desenfocado: una fila vacía solo mide el suelo de log.
+    const targetMm = settings.focusMm + 15;
+    const defocusFrame = renderBMode(
+      {
+        classify: (p: Vec3) =>
+          Math.abs(p[2] - targetMm) < 0.25 && Math.abs(p[0]) < 0.4 ? 'paredGlobo' : 'vitrio',
+      },
+      scan,
+      settings,
+      'psf-limpio',
+      { speckle: false, ...pureKernel },
+    );
+    const defocusRow = Math.round(targetMm / dz);
     const defocused = Array.from(
       { length: frame.width },
-      (_, li) => frame.db[defocusRow * frame.width + li]!,
+      (_, li) => defocusFrame.db[defocusRow * frame.width + li]!,
     );
     expect(fwhm(lateral, pitch)).toBeLessThan(fwhm(defocused, pitch));
   });
