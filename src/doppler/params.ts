@@ -333,13 +333,21 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['aium-tcd-guia', 'evans-mcdicken-doppler-2000'],
     note: 'Dispersores virtuales por celda de color.',
   },
-  colorNoiseRel: {
-    value: 0.05,
-    unit: 'fracción',
-    range: [0, 0.2],
+  colorFalseAlarmProbability: {
+    value: 1e-4,
+    unit: 'probabilidad/celda',
+    range: [1e-6, 1e-2],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Ruido complejo relativo de la señal color.',
+    note: 'Cota elegida de falsa alarma por ruido gaussiano después del filtro de media; no cubre clutter tisular.',
+  },
+  colorReferenceSnrDb: {
+    value: 20,
+    unit: 'dB',
+    range: [10, 40],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Referencia fija de presentación color sobre potencia media del ruido receptor; independiente del paciente.',
   },
   colorPowerThreshold: {
     value: 0.05,
@@ -347,7 +355,7 @@ export const DOPPLER = defineParameters('doppler', {
     range: [0, 0.1],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Fracción mínima de la potencia esperada para una celda completamente sanguínea, atenuada.',
+    note: 'Fracción mínima de potencia recibida respecto a la referencia fija del receptor color.',
   },
   colorVarianceMax: {
     value: 0.8,

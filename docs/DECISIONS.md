@@ -985,3 +985,12 @@ no se modifica la física de flujo ni los umbrales (docs/B06-CACHE-COLOR.md).
 El muestreo lateral usa milímetros y una base perpendicular al haz local.
 Se regenera el dorado sectorial para reflejar el volumen corregido;
 la modalidad lineal permanece invariante (docs/B07-VOLUMEN-COLOR.md).
+
+## DEC-69 · Recepción y detección color separadas de transmisión
+
+El ruido receptor usa el nivel PW existente (0,0004). Se rechaza ruido mediante
+una cota chi-cuadrado por celda (falsa alarma <=1e-4); presentación usa potencia
+recibida menos media de ruido y una referencia fija de SNR 20 dB, estimada.
+No se divide por transmisión. Se conservan umbrales de varianza y velocidad.
+Se regeneran solo dorados color. Contrato, fuente primaria y límites de clutter:
+docs/B08-RUIDO-COLOR.md. No es calibración clínica externa.
