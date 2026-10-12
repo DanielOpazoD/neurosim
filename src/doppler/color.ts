@@ -198,7 +198,7 @@ export function renderColorDoppler(
       const re = new Float32Array(ensemble);
       const im = new Float32Array(ensemble);
       const noiseRng = new SeededRandom((seed ^ hash3(zi, ci, ensemble, 0x4e4f4953)) >>> 0);
-      const attenuationKey = zi * 16 + Math.floor(ci / 4);
+      const attenuationKey = zi * Math.ceil(cols / 4) + Math.floor(ci / 4);
       let attDb = attenuationCache.get(attenuationKey);
       if (attDb === undefined) {
         attDb = scene.attenuationDb
