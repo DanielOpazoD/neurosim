@@ -973,3 +973,9 @@ Antes se cancelaba algebraicamente. Se regeneran exclusivamente los dorados
 color que emplean ganancia distinta de cero; B-mode y PW conservan sus hashes.
 La regresión causal conserva velocidad y varianza de celdas comunes y exige
 respuesta de potencia y aceptación a +10 dB (docs/B05-GANANCIA-COLOR.md).
+
+## DEC-67 · Caché de atenuación color sin colisiones
+
+Cada fila reserva sus 24 grupos laterales, evitando reutilizar la pérdida de
+una fila vecina. Se regenera el dorado color afectado por el trayecto correcto;
+no se modifica la física de flujo ni los umbrales (docs/B06-CACHE-COLOR.md).
