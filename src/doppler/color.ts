@@ -226,11 +226,7 @@ export function renderColorDoppler(
       const varNorm = kasaiVariance(estimate.r0, estimate.r1Re, estimate.r1Im);
       const gainLinear = Math.pow(10, settings.dopplerGainDb / 10);
       const bloodReferencePower =
-        gainLinear *
-        ensemble *
-        scatterers.length *
-        DOPPLER.params.amplitudSangre.value ** 2 *
-        transmission ** 2;
+        ensemble * scatterers.length * DOPPLER.params.amplitudSangre.value ** 2 * transmission ** 2;
       const power = Math.min(1, (gainLinear * estimate.r0) / Math.max(Number.EPSILON, bloodReferencePower));
       const idx = zi * cols + ci;
       if (

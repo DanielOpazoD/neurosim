@@ -965,3 +965,11 @@ press)` y acumula camino angular `|Δtilt|+|ΔtiltV|+|Δrot|` (°), camino
     derecha y usa dos superficies en vez de una caja llena para una placa
     sin speckle; tolerancia ±10 % intacta. El desenfoque se verifica ahora
     sobre una segunda placa real, no sobre una fila vacía del primer frame.
+
+## DEC-66 · Ganancia color efectiva
+
+La ganancia Doppler se aplica a la potencia detectada con referencia fija.
+Antes se cancelaba algebraicamente. Se regeneran exclusivamente los dorados
+color que emplean ganancia distinta de cero; B-mode y PW conservan sus hashes.
+La regresión causal conserva velocidad y varianza de celdas comunes y exige
+respuesta de potencia y aceptación a +10 dB (docs/B05-GANANCIA-COLOR.md).
