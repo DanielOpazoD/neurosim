@@ -52,7 +52,9 @@ export class SpectralProcessor {
 
   /** Fija el tiempo de simulación del próximo índice de muestra y la PRF. */
   sync(tNextSample: number, prfHz: number): void {
-    if (prfHz !== this.prfHz) {
+    const expectedNext = this.t0 + this.sampleIndex / this.prfHz;
+    const discontinuity = Math.abs(tNextSample - expectedNext) > 0.5 / this.prfHz;
+    if (prfHz !== this.prfHz || discontinuity) {
       this.prfHz = prfHz;
       this.filled = 0;
     }
