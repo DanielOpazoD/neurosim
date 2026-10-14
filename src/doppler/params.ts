@@ -197,6 +197,22 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['qcc-consenso-onsd-2024'],
     note: 'DVNO interna compatible con PIC elevada en adulto.',
   },
+  pwSecondaryEnergyFraction: {
+    value: 0.05,
+    unit: 'fracción',
+    range: [0.01, 0.2],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Energía mínima de un semiplano respecto del total para conservar una dirección secundaria; no es umbral clínico.',
+  },
+  pwGapCadenceFactor: {
+    value: 1.5,
+    unit: 'adimensional',
+    range: [1, 2],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Separación máxima en múltiplos de hop/PRF para integrar intervalos PW; no interpola columnas perdidas.',
+  },
   beatCoverageMin: {
     value: 0.8,
     unit: 'fracción',

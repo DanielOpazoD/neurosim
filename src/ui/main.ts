@@ -566,6 +566,7 @@ function toggleFreeze(): void {
   ($('cine') as HTMLButtonElement).disabled = !s.frozen || s.cine.length < 2;
   const composition = pw.composition();
   const summary = pw.latestMcaMeasure();
+  const assessment = pw.latestPwAssessment();
   // Lindegaard (DEC-58): el índice registrado usa la ACI medida del mismo
   // lado si existe; se guardan también el medido y el de referencia.
   const li = pw.lindegaard();
@@ -579,6 +580,10 @@ function toggleFreeze(): void {
     side: s.side,
     bloodFraction: composition?.bloodFraction ?? 0,
     pi: summary?.pi ?? Number.NaN,
+    pwStatus: assessment?.status ?? 'sin-captura',
+    pwDirection: assessment?.direction ?? 'sin-senal',
+    pwCoverage: assessment?.coverageFraction ?? 0,
+    pwSignedEnvelopeMeanCms: assessment?.signedEnvelopeMeanCms ?? Number.NaN,
     lindegaard: li?.ratio ?? Number.NaN,
     lindegaardSource: li?.icaSource ?? '',
     lindegaardMedido: li?.icaSource === 'medida' ? li.ratio : Number.NaN,

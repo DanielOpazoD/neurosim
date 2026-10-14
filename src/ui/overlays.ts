@@ -28,7 +28,7 @@ import { buildReport } from '../domain/onsdProtocol';
 import type { PwController } from '../app/pwController';
 import { angleCorrectionErrorFactor } from '../doppler/insonation';
 import { acousticOutput } from '../ultrasound/acousticOutput';
-import { lindegaardInterpretation, observedTrace } from '../doppler/measureMca';
+import { lindegaardInterpretation, observedTrace, pwStatusText } from '../doppler/measureMca';
 import { DOPPLER } from '../doppler/params';
 
 export { canvasToImagePoint, imagePointToCanvas };
@@ -634,6 +634,15 @@ export function updateReadouts(
   controller: PwController,
 ): void {
   const summary = controller.latestMcaMeasure();
+  const assessment = controller.latestPwAssessment();
+  const validityRows = assessment
+    ? [
+        row('Medida PW', pwStatusText(assessment.status), {
+          wide: true,
+          warn: assessment.status !== 'valida',
+        }),
+      ]
+    : [];
   const angle = s.teachingMode ? controller.insonation() : null;
   const angleRows =
     angle && angle.vesselId && Number.isFinite(angle.realDeg)
@@ -703,9 +712,10 @@ export function updateReadouts(
     setHtml(
       el,
       [
-        row('PSV', `${Math.abs(summary.psvCms).toFixed(0)}`, { unit: 'cm/s' }),
-        row('EDV', `${Math.abs(summary.edvCms).toFixed(0)}`, { unit: 'cm/s' }),
-        row('TAMax', `${Math.abs(summary.taMaxCms).toFixed(0)}`, { unit: 'cm/s' }),
+        row('PSV', `${summary.psvCms.toFixed(0)}`, { unit: 'cm/s' }),
+        row('EDV', `${summary.edvCms.toFixed(0)}`, { unit: 'cm/s' }),
+        row('TAMax', `${summary.taMaxCms.toFixed(0)}`, { unit: 'cm/s' }),
+        ...validityRows,
         row('PI (Gosling)', summary.pi.toFixed(2)),
         row('IR', summary.ri.toFixed(2)),
         row('Latidos', `${summary.beats}`),
@@ -738,11 +748,17 @@ export function updateReadouts(
         row('Cuadro', `t=${last.frameTSeconds.toFixed(2)}`, { unit: 's' }),
         row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'}`, { unit: 'mm' }),
         row('Medidas', `${s.measurements.length}`),
+        ...validityRows,
         ...spectralDerivedRows(s),
       ].join(''),
     );
   } else {
-    setHtml(el, [...angleRows, ...hemoRows, ...alaraRows, ...reportRows, row('Sin medidas', '—')].join(''));
+    setHtml(
+      el,
+      [...validityRows, ...angleRows, ...hemoRows, ...alaraRows, ...reportRows, row('Sin medidas', '—')].join(
+        '',
+      ),
+    );
   }
 }
 

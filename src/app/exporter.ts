@@ -27,6 +27,15 @@ function lindegaardExport(sim: ReferenceCase, s: AppState): Record<string, unkno
   const source = last?.data?.lindegaardSource;
   const li = lindegaardFromEvent(last);
   return {
+    pwDetalle: {
+      estado: last?.data?.pwStatus ?? 'sin-captura',
+      direccionPantalla: last?.data?.pwDirection,
+      coberturaTemporal: num('pwCoverage'),
+      mediaEnvolventeFirmadaCms: num('pwSignedEnvelopeMeanCms'),
+      tSec: last?.t,
+      lado: last?.data?.side,
+      estacion: last?.data?.station,
+    },
     lindegaard: li && Number.isFinite(li.ratio) ? li.ratio : null,
     lindegaardDetalle: {
       estado: li ? lindegaardPattern(li) : 'sin-captura',

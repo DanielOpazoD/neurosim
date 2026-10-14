@@ -1025,3 +1025,46 @@ antigüedad de ACI y modalidad TCD/TCCD/ángulo. No se ha validado la transferen
 de criterios clínicos de velocidad media a la envolvente TAMax del simulador.
 Estas salvaguardas no son validación clínica ni corrigen la fisiología de
 cese circulatorio. No se cambian imágenes, física de flujo ni dorados.
+
+## DEC-71 · Validez direccional y cobertura temporal PW
+
+La traza conserva envolventes positivas y negativas con signo de pantalla,
+incluida la inversión elegida por el operador. Una dirección debe superar
+el umbral sobre ruido y aportar ≥5 % de la energía total sobre ruido.
+Este filtro es estimado: no clasifica una componente débil como certeza de
+ausencia de flujo. La mediana no cambia el signo del punto central, no
+rellena un punto sin detección y no atraviesa discontinuidades. El promedio
+espectral no mezcla columnas de PRF distinta ni separadas por un hueco.
+
+El procesador transporta hop/PRF por columna, también a través del worker.
+La integral usa solo parejas finitas, ordenadas y consecutivas según esa
+cadencia; descuenta intervalos >1,5 cadencias en vez de interpolarlos. Sin
+metadatos (trazas analíticas), la mediana de separaciones es un fallback
+documentado, no una prueba de continuidad. Se mantiene cobertura mínima del
+80 % del RR por latido y se exige también sobre el intervalo observado.
+
+`assessPwTrace` devuelve dirección, cobertura, estado y resumen anulable.
+`measureBeats` permite inspeccionar los latidos individualmente válidos,
+pero no certifica la captura completa: la app usa siempre `assessPwTrace`.
+Mezcla de signos dentro de un latido, entre latidos o en la misma columna
+bloquea PI, IR y Lindegaard automáticos. No se rectifica flujo oscilante ni
+se diagnostica cese circulatorio a partir de señal ausente. Una dirección
+negativa única sigue siendo medible y el panel conserva sus signos. La
+media firmada es de la envolvente dominante sobre tiempo cubierto, NO caudal
+neto ni velocidad media espacial; no se informa cuando coexisten semiplanos.
+
+Panel, captura congelada, debrief y JSON conservan el motivo de invalidez.
+Congelar fuerza la actualización si hay columnas nuevas, sin reutilizar una
+medida cacheada anterior; cambiar lado/estación impide mostrar el contexto
+anterior. No se reinterpreta un Lindegaard si la captura registra PW inválido.
+
+La antigua prueba ocular atribuía toda la puerta a ACR aunque su fracción
+dominante era ~0,67: también captaba otros vasos. Se conserva esa escena como
+regresión que exige advertir bidireccionalidad y se verifica PSV por separado
+en un fantoma con ACR aislada, sin cambiar vasos, fisiología ni PRF de la app.
+Se mantienen los dorados de señal e imagen; cambia la medición, no el motor.
+
+Pendiente: distinguir reversión diastólica de aliasing, mezcla o artefactos;
+cuantificar ondas bidireccionales sin una envolvente dominante única; validez
+de identidad/modalidad/ángulo y antigüedad de ACI; validación externa del
+detector y los umbrales. No son criterios clínicos de circulación cerebral.

@@ -125,7 +125,17 @@ calibración.
 - **doppler.audioLowpassFrac** — `0,9` de PRF/2, corte estimado del paso bajo
   que limita contenido próximo al límite de Nyquist antes del resampleo.
 - **doppler.beatCoverageMin** — `0,8`, cobertura mínima estimada del intervalo
-  RR para que un latido parcial contribuya a las medidas resumidas.
+  RR para que un latido parcial contribuya a las medidas resumidas; también
+  se exige en el intervalo observado completo para aceptar una captura.
+- **doppler.pwGapCadenceFactor** — `1,5`, separación máxima estimada respecto
+  de hop/PRF para considerar consecutivas dos columnas. No integra ni suaviza
+  entre columnas perdidas. Sin metadatos de cadencia (trazas analíticas), usa
+  la mediana de separaciones: no puede reconocer pérdidas uniformes.
+- **doppler.pwSecondaryEnergyFraction** — `0,05`, fracción mínima estimada de
+  energía sobre ruido de un semiplano respecto del total, además del umbral
+  de detección por columna, para preservar una segunda dirección (DEC-71).
+  Rechaza ruido residual frente a una señal dominante; puede no detectar
+  componentes reales débiles. No está calibrado con adquisiciones clínicas.
 
 - **doppler.colorReferenceSnrDb** — referencia de presentación de 20 dB sobre
   potencia media de ruido receptor; calibración visual pendiente con equipo
