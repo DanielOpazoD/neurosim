@@ -1311,3 +1311,41 @@ Dorados regenerados, con causa aislada cambio a cambio (reversión selectiva):
 Consecuencia en e2e: la «ventana óptima» del Ojo D pasa de barrido −2,3 mm a
 +2,3 mm (mismo módulo, nervio ahora nasal real); `e2e/ux3d.spec.ts` y AGENTS.md
 se actualizan. Las cifras de DEC-59/60 quedan como registro histórico.
+
+## DEC-77 · Atlas derivado de TopCoW como referencia externa de geometría
+
+**Decisión.** Incorporar un derivado liviano (JSON) de las máscaras multiclase
+del polígono de Willis de TopCoW 2024 —20 CTA de pacientes con aneurisma grande
+y 20 MRA-TOF de voluntarios sanos (IXI)— y comparar el fixture sintético con la
+envolvente [mín, máx] observada, métrica a métrica
+(`tests/validation/atlasComparison.test.ts`). El fixture no se sustituye: la
+prueba exige que las desviaciones sean exactamente las documentadas en LIM-36.
+
+**Pipeline** (`scripts/atlas/topcow_extract.py`, offline): esqueleto 3D por
+etiqueta, camino más largo (Dijkstra) como centerline, radio por transformada
+de distancia de la máscara completa muestreada sobre el camino, extremo proximal
+elegido por proximidad al segmento padre (ACM/ACA/Pcom→ACI, PCA→BA).
+
+**Marco.** TopCoW guarda los vóxeles en orden LPS+, pero la afín NIfTI devuelve
+coordenadas RAS; la primera versión aplicó `[L, S, −P]` sobre valores RAS y
+produjo ACI derecha en +x y ACA hacia posterior. La conversión correcta es
+`sim = [−R, S, A]`, y el script aborta si la ACI derecha no queda en x<0, la ACA
+no avanza hacia anterior o la basilar no asciende (avisos, no error, para el
+recorrido de ACM/PCA, afectado por el recorte del ROI). El origen de cada caso
+es el punto medio entre los extremos distales de ambas ACI, el mismo hito que se
+calcula sobre el fixture.
+
+**Resultado.** En ambas cohortes los radios del fixture (ACI 1,73; M1 1,5;
+A1 1,2; P1 1,1; BA 1,6; Acom 0,75; Pcom 0,6 mm) caen dentro de la envolvente, y
+también la altura de la punta basilar y los extremos de A2 y M1. Quedan fuera,
+en las dos cohortes, tres métricas: distancia entre terminales de ACI
+(fixture 18 mm; atlas 25–40, mediana ≈31), posición posterior de la punta
+basilar (fixture −20 mm; atlas −16…−8, mediana ≈−13) y extremo de P2
+(fixture −9 mm; atlas −30…−19, mediana ≈−26). Mover esos nodos cambia la
+navegación temporal y varios dorados, así que se difiere a un PR propio.
+
+**Alcance.** Es una referencia de geometría (ejes, radios medianos, topología);
+no valida imagen ecográfica, Doppler ni fisiología. n=20 por cohorte, con sesgo
+de selección en la cohorte CTA (aneurismas). Licencia: TopCoW Data Usage
+License (uso abierto con cita; comercial con permiso); se amplió
+`provenance:check` a `data/atlas`.

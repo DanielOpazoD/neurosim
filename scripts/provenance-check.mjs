@@ -22,15 +22,19 @@ for (const [, file, sha] of rows) {
 }
 
 /*
- * Recursos binarios (DEC-59): | `ruta` | origen | SHA-256 | licencia | `archivo de licencia` | ...
+ * Recursos binarios (DEC-59) y derivados de datos (DEC-77):
+ * | `ruta` | origen | SHA-256 | licencia | `archivo de licencia` | ...
  * Se comprueba que el archivo exista, que su SHA-256 coincida, que el archivo
  * de licencia exista y nombre la licencia declarada, y que no haya recursos
  * en public/models sin fila en la tabla.
  */
-const LICENCES = { 'CC BY 3.0': 'Creative Commons Attribution 3.0' };
+const LICENCES = {
+  'CC BY 3.0': 'Creative Commons Attribution 3.0',
+  'TopCoW Data Usage License': 'Use for commercial purposes requires permission',
+};
 const assetRows = [
   ...text.matchAll(
-    /^\|\s*`(public\/[^`]+)`\s*\|[^|]*\|\s*([0-9a-f]{64})\s*\|\s*([^|]+?)\s*\|\s*`([^`]+)`\s*\|/gim,
+    /^\|\s*`((?:public|data)\/[^`]+)`\s*\|[^|]*\|\s*([0-9a-f]{64})\s*\|\s*([^|]+?)\s*\|\s*`([^`]+)`\s*\|/gim,
   ),
 ];
 const listed = new Set();
@@ -63,7 +67,7 @@ function walk(dir) {
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
 }
-for (const path of walk(join(root, 'public/models'))) {
+for (const path of [...walk(join(root, 'public/models')), ...walk(join(root, 'data/atlas'))]) {
   const file = relative(root, path).split('\\').join('/');
   const isLicence = assetRows.some(([, , , , licenceFile]) => licenceFile === file);
   if (!listed.has(file) && !isLicence && !file.endsWith('.DS_Store')) {

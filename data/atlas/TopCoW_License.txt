@@ -1,0 +1,25 @@
+TopCoW challenge data — Data Usage License
+Fuente: https://topcow24.grand-challenge.org/data/ y
+https://zenodo.org/records/15692630 (DOI 10.5281/zenodo.15692630).
+
+Texto publicado por los autores del desafío (transcrito el 2026-10-14):
+
+  Following the definitions of "https://opendata.swiss/en/terms-of-use" on
+  open data use, the following license is chosen for our data release:
+  Open use. Must provide the source.
+  Use for commercial purposes requires permission of the data owner.
+  - You may use this dataset for non-commercial purposes.
+  - You may use this dataset for commercial purposes, but you must seek
+    prior permission from the data owner.
+  - You must provide the source (author, title and link to the dataset).
+  By downloading the data, you agree with the license terms.
+
+Cita exigida: Yang K. et al., "Benchmarking the CoW with the TopCoW
+Challenge: Topology-Aware Anatomical Segmentation of the Circle of Willis
+for CTA and MRA" (TopCoW challenge). Datos: Zenodo 10.5281/zenodo.15692630.
+
+Alcance en este repositorio: solo se redistribuyen métricas derivadas
+(centerlines submuestreadas, radios, longitudes y topología por caso) en
+formato JSON; no se redistribuye ningún volumen NIfTI ni imagen. Uso docente
+no comercial. Los subconjuntos externos (p. ej. MRA_IXI_HH, derivado de IXI,
+CC BY-SA 3.0) conservan además los términos de su fuente original.
