@@ -39,9 +39,14 @@ del motor.
   Revisión: velocidad media ACM 120–199 cm/s con Lindegaard 3–6; rango
   grave >200 cm/s con cociente >6. DEC-70 explicita las fronteras docentes
   y la ausencia de validación de estos umbrales sobre la TAMax simulada.
-- **silverman-3d-onsd-2026** — Reconstrucción 3D de la vaina del nervio
-  óptico: excentricidad sustancial (eje mayor/menor ≈ 2) y curvatura; la
-  DVNO axial puede sobrestimar.
+- **silverman-3d-onsd-2026** — Silverman RH et al. Reconstrucción 3D por
+  ultrasonido de la vaina del nervio óptico en 18 voluntarios sanos. _Transl
+  Vis Sci Technol_ 2026; https://tvst.arvojournals.org/article.aspx?articleid=2818030.
+  Comunica excentricidad geométrica e = 0,51 ± 0,098 de la sección de la
+  vaina (razón de ejes b/a = √(1 − e²) ≈ 0,86, es decir a/b ≈ 1,16; no ≈ 2
+  como se citó antes) y DVNO 5,32 ± 0,79 mm en B-scan frente a 5,57 ± 0,61 mm
+  en 3D. No demuestra una regla general de sobrestimación axial ni valida una
+  relación PIC–DVNO; distinto del estudio freehand de Riemer (12 sujetos).
 - **hansen-helmke-1997** — Hansen HC, Helmke K. The subarachnoid space
   surrounding the optic nerves. An ultrasound study of the optic nerve sheath.
   Surg Radiol Anat 1996;18:323-8.

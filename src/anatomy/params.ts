@@ -115,7 +115,7 @@ export const ANATOMIA_OJO = defineParameters('anatomia-ojo', {
     range: [0.7, 0.95],
     evidence: 'estimado',
     sources: ['silverman-3d-onsd-2026', 'plan-simulador-2026'],
-    note: 'Razón eje menor/mayor de la vaina.',
+    note: 'Razón de ejes menor/mayor (b/a) de la sección de la vaina. No es la excentricidad geométrica e: b/a = √(1 − e²); e = 0,51 ± 0,10 (Silverman 3D) equivale a b/a ≈ 0,86 (0,79–0,91). 0,82 queda dentro de ese intervalo.',
   },
   sheathEccJitter: {
     value: 0.02,
