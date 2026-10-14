@@ -2,6 +2,7 @@ import type { BasalPhysiology, Side, Station, TransducerKind, WillisVariant } fr
 import type { ReferenceCase } from '../domain/referenceCase';
 import type { AppState } from './state';
 import type { GateComposition } from '../doppler/sampleVolume';
+import { pulseTimingText, type PulseTiming } from '../doppler/pulseTiming';
 import type { InsonationAngles } from '../doppler/insonation';
 import { pwStatusText, type PwAssessment, type PwStatus } from '../doppler/measureMca';
 
@@ -35,10 +36,16 @@ export interface PwAcquisitionContext {
   };
 }
 
-export type PwCaptureStatus = PwStatus | 'contexto-incompatible' | 'puerta-no-fiable' | 'angulo-invalido';
+export type PwCaptureStatus =
+  | PwStatus
+  | 'contexto-incompatible'
+  | 'puerta-no-fiable'
+  | 'angulo-invalido'
+  | Exclude<PulseTiming['status'], 'compatible'>;
 
 export interface PwCapture {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
+  readonly timing: PulseTiming;
   readonly context: PwAcquisitionContext;
   readonly configVersion: number;
   readonly fftSize: number;
@@ -125,6 +132,9 @@ export function pwCaptureReport(
 
 export function pwCaptureStatusText(status: PwCaptureStatus): string {
   switch (status) {
+    case 'prf-inviable':
+    case 'parametros-invalidos':
+      return pulseTimingText(status);
     case 'contexto-incompatible':
       return 'Cambió el contexto de adquisición: volver a adquirir PW; no reutilizar la captura anterior.';
     case 'puerta-no-fiable':

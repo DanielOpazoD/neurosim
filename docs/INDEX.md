@@ -51,6 +51,7 @@
 | LIM-29 | Escena submandibular simplificada            | `src/anatomy/neck.ts`                                                        |
 | LIM-30 | Medición bidireccional conservadora          | —                                                                            |
 | LIM-31 | Contexto PW no equivale a validación clínica | —                                                                            |
+| LIM-32 | Alcance PW ideal, no HPRF                    | —                                                                            |
 
 ## IDs de decisiones
 
@@ -127,6 +128,7 @@
 | DEC-70 | Lindegaard contextual y datos inválidos explícitos                      | `src/doppler/measureMca.ts`, `src/doppler/params.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | DEC-71 | Validez direccional y cobertura temporal PW                             | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | DEC-72 | Identidad, calidad y vigencia técnica de PW                             | `src/app/pwController.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| DEC-73 | PRF, alcance y tiempo de ida/vuelta PW                                  | `src/doppler/pulseTiming.ts`, `tests/pulseTiming.test.ts`, `tests/validation/lindegaard.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## Parámetros registrados
 
@@ -134,6 +136,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         40 |
 | `anatomia-cabeza`    |         73 |
-| `doppler`            |         55 |
+| `doppler`            |         56 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         42 |

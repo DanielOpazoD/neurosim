@@ -1,6 +1,29 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+test('PW rechaza PRF sin alcance físico y recupera una adquisición realizable', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('[data-station="temporal"][data-side="der"]').click();
+  await page.locator('#pw').click();
+  await page.locator('#optimal').click();
+  await page.locator('#prf').evaluate((el) => {
+    (el as HTMLInputElement).value = '16000';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const readouts = page.locator('#readouts');
+  await expect(readouts).toContainText('Medida PW', { timeout: 15000 });
+  await expect(readouts).toContainText('PRF excede el límite ideal');
+  await expect(readouts).not.toContainText('PSV');
+  await page.locator('#prf').evaluate((el) => {
+    (el as HTMLInputElement).value = '8000';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect
+    .poll(async () => readoutValue(await readouts.innerText(), 'PSV'), { timeout: 15000 })
+    .toBeGreaterThan(0);
+  await expect(readouts).not.toContainText('PRF excede el límite ideal');
+});
+
 async function nonEmptyBModePixels(page: import('@playwright/test').Page): Promise<number> {
   return page.evaluate(() => {
     const canvas = document.querySelector('#bmode') as HTMLCanvasElement;

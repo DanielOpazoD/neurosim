@@ -30,6 +30,7 @@ import { angleCorrectionErrorFactor } from '../doppler/insonation';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { lindegaardInterpretation, observedTrace } from '../doppler/measureMca';
 import { pwCaptureStatusText, icaValidityText } from '../app/pwCapture';
+import { pulseTimingText } from '../doppler/pulseTiming';
 import { DOPPLER } from '../doppler/params';
 
 export { canvasToImagePoint, imagePointToCanvas };
@@ -532,7 +533,9 @@ export function drawSpectral(
   now = performance.now(),
   marksView?: SpectralMarksView,
 ): boolean {
-  const live = s.pwOn && controller.chainSceneKey === `${s.station}-${s.side}`;
+  const timing = controller.pulseTiming();
+  const live =
+    s.pwOn && controller.chainSceneKey === `${s.station}-${s.side}` && timing.status === 'compatible';
   const marksKey = live
     ? s.spectralMarks.map((m) => `${m.id}@${m.tSeconds.toFixed(2)}=${m.velocityCms.toFixed(1)}`).join(',') +
       `|${marksView?.hoverId}|${marksView?.selectedId}|${marksView?.editingId}|${
@@ -557,7 +560,7 @@ export function drawSpectral(
         s.teachingMode,
         marksKey,
       ].join('|')
-    : `off|${s.pwOn}|${ctx.canvas.width}|${ctx.canvas.height}`;
+    : `off|${s.pwOn}|${timing.status}|${ctx.canvas.width}|${ctx.canvas.height}`;
   const last = spectralDrawn.get(ctx);
   if (last && last.key === key) return false;
   if (last && now - last.at < SPECTRAL_MIN_REDRAW_MS && now >= last.at) return false;
@@ -569,6 +572,10 @@ export function drawSpectral(
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.font = '12px sans-serif';
       ctx.fillText('Activa PW para el espectro', 16, 24);
+    } else if (timing.status !== 'compatible') {
+      ctx.fillStyle = '#e0b45b';
+      ctx.font = '12px sans-serif';
+      ctx.fillText('PW no evaluable: revisar PRF y alcance de puerta.', 16, 24);
     }
     return true;
   }
@@ -636,6 +643,7 @@ export function updateReadouts(
 ): void {
   const summary = controller.latestMcaMeasure();
   const capture = controller.latestCapture();
+  const timing = controller.pulseTiming();
   const validityRows = capture
     ? [
         row('Medida PW', pwCaptureStatusText(capture.status), {
@@ -644,6 +652,17 @@ export function updateReadouts(
         }),
       ]
     : [];
+  if (s.pwOn) {
+    validityRows.push(
+      row(
+        'Alcance PW',
+        timing.status === 'compatible'
+          ? `Límite ideal ${timing.maxPrfHz.toFixed(0)} Hz · ida/vuelta ${(timing.roundTripS * 1e6).toFixed(0)} μs · Nyquist ±${timing.nyquistHz.toFixed(0)} Hz`
+          : `${pulseTimingText(timing.status)}${Number.isFinite(timing.maxPrfHz) ? ` Límite ideal: ${timing.maxPrfHz.toFixed(0)} Hz.` : ''}`,
+        { wide: true, warn: timing.status !== 'compatible' },
+      ),
+    );
+  }
   const angle = s.teachingMode ? controller.insonation() : null;
   const angleRows =
     angle && angle.vesselId && Number.isFinite(angle.realDeg)
@@ -723,7 +742,7 @@ export function updateReadouts(
         row('Sangre en puerta', `${((comp?.bloodFraction ?? 0) * 100).toFixed(0)}`, { unit: '%' }),
         wide('Vaso dominante', comp?.dominantVesselId ?? '—'),
         ...lindegaardRows(s, controller),
-        ...spectralDerivedRows(s),
+        ...(timing.status === 'compatible' ? spectralDerivedRows(s) : []),
         ...angleRows,
         ...hemoRows,
         ...alaraRows,
@@ -750,7 +769,7 @@ export function updateReadouts(
         row('Ref. retroglobo', `${last.referenceOffsetMm ?? '—'}`, { unit: 'mm' }),
         row('Medidas', `${s.measurements.length}`),
         ...validityRows,
-        ...spectralDerivedRows(s),
+        ...(timing.status === 'compatible' ? spectralDerivedRows(s) : []),
       ].join(''),
     );
   } else {

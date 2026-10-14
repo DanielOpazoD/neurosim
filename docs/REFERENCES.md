@@ -1,5 +1,14 @@
 # Referencias
 
+- **doppler-prf-alcance** — Física de Doppler pulsado: Nyquist ±PRF/2,
+  PRF máxima ideal `c/(2·d)` y compromiso profundidad–velocidad.
+  [Revisión técnica DRPS](https://www.diagnosticradphys.com/physicspulse/diagnostic-medical-physics/doppler-ultrasound-physics-aliasing-nyquist/).
+- **gill-ambiguedad-rango-1989** — Gill RW et al. _New class of pulsed Doppler
+  US ambiguity at short ranges_. Radiology 1989;173(1):272–275.
+  [DOI:10.1148/radiology.173.1.2675187](https://pubmed.ncbi.nlm.nih.gov/2675187/).
+  PRF alta y puertas fantasma fuera de la puerta deseada: comprobar el alcance
+  nominal no prueba ausencia de señales ambiguas desde regiones más profundas.
+
 Claves usadas por los registros de `src/*/params.ts` (evidencia) y los módulos
 del motor.
 

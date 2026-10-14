@@ -27,6 +27,7 @@ import type { SpectralColumn } from '../doppler/spectral';
 import type { AppState, IcaMeasure } from './state';
 import { currentPose } from './poses';
 import { DOPPLER } from '../doppler/params';
+import { pulseTiming, type PulseTiming } from '../doppler/pulseTiming';
 import { FISICA_US } from '../ultrasound/params';
 import { logError } from '../core/errorLog';
 import {
@@ -110,6 +111,7 @@ export class PwController {
   private versionKey = '';
   private acquiredContext: PwAcquisitionContext | null = null;
   private acquiredAngle: InsonationAngles | null = null;
+  private acquiredTiming: PulseTiming | null = null;
   private qualityBlocks: { tStart: number; tEnd: number; composition: GateComposition | null }[] = [];
   private equipmentKey = '';
   private lastSentGate = '';
@@ -184,9 +186,9 @@ export class PwController {
     this.reset();
   }
 
-  /** Columnas recibidas (ventana temporal, orden creciente de t). */
+  /** Columnas dibujables con alcance compatible; el búfer interno conserva intentos inviables. */
   get columns(): readonly SpectralColumn[] {
-    return this.cols;
+    return this.pulseTiming().status === 'compatible' ? this.cols : [];
   }
 
   get fftSize(): number {
@@ -235,25 +237,31 @@ export class PwController {
     return imageToPatient(pose, s.settings.transducer, s.gateUMm, s.gateDepthMm);
   }
 
-  gateGeometry(pose: ProbePose): GateGeometry {
+  private gateDimensions() {
     const s = this.state;
-    const scene = this.dopplerScene();
-    const beamDir = beamDirAt(pose, s.settings.transducer, s.gateUMm);
-    // Lineal (ojo): la puerta se desplaza lateralmente en u; sector: sobre la línea rotada.
-    const center = this.gateCenter(pose);
     const f0 = s.settings.frequencyMhz * 1e6;
     const c = FISICA_US.params.soundSpeedMs.value * 1000;
     const lambda = c / f0;
     const latSigma = Math.max(DOPPLER.params.gateLateralSigmaMinMm.value, (lambda * s.gateDepthMm) / 10 / 2);
     return {
-      center,
-      beamDir,
-      lateral: pose.lateral,
-      elevation: elevAxis(pose),
       lengthMm: s.settings.gateMm,
       lateralSigmaMm: latSigma,
       elevationSigmaMm: Math.max(DOPPLER.params.gateElevationSigmaMinMm.value, latSigma * 2),
       pulseSigmaMm: Math.max(DOPPLER.params.gatePulseSigmaMinMm.value, lambda * 1.5),
+    };
+  }
+
+  gateGeometry(pose: ProbePose): GateGeometry {
+    const s = this.state;
+    const scene = this.dopplerScene();
+    const beamDir = beamDirAt(pose, s.settings.transducer, s.gateUMm);
+    const center = this.gateCenter(pose);
+    return {
+      center,
+      beamDir,
+      lateral: pose.lateral,
+      elevation: elevAxis(pose),
+      ...this.gateDimensions(),
       apertureAngleSigmaRad: DOPPLER.params.apertureAngleSigmaRad.value,
       // Ida y vuelta: escena ocular = trayectoria sin ventana; craneal = skullAttenuationDb.
       transmission: Math.pow(
@@ -273,6 +281,17 @@ export class PwController {
 
   hemodynamics() {
     return this.sim.physStateAt(0).hemo;
+  }
+
+  pulseTiming(): PulseTiming {
+    const s = this.state;
+    const pose = currentPose(this.sim, s);
+    return pulseTiming(s.settings.prfHz, s.gateDepthMm, {
+      ...this.gateDimensions(),
+      beamDir: beamDirAt(pose, s.settings.transducer, s.gateUMm),
+      lateral: pose.lateral,
+      elevation: elevAxis(pose),
+    });
   }
 
   private equipment(): PwEquipment {
@@ -321,6 +340,7 @@ export class PwController {
         this.sceneKey = `${s.station}-${s.side}`;
         this.acquiredContext = context;
         this.acquiredAngle = this.insonation();
+        this.acquiredTiming = this.pulseTiming();
         this.versionKey = versionKey;
         this.needResync = true;
         this.audio?.reset();
@@ -420,7 +440,7 @@ export class PwController {
         this.qualityBlocks = this.qualityBlocks.filter((b) => b.tEnd >= tEnd - COLUMN_WINDOW_S);
         this.rev += 1;
       }
-      if (this.audio && reply.iqRe.length > 0) {
+      if (this.audio && reply.iqRe.length > 0 && this.acquiredTiming?.status === 'compatible') {
         this.audio.pushIQ(reply.iqRe, reply.iqIm, reply.iqRe.length, reply.iqPrfHz);
       }
     } catch (err) {
@@ -433,6 +453,7 @@ export class PwController {
     this.versionKey = '';
     this.acquiredContext = null;
     this.acquiredAngle = null;
+    this.acquiredTiming = null;
     this.batchDt = 0;
     this.needResync = false;
     this.clearColumns();
@@ -582,7 +603,8 @@ export class PwController {
       const s = this.state;
       const cols = this.cols;
       const context = this.acquiredContext;
-      if (!s.pwOn || cols.length <= 20 || !context) {
+      const timing = this.acquiredTiming;
+      if (!s.pwOn || cols.length <= 20 || !context || !timing) {
         return null;
       }
       // Ventana por TIEMPO (~2,5 s), no por columnas: al subir el PRF las
@@ -623,13 +645,15 @@ export class PwController {
         Math.abs(correction.angleDeg) <= DOPPLER.params.debriefAngleMaxDeg.value;
       const status = !this.contextMatches()
         ? 'contexto-incompatible'
-        : signal.status !== 'valida'
-          ? signal.status
-          : !reliable
-            ? 'puerta-no-fiable'
-            : !angleOk
-              ? 'angulo-invalido'
-              : 'valida';
+        : timing.status !== 'compatible'
+          ? timing.status
+          : signal.status !== 'valida'
+            ? signal.status
+            : !reliable
+              ? 'puerta-no-fiable'
+              : !angleOk
+                ? 'angulo-invalido'
+                : 'valida';
       const summary = status === 'valida' ? signal.summary : null;
       const minimum = (values: number[]) =>
         values.length > 0 && values.every(Number.isFinite) ? Math.min(...values) : null;
@@ -644,7 +668,8 @@ export class PwController {
         vesselIds: [...new Set(blocks.map((b) => b.composition?.dominantVesselId ?? null))],
       };
       return {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        timing: structuredClone(timing),
         context: structuredClone(context),
         configVersion: this.configVersion,
         fftSize: this.fft,

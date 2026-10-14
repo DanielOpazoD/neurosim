@@ -1125,3 +1125,54 @@ tras «Ventana óptima», y verifica los metadatos del JSON descargado.
 Quedan pendientes PRF/profundidad físicamente factibles (R04), calipers
 espectrales manuales, validación externa de umbrales y separación de aliasing,
 reversión y contaminación. Estos tests prueban contratos de software.
+
+## DEC-73 · PRF, alcance y tiempo de ida/vuelta PW
+
+R04 evalúa el límite **ideal necesario**, no suficiente, del PW sin HPRF:
+`PRF ≤ c/(2·r_max)`, con `c = 1540 m/s` del registro acústico y unidades
+internas mm/s. `r_max` es la distancia máxima a los ocho vértices del soporte
+nominal del volumen IQ desde el origen de la línea emisora, no la profundidad
+de pantalla ni solo el centro de la puerta. Se incluyen semilongitud de puerta
+y soporte axial del pulso, lateral y elevacional. Se registra el factor 2,5 σ
+ya utilizado por `SampleVolumeIQ`, sin cambiarlo. En sector el haz gira pero el
+lateral de la caja sigue siendo el de la sonda: no se supone ortogonalidad.
+En lineal el origen corresponde al elemento desplazado en `u`, no al centro
+de toda la sonda. La cota sigue siendo una aproximación docente del soporte.
+
+Se conservan PRF solicitada, alcance nominal máximo, tiempo ideal de ida/vuelta,
+PRF máxima, rango no ambiguo y banda Nyquist ±PRF/2 en `PwCapture` versión 2.
+Cambiar PRF/puerta reinicia adquisición conforme a DEC-72; el snapshot no se
+reescribe después. No se recorta PRF silenciosamente ni se amplían los límites
+de la UI. La configuración inviable queda visible como `prf-inviable`, con
+aviso para bajar PRF/profundidad; parámetros no utilizables se marcan como
+`parametros-invalidos`. La aplicación oculta el espectro no físico, no envía
+su IQ al audio y bloquea PSV/EDV/PI/RI/Lindegaard automáticos; los calipers
+no reciben columnas de esa configuración y no se muestra IR manual actual.
+Debrief y JSON
+conservan el motivo y los límites. El DSP interno puede producir columnas
+matemáticas de esa configuración, pero no simula sus ecos ambiguos ni los
+presenta como una adquisición física. No significa señal ausente en el paciente.
+
+El alcance y el aliasing de velocidad son problemas distintos. `c/(2·PRF)`
+limita el rango; `PRF/2` limita la frecuencia Doppler. La velocidad Nyquist usa
+además frecuencia transmitida y corrección angular efectivas. Baseline, zoom,
+inversión y corrección angular no amplían el rango ni cambian el muestreo IQ.
+Bajar PRF puede restaurar el alcance mientras persiste aliasing; una línea base
+desplazada no reconstruye información perdida. Ver las referencias de física
+Doppler y Gill et al. 1989 en `REFERENCES.md`.
+
+El antiguo fixture de vasoespasmo usaba 16 kHz a ~62 mm (solo 48,125 mm de
+rango no ambiguo). Ahora debe rechazarse. Tras ventana óptima y 11 kHz el
+alcance es compatible (~69,4 mm de soporte, máximo ~11,1 kHz), pero el espectro
+a 2 MHz sigue siendo ambiguo/bidireccional y no da índice. No se altera
+fisiología, anatomía, frecuencia, pureza mínima ni dorados para forzarlo.
+La ruta ACI→ACM válida se verifica por separado en el caso normal, incluyendo
+lateralidad y origen del denominador. La fórmula de vasoespasmo conserva sus
+pruebas analíticas, sin confundirlas con una medición válida de la app.
+
+No hay HPRF, puertas fantasma, ecos de otros pulsos o fuera de puerta,
+secuenciador duplex/triplex, tiempos muertos ni corrección del tiempo de
+propagación en las marcas temporales. Las columnas siguen usando tiempo
+de simulación y hop/PRF (DEC-71); ida/vuelta es un límite registrado, no una
+simulación de eventos de emisión/recepción. Compatibilidad no certifica
+factibilidad completa de hardware, validación externa ni exactitud clínica.
