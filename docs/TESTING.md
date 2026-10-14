@@ -84,3 +84,8 @@ exige que los ratios modelo/motor de `lateralFwhmMm`, `txLateralFwhmMm` y
 `axialFwhmMm` permanezcan dentro de las bandas preregistradas en LIM-37.
 Regenerar con `python3 scripts/acoustic/pymust_psf.py data/acoustic/pymust-psf.json`
 (numpy, pymust) y actualizar el SHA-256 de PROVENANCE.
+
+`tests/validation/hemodynamics.test.ts` (DEC-80) barre PIC 10–90 con PAM 90 y
+exige caudal neto por ciclo ≥ 0, no creciente, finito y continuo al cruzar
+la frontera entre el régimen normal y el de Starling; `paradaCirculatoria`
+debe conservar espigas anterógradas y lóbulo retrógrado con neto ≈ 0.

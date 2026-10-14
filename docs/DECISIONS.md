@@ -1416,3 +1416,32 @@ estas bandas como criterio de aceptación (acercar la mediana a 1 sin perder
 el acuerdo de transmisión). Un motor de acústica lineal no es verdad clínica:
 no incluye aberración por cráneo, no linealidad ni la respuesta real del
 transductor; acota el modelo, no lo valida.
+
+## DEC-80 · Régimen de Starling cuando PAM ≤ CrCP + 1 mmHg (R12, parte 1)
+
+**Problema (auditoría de fisiología, P0).** `hemodynamics()` normalizaba la
+onda `(P(φ) − CrCP)/(PAM − CrCP)` y sustituía el denominador por 1 cuando
+PAM ≤ CrCP + 1. Como la media de `P − CrCP` es PAM − CrCP < 0, el flujo medio
+resultaba **retrógrado y grande**: −2,9× el nominal con PIC 80 y −0,9× con
+PIC 88 (caso `paradaCirculatoria`), es decir, el modelo afirmaba un caudal
+neto negativo hacia la ACI, físicamente imposible, con PI saturado en 40.
+
+**Decisión.** Por debajo de la frontera se modela un resistor de Starling con
+compliance: el lecho solo conduce cuando `P(φ) > CrCP` (lóbulo anterógrado
+`(P − CrCP)⁺`); el lóbulo retrógrado es la descarga de la compliance
+arterial, `κ·(P − CrCP)⁻`, con κ ∈ [0, 1] elegido para que el **área neta por
+ciclo** sea `min(1 mmHg, A⁺·f)`: continua con el régimen normal en la
+frontera (media 1·f) y → 0 con la PPC, nunca negativa. La normalización por
+1 mmHg se conserva, de modo que las amplitudes en la frontera no cambian. El
+régimen normal (`PAM − CrCP > 1`) es idéntico al anterior: no cambian casos
+N1, dorados ni PI de la meseta. `HemodynamicState` expone `regime` y
+`retrogradeFraction`.
+
+**Qué no se cambió y por qué.** El tono vasomotor sigue siendo
+`TONE·cvrRatio` (calibrado al fixture): probé anularlo en la dilatación máxima
+(CrCP → PIC), pero baja el PI con PIC 30 por debajo de 1,3 y elimina la
+inversión diastólica con PIC 60, comportamientos docentes que las pruebas
+protegen; queda como LIM-38 junto con las espigas de 7–11× el nominal con
+PPC 20–25 (herencia de la normalización por 1 mmHg). Pruebas: barrido PIC
+10–90 con caudal neto ≥ 0, monótono no creciente, sin NaN y continuo en la
+frontera (`tests/validation/hemodynamics.test.ts`).
