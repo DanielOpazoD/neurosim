@@ -13,6 +13,26 @@ import { velocityFromShiftMmS, mmsToCms } from '../core/units';
 import { DOPPLER } from './params';
 import { captureNoiseFloorsDb, columnBandEnvelopes, type SpectralColumn } from './spectral';
 
+function inferredStep(points: readonly { t: number }[]): number {
+  const steps = points
+    .slice(1)
+    .map((p, i) => p.t - points[i]!.t)
+    .filter((dt) => Number.isFinite(dt) && dt > 0)
+    .sort((a, b) => a - b);
+  return steps[steps.length >> 1] ?? 0;
+}
+
+function connected(
+  a: { t: number; stepS?: number },
+  b: { t: number; stepS?: number },
+  fallback: number,
+): boolean {
+  const step = (p: { stepS?: number }) =>
+    p.stepS && Number.isFinite(p.stepS) && p.stepS > 0 ? p.stepS : fallback;
+  const dt = b.t - a.t;
+  return dt > 0 && dt <= Math.max(step(a), step(b)) * DOPPLER.params.pwGapCadenceFactor.value + 1e-9;
+}
+
 /**
  * Promedio del espectro en una vecindad 3 × 3 (columnas × bins) en potencia
  * lineal: reduce la varianza del periodograma antes de trazar la envolvente,
@@ -24,6 +44,7 @@ export function smoothSpectrum(columns: readonly SpectralColumn[]): SpectralColu
   if (n === 0) return [];
   const N = columns[0]!.powerDb.length;
   const lin = columns.map((c) => Float64Array.from(c.powerDb, (db) => Math.pow(10, db / 10)));
+  const step = inferredStep(columns);
   return columns.map((c, i) => {
     const out = new Float32Array(N);
     for (let k = 0; k < N; k++) {
@@ -32,6 +53,12 @@ export function smoothSpectrum(columns: readonly SpectralColumn[]): SpectralColu
       for (let di = -1; di <= 1; di++) {
         const ii = i + di;
         if (ii < 0 || ii >= n || lin[ii]!.length !== N) continue;
+        if (
+          ii !== i &&
+          (columns[ii]!.prfHz !== c.prfHz ||
+            !connected(columns[Math.min(i, ii)]!, columns[Math.max(i, ii)]!, step))
+        )
+          continue;
         for (let dk = -1; dk <= 1; dk++) {
           const kk = k + dk;
           if (kk < 0 || kk >= N) continue;
@@ -41,7 +68,7 @@ export function smoothSpectrum(columns: readonly SpectralColumn[]): SpectralColu
       }
       out[k] = 10 * Math.log10(acc / cnt);
     }
-    return { t: c.t, prfHz: c.prfHz, powerDb: out };
+    return { ...c, powerDb: out };
   });
 }
 
@@ -72,6 +99,10 @@ export interface SpectralTracePoint {
   t: number;
   /** Velocidad rotulada con signo de pantalla, cm/s. */
   vCms: number;
+  /** Envolventes con signo de pantalla; NaN si no se detectó ese semiplano. */
+  positiveCms?: number;
+  negativeCms?: number;
+  stepS?: number;
 }
 
 /**
@@ -86,28 +117,144 @@ export function observedTrace(
   const margin = opts.thresholdMarginDb ?? 12;
   const smoothed = smoothSpectrum(columns);
   const floors = captureNoiseFloorsDb(smoothed);
+  const rawFloors = captureNoiseFloorsDb(columns);
+  const step = inferredStep(columns);
   const raw: SpectralTracePoint[] = [];
   for (const [i, col] of smoothed.entries()) {
     const floor = floors[i]!;
     const b = columnBandEnvelopes(col, opts.fftSize, floor, margin);
-    const fSigned = !b.detected ? Number.NaN : b.ePos >= b.eNeg ? b.posHz : -b.negHz;
-    const vMm = Number.isFinite(fSigned)
-      ? velocityFromShiftMmS(fSigned, opts.f0Hz, opts.angleCorrectionRad)
-      : Number.NaN;
-    const v = (Number.isFinite(vMm) ? mmsToCms(vMm) : Number.NaN) * (opts.invert ? -1 : 1);
-    raw.push({ t: col.t, vCms: v });
+    const original = columns[i]!;
+    const originalBand = columnBandEnvelopes(original, opts.fftSize, rawFloors[i]!, margin);
+    const half = opts.fftSize >> 1;
+    const floorLin = 10 ** (rawFloors[i]! / 10);
+    const energy = (from: number, to: number) =>
+      original.powerDb
+        .subarray(from, to)
+        .reduce((sum, db) => sum + Math.max(0, 10 ** (db / 10) - floorLin), 0);
+    const ePos = energy(half + 2, opts.fftSize);
+    const eNeg = energy(0, half - 1);
+    const minEnergy = (ePos + eNeg) * DOPPLER.params.pwSecondaryEnergyFraction.value;
+    const detected = (from: number, to: number) =>
+      originalBand.detected && original.powerDb.subarray(from, to).some((db) => db >= rawFloors[i]! + margin);
+    const velocity = (hz: number) => mmsToCms(velocityFromShiftMmS(hz, opts.f0Hz, opts.angleCorrectionRad));
+    const pos =
+      ePos >= minEnergy && detected(half + 2, opts.fftSize)
+        ? velocity(b.posHz || originalBand.posHz)
+        : Number.NaN;
+    const neg =
+      eNeg >= minEnergy && detected(0, half - 1) ? velocity(-(b.negHz || originalBand.negHz)) : Number.NaN;
+    const v = ePos >= eNeg ? pos : neg;
+    raw.push({
+      t: col.t,
+      stepS: col.stepS,
+      vCms: v * (opts.invert ? -1 : 1),
+      positiveCms: opts.invert ? -neg : pos,
+      negativeCms: opts.invert ? -pos : neg,
+    });
   }
   // mediana temporal de 5 puntos
   return raw.map((p, i) => {
+    if (!Number.isFinite(p.vCms)) return p;
     const win: number[] = [];
     for (let j = Math.max(0, i - 2); j <= Math.min(raw.length - 1, i + 2); j++) {
+      let contiguous = true;
+      for (let k = Math.min(i, j) + 1; k <= Math.max(i, j); k++) {
+        if (!connected(raw[k - 1]!, raw[k]!, step) || !Number.isFinite(raw[k]!.vCms)) contiguous = false;
+      }
       const v = raw[j]!.vCms;
-      if (Number.isFinite(v)) win.push(v);
+      if (contiguous && Number.isFinite(v) && Math.sign(v) === Math.sign(p.vCms)) win.push(v);
     }
-    if (win.length < 3) return { t: p.t, vCms: Number.NaN };
+    if (win.length < 3) return p;
     win.sort((a, b) => a - b);
-    return { t: p.t, vCms: win[win.length >> 1]! };
+    return { ...p, vCms: win[win.length >> 1]! };
   });
+}
+
+export type PwDirection = 'positivo' | 'negativo' | 'bidireccional' | 'sin-senal';
+export type PwStatus =
+  'valida' | 'bidireccional' | 'sin-senal' | 'tiempo-invalido' | 'cobertura-insuficiente';
+
+function traceStats(trace: readonly SpectralTracePoint[]) {
+  const positive = trace.some(
+    (p) => (Number.isFinite(p.vCms) && p.vCms > 0) || (Number.isFinite(p.positiveCms) && p.positiveCms! > 0),
+  );
+  const negative = trace.some(
+    (p) => (Number.isFinite(p.vCms) && p.vCms < 0) || (Number.isFinite(p.negativeCms) && p.negativeCms! < 0),
+  );
+  const direction: PwDirection =
+    positive && negative ? 'bidireccional' : positive ? 'positivo' : negative ? 'negativo' : 'sin-senal';
+  const ordered = trace.every((p, i) => Number.isFinite(p.t) && (i === 0 || p.t > trace[i - 1]!.t));
+  const step = inferredStep(trace);
+  let coveredS = 0;
+  let integral = 0;
+  if (ordered)
+    for (let i = 1; i < trace.length; i++) {
+      const a = trace[i - 1]!;
+      const b = trace[i]!;
+      if (!Number.isFinite(a.vCms) || !Number.isFinite(b.vCms) || !connected(a, b, step)) continue;
+      const dt = b.t - a.t;
+      integral += (a.vCms + b.vCms) * 0.5 * dt;
+      coveredS += dt;
+    }
+  return { direction, ordered, coveredS, integral };
+}
+
+export interface PwAssessment {
+  status: PwStatus;
+  direction: PwDirection;
+  coverageFraction: number;
+  /** Media firmada de envolvente dominante sobre tiempo cubierto; NO caudal neto. */
+  signedEnvelopeMeanCms: number | null;
+  summary: ReturnType<typeof summarizeBeats>;
+}
+
+export function assessPwTrace(
+  trace: readonly SpectralTracePoint[],
+  beats: readonly { tStart: number; rr: number }[],
+): PwAssessment {
+  const stats = traceStats(trace);
+  const duration = (trace.at(-1)?.t ?? 0) - (trace[0]?.t ?? 0);
+  const coverageFraction = duration > 0 ? stats.coveredS / duration : 0;
+  const simultaneous = trace.some((p) => (p.positiveCms ?? 0) > 0 && (p.negativeCms ?? 0) < 0);
+  const summary =
+    stats.ordered &&
+    stats.direction !== 'bidireccional' &&
+    coverageFraction >= DOPPLER.params.beatCoverageMin.value
+      ? summarizeBeats(measureBeats(trace, beats))
+      : null;
+  return {
+    status: !stats.ordered
+      ? 'tiempo-invalido'
+      : stats.direction === 'sin-senal'
+        ? 'sin-senal'
+        : stats.direction === 'bidireccional'
+          ? 'bidireccional'
+          : summary
+            ? 'valida'
+            : 'cobertura-insuficiente',
+    direction: stats.direction,
+    coverageFraction,
+    signedEnvelopeMeanCms:
+      stats.coveredS > 0 && !simultaneous && Number.isFinite(stats.integral)
+        ? stats.integral / stats.coveredS
+        : null,
+    summary,
+  };
+}
+
+export function pwStatusText(status: PwStatus): string {
+  switch (status) {
+    case 'valida':
+      return 'Envolvente unidireccional con cobertura suficiente; no confirma identidad ni exactitud clínica.';
+    case 'bidireccional':
+      return 'Señal en ambas direcciones: no calcular PI, IR ni Lindegaard automáticos. Revisar reversión, aliasing, mezcla o artefactos.';
+    case 'sin-senal':
+      return 'Sin señal cuantificable: no equivale a ausencia de flujo ni a cese circulatorio.';
+    case 'tiempo-invalido':
+      return 'Tiempos duplicados o desordenados: captura no interpretable.';
+    case 'cobertura-insuficiente':
+      return 'Cobertura temporal insuficiente: adquirir latidos completos sin interrupciones.';
+  }
 }
 
 /**
@@ -122,30 +269,24 @@ export function measureBeats(
   beats: readonly { tStart: number; rr: number }[],
 ): BeatMeasure[] {
   const out: BeatMeasure[] = [];
+  const capture = traceStats(trace);
+  if (!capture.ordered) return out;
   for (const b of beats) {
+    if (!Number.isFinite(b.tStart) || !Number.isFinite(b.rr) || b.rr <= 0) continue;
     const allPts = trace.filter((p) => p.t >= b.tStart && p.t < b.tStart + b.rr);
     const pts = allPts.filter((p) => Number.isFinite(p.vCms));
     if (pts.length < 6) continue;
-    const sign = pts.reduce((a, p) => a + p.vCms, 0) >= 0 ? 1 : -1;
+    const stats = traceStats(allPts);
+    if (stats.direction === 'bidireccional' || stats.direction === 'sin-senal') continue;
+    const sign = stats.direction === 'positivo' ? 1 : -1;
     let psv = -Infinity;
     const magnitudes: number[] = [];
-    let integ = 0;
-    let coveredS = 0;
+    const coveredS = stats.coveredS;
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i]!;
       const v = Math.abs(p.vCms);
       if (v > psv) psv = v;
       magnitudes.push(v);
-    }
-    for (let i = 1; i < allPts.length; i++) {
-      const previous = allPts[i - 1]!;
-      const p = allPts[i]!;
-      if (!Number.isFinite(previous.vCms) || !Number.isFinite(p.vCms)) continue;
-      const dt = p.t - previous.t;
-      if (dt >= 0) {
-        integ += (Math.abs(previous.vCms) + Math.abs(p.vCms)) * 0.5 * dt;
-        coveredS += dt;
-      }
     }
     magnitudes.sort((a, b) => a - b);
     const rank = 0.1 * (magnitudes.length - 1);
@@ -160,16 +301,16 @@ export function measureBeats(
     ) {
       continue;
     }
-    const taMax = integ / coveredS;
-    const mfv = taMax > 0 ? taMax : Number.NaN;
+    const taMax = stats.integral / coveredS;
+    if (!Number.isFinite(taMax) || taMax === 0 || psv <= 0) continue;
     out.push({
       tStart: b.tStart,
       rrS: b.rr,
       psvCms: psv * sign,
       edvCms: edv * sign,
-      taMaxCms: taMax * sign,
-      pi: Math.abs(psv - edv) / Math.max(1e-6, mfv),
-      ri: Math.abs(psv - edv) / Math.max(1e-6, psv),
+      taMaxCms: taMax,
+      pi: Math.abs(psv - edv) / Math.abs(taMax),
+      ri: Math.abs(psv - edv) / psv,
       sign,
     });
   }
@@ -186,6 +327,19 @@ export function summarizeBeats(ms: readonly BeatMeasure[]): {
   beats: number;
 } | null {
   if (!ms.length) return null;
+  const sign = ms[0]!.sign;
+  if (
+    Math.abs(sign) !== 1 ||
+    ms.some(
+      (m) =>
+        m.sign !== sign ||
+        ![m.psvCms, m.edvCms, m.taMaxCms].every(Number.isFinite) ||
+        Math.sign(m.psvCms) !== sign ||
+        Math.sign(m.taMaxCms) !== sign ||
+        (m.edvCms !== 0 && Math.sign(m.edvCms) !== sign),
+    )
+  )
+    return null;
   const med = (xs: number[]) => {
     const s = [...xs].sort((a, b) => a - b);
     return s[s.length >> 1]!;
@@ -197,8 +351,8 @@ export function summarizeBeats(ms: readonly BeatMeasure[]): {
     psvCms,
     edvCms,
     taMaxCms,
-    pi: Math.abs(psvCms - edvCms) / Math.max(1e-6, Math.abs(taMaxCms)),
-    ri: Math.abs(psvCms - edvCms) / Math.max(1e-6, Math.abs(psvCms)),
+    pi: Math.abs(psvCms - edvCms) / Math.abs(taMaxCms),
+    ri: Math.abs(psvCms - edvCms) / Math.abs(psvCms),
     beats: ms.length,
   };
 }

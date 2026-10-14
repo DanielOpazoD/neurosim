@@ -159,3 +159,12 @@ a WebGL2 en bloques posteriores.
   modulación respiratoria, colapso ni compresibilidad. No hay bifurcación
   carotídea, bulbo ni seno, ni placas o estenosis cervicales, ni el tramo
   petroso intraóseo (el tubo continúa en tejido hasta el sifón).
+
+- **LIM-30 · Medición bidireccional conservadora**: DEC-71 conserva ambas
+  envolventes y bloquea índices automáticos con señal en ambos sentidos,
+  pero no distingue reversión diastólica, aliasing, mezcla arterial/venosa
+  o artefactos. El umbral secundario del 5 % es estimado y puede omitir flujo
+  débil; no hay cuantificación clínica validada de ondas oscilantes. La media
+  firmada de envolvente NO representa caudal neto. Señal ausente no prueba
+  cese circulatorio. La cadencia inferida para trazas sin hop/PRF no detecta
+  pérdidas uniformes; la cadena PW de la aplicación sí transporta hop/PRF.

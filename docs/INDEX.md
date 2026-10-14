@@ -49,6 +49,7 @@
 | LIM-27 | Navegación de sonda 2-D                      | —                                                                            |
 | LIM-28 | Desplazamiento de línea media supratentorial | —                                                                            |
 | LIM-29 | Escena submandibular simplificada            | `src/anatomy/neck.ts`                                                        |
+| LIM-30 | Medición bidireccional conservadora          | —                                                                            |
 
 ## IDs de decisiones
 
@@ -125,6 +126,6 @@
 | -------------------- | ---------: |
 | `anatomia-ojo`       |         40 |
 | `anatomia-cabeza`    |         73 |
-| `doppler`            |         52 |
+| `doppler`            |         54 |
 | `fisiologia`         |         36 |
 | `fisica-ultrasonido` |         42 |

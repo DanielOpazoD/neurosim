@@ -14,10 +14,11 @@ import { skullAttenuationDb } from '../ultrasound/attenuation';
 import type { VesselScene } from '../anatomy/head';
 import {
   lindegaardIndex,
-  measureBeats,
+  assessPwTrace,
   observedTrace,
   summarizeBeats,
   type LindegaardResult,
+  type PwAssessment,
 } from '../doppler/measureMca';
 import { DopplerAudio } from '../doppler/audio';
 import type { AudioSink } from '../doppler/pwChain';
@@ -113,7 +114,7 @@ export class PwController {
     revision: number;
     settingsKey: string;
     atMs: number;
-    value: ReturnType<typeof summarizeBeats>;
+    value: PwAssessment | null;
   } | null = null;
   /** Reloj de tiempo real para el tope de la medida (inyectable en pruebas). */
   nowMs: () => number = () => performance.now();
@@ -429,18 +430,23 @@ export class PwController {
    * Un cambio de ajuste de medida (ángulo, filtro…) recalcula en el acto.
    */
   latestMcaMeasure(): ReturnType<typeof summarizeBeats> {
+    return this.latestPwAssessment()?.summary ?? null;
+  }
+
+  latestPwAssessment(): PwAssessment | null {
     const s = this.state;
     if (!s.pwOn || this.cols.length <= 20) return null;
+    if (this.sceneKey !== `${s.station}-${s.side}`) return null;
     const settingsKey = `${s.settings.frequencyMhz}|${s.settings.angleCorrectionDeg}|${s.settings.invertColor}|${s.settings.wallFilterHz}|${this.fft}`;
     const cached = this.measureCache;
     const now = this.nowMs();
     if (cached && cached.settingsKey === settingsKey) {
       if (cached.revision === this.rev) return cached.value;
-      if (now - cached.atMs < MEASURE_MIN_INTERVAL_MS) return cached.value;
+      if (!s.frozen && now - cached.atMs < MEASURE_MIN_INTERVAL_MS) return cached.value;
     }
     const value = this.computeMcaMeasure();
     this.measureCache = { revision: this.rev, settingsKey, atMs: now, value };
-    this.recordIcaMeasure(value);
+    this.recordIcaMeasure(value?.summary ?? null);
     return value;
   }
 
@@ -497,7 +503,7 @@ export class PwController {
   }
 
   /** Medida sin caché (coste ~30–60 ms con 2,5 s de columnas). */
-  private computeMcaMeasure(): ReturnType<typeof summarizeBeats> {
+  private computeMcaMeasure(): PwAssessment | null {
     try {
       const s = this.state;
       const cols = this.cols;
@@ -519,11 +525,9 @@ export class PwController {
       const t0 = trace[0]?.t ?? 0;
       const t1 = trace[trace.length - 1]?.t ?? 0;
       const beats = this.sim.cardiac.beatsIn(t0, t1);
-      return summarizeBeats(
-        measureBeats(
-          trace,
-          beats.map((b) => ({ tStart: b.tStart, rr: b.rr })),
-        ),
+      return assessPwTrace(
+        trace,
+        beats.map((b) => ({ tStart: b.tStart, rr: b.rr })),
       );
     } catch (err) {
       logError('pw', err);

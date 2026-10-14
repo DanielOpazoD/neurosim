@@ -7,7 +7,7 @@ import type { Measurement } from '../../src/domain/contracts';
 import { fromEyeLocal, nerveCenterline, trueOnsdMm } from '../../src/anatomy/eye';
 import { exportPayload } from '../../src/app/exporter';
 import { caseById } from '../../src/domain/cases';
-import { lindegaardIndex, lindegaardInterpretation } from '../../src/doppler/measureMca';
+import { lindegaardIndex, lindegaardInterpretation, pwStatusText } from '../../src/doppler/measureMca';
 
 function measurement(sim: ReturnType<typeof buildReferenceCase>, value: number, offset: number): Measurement {
   const eye = sim.eyes.der;
@@ -31,6 +31,41 @@ function measurement(sim: ReturnType<typeof buildReferenceCase>, value: number, 
 }
 
 describe('debriefing docente', () => {
+  it.each(['bidireccional', 'sin-senal', 'tiempo-invalido', 'cobertura-insuficiente'] as const)(
+    'conserva el motivo PW %s en debrief/JSON y no interpreta índices inválidos',
+    (status) => {
+      const sim = buildReferenceCase(undefined, 'normal', caseById('vasoespasmo'));
+      const s = createInitialState();
+      s.teachingMode = false;
+      s.debrief.record('freeze', 'congelar', {
+        frozen: true,
+        station: 'temporal',
+        side: 'der',
+        pwStatus: status,
+        pwDirection: 'bidireccional',
+        pwCoverage: 0.18,
+        pi: 99,
+        lindegaardSource: 'medida',
+        mcaTaMaxCms: 240,
+        icaTaMaxCms: 30,
+      });
+      const report = buildDebrief(s.debrief, sim, s, sim.physStateAt(0).hemo);
+      expect(report.findings.find((f) => f.code === 'pw-no-interpretable')?.text).toBe(pwStatusText(status));
+      expect(
+        report.findings.some((f) => f.code === 'pi-vs-esperado' || f.code === 'lindegaard-contextual'),
+      ).toBe(false);
+      expect(exportPayload(sim, s)).toMatchObject({
+        lindegaard: null,
+        pwDetalle: {
+          estado: status,
+          coberturaTemporal: 0.18,
+          lado: 'der',
+          estacion: 'temporal',
+        },
+      });
+    },
+  );
+
   it.each(['vasoespasmo', 'estenosisM1'] as const)('no diagnostica por cociente aislado en %s', (caseId) => {
     const sim = buildReferenceCase(undefined, 'normal', caseById(caseId));
     const s = createInitialState();

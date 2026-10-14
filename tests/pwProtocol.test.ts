@@ -10,6 +10,7 @@ import {
   createPwHandlerState,
   handlePwMessage,
   packColumns,
+  replyTransferables,
   unpackColumns,
   type PwEquipment,
   type PwMessage,
@@ -99,6 +100,7 @@ describe('protocolo del worker PW (DEC-55)', () => {
       const b = direct.spectral.columns[i]!;
       expect(a.t).toBe(b.t);
       expect(a.prfHz).toBe(b.prfHz);
+      expect(a.stepS).toBe(b.stepS);
       expect(sameBits(a.powerDb, b.powerDb)).toBe(true);
     }
     // IQ filtrado para el audio: mismo bloque por paso.
@@ -108,6 +110,7 @@ describe('protocolo del worker PW (DEC-55)', () => {
       expect(sameBits(replies[i]!.iqIm, directIm[i]!)).toBe(true);
     }
     const last = replies.at(-1)!;
+    expect(replyTransferables(last)).toContain(last.steps.buffer);
     expect(last.sceneKey).toBe('temporal-der');
     expect(last.composition).toEqual(direct.sampleVolume.lastComposition);
   });
@@ -116,10 +119,12 @@ describe('protocolo del worker PW (DEC-55)', () => {
     const cols: SpectralColumn[] = [0, 1, 2].map((i) => ({
       t: i * 0.004,
       prfHz: 6000,
+      stepS: 0.004,
       powerDb: Float32Array.from({ length: 8 }, (_, k) => -40 + i + k / 7),
     }));
     const back = unpackColumns({ ...packColumns(cols, 8), fftSize: 8 });
     expect(back.map((c) => c.t)).toEqual(cols.map((c) => c.t));
+    expect(back.map((c) => c.stepS)).toEqual(cols.map((c) => c.stepS));
     back.forEach((c, i) => expect(sameBits(c.powerDb, cols[i]!.powerDb)).toBe(true));
   });
 
@@ -261,6 +266,48 @@ describe('PwController como proxy (DEC-55)', () => {
     // PW apagado → sin medida.
     s.pwOn = false;
     expect(pw.latestMcaMeasure()).toBeNull();
+  });
+
+  it('al congelar no conserva índices cacheados de una captura ahora bidireccional', () => {
+    const sim = buildReferenceCase();
+    const s = temporalM1State(sim);
+    const transport = new DeferredTransport();
+    const pw = new PwController(sim, s, transport);
+    pw.nowMs = () => 0;
+    const clock = new SimulationClock();
+    pw.step(clock, 0.064);
+    const template = transport.queued[0]!;
+    expect(template).toBeDefined();
+    const inject = (start: number, bidirectional: boolean) => {
+      const cols: SpectralColumn[] = Array.from({ length: 400 }, (_, i) => {
+        const powerDb = new Float32Array(128).fill(-80);
+        for (let k = 4; k <= 18; k++) {
+          powerDb[64 + k] = -20;
+          if (bidirectional) powerDb[64 - k] = -20;
+        }
+        return { t: start + i / 100, stepS: 0.01, prfHz: 6000, powerDb };
+      });
+      transport.onReply!({
+        ...template,
+        ...packColumns(cols, 128),
+        composition: {
+          bloodFraction: 0.8,
+          bloodWeight: 1,
+          dominantVesselId: 'm1-der',
+          dominantVesselFraction: 1,
+        },
+      });
+    };
+    inject(0, false);
+    expect(pw.latestMcaMeasure()).not.toBeNull();
+    expect(pw.lindegaard()).not.toBeNull();
+    inject(4, true);
+    s.frozen = true;
+    expect(pw.latestMcaMeasure()).toBeNull();
+    expect(pw.latestPwAssessment()?.status).toBe('bidireccional');
+    expect(pw.lindegaard()).toBeNull();
+    s.side = 'izq';
+    expect(pw.latestPwAssessment()).toBeNull();
   });
 
   it('descarta respuestas de una configuración anterior (configVersion)', () => {

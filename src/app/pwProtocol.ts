@@ -89,6 +89,8 @@ export interface PwReply {
   readonly times: Float64Array;
   /** PRF de cada columna (Hz). */
   readonly prfHz: Float64Array;
+  /** Cadencia adquirida de cada columna (s); NaN si no está documentada. */
+  readonly steps: Float64Array;
   /** Potencia en dB, `count × fftSize` (columna i en [i·N, (i+1)·N)). */
   readonly power: Float32Array;
   readonly iqRe: Float32Array;
@@ -145,28 +147,33 @@ export function pwDopplerScene(sim: ReferenceCase, station: Station, side: Side)
 export function packColumns(
   columns: readonly SpectralColumn[],
   fftSize: number,
-): Pick<PwReply, 'count' | 'times' | 'prfHz' | 'power'> {
+): Pick<PwReply, 'count' | 'times' | 'prfHz' | 'steps' | 'power'> {
   const count = columns.length;
   const times = new Float64Array(count);
   const prfHz = new Float64Array(count);
+  const steps = new Float64Array(count);
   const power = new Float32Array(count * fftSize);
   for (let i = 0; i < count; i += 1) {
     const col = columns[i]!;
     times[i] = col.t;
     prfHz[i] = col.prfHz;
+    steps[i] = col.stepS ?? Number.NaN;
     power.set(col.powerDb.subarray(0, fftSize), i * fftSize);
   }
-  return { count, times, prfHz, power };
+  return { count, times, prfHz, steps, power };
 }
 
 /** Desempaqueta un bloque en `SpectralColumn`s (vistas sobre `power`, sin copia). */
-export function unpackColumns(reply: Pick<PwReply, 'count' | 'times' | 'prfHz' | 'power' | 'fftSize'>) {
+export function unpackColumns(
+  reply: Pick<PwReply, 'count' | 'times' | 'prfHz' | 'steps' | 'power' | 'fftSize'>,
+) {
   const out: SpectralColumn[] = [];
   const N = reply.fftSize;
   for (let i = 0; i < reply.count; i += 1) {
     out.push({
       t: reply.times[i]!,
       prfHz: reply.prfHz[i]!,
+      stepS: Number.isFinite(reply.steps[i]) ? reply.steps[i]! : undefined,
       powerDb: reply.power.subarray(i * N, (i + 1) * N),
     });
   }
@@ -188,7 +195,14 @@ function concat(parts: Float32Array[]): Float32Array {
 
 /** Buffers transferibles de una respuesta. */
 export function replyTransferables(reply: PwReply): Transferable[] {
-  return [reply.times.buffer, reply.prfHz.buffer, reply.power.buffer, reply.iqRe.buffer, reply.iqIm.buffer];
+  return [
+    reply.times.buffer,
+    reply.prfHz.buffer,
+    reply.steps.buffer,
+    reply.power.buffer,
+    reply.iqRe.buffer,
+    reply.iqIm.buffer,
+  ];
 }
 
 /**

@@ -12,7 +12,7 @@ import { CerebralFlow } from '../../src/physiology/flow';
 import { renderColorDoppler } from '../../src/doppler/color';
 import { insonationAngles } from '../../src/doppler/insonation';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
-import { observedTrace, measureBeats, summarizeBeats } from '../../src/doppler/measureMca';
+import { observedTrace, assessPwTrace } from '../../src/doppler/measureMca';
 import { eyeDopplerScene } from '../../src/app/renderRequest';
 import { buildScan, imageToPatient } from '../../src/ultrasound/probe';
 import { vesselDistance } from '../../src/anatomy/head';
@@ -194,7 +194,7 @@ describe('color Doppler ocular', () => {
 });
 
 describe('PW ocular sobre la ACR', () => {
-  it('mide PSV dentro del 30 % de 10 cm/s con ángulo casi nulo', () => {
+  it.each([false, true])('ACR aislada mide PSV; escena completa advierte mezcla (aislada=%s)', (isolated) => {
     const acr = sim.eyes.der.vessels.find((v) => v.id === 'acr-der')!;
     const center = acr.points[Math.floor(acr.points.length / 2)]!;
     // Haz lineal mirando posterior (−z): la ACR corre a lo largo del haz.
@@ -215,7 +215,7 @@ describe('PW ocular sobre la ACR', () => {
     expect(angle.vesselId).toBe('acr-der');
     expect(angle.realDeg).toBeLessThan(20);
 
-    const chain = new PwDopplerChain(scene, sim.patient.seed);
+    const chain = new PwDopplerChain(isolated ? { ...scene, vessels: [acr] } : scene, sim.patient.seed);
     chain.setGate(gate);
     chain.begin(4000, 10e6, 20, 50, 0);
     let t = 0;
@@ -238,7 +238,15 @@ describe('PW ocular sobre la ACR', () => {
       wallFilterHz: 50,
     });
     const beats = sim.cardiac.beatsIn(trace[0]!.t, trace[trace.length - 1]!.t);
-    const s = summarizeBeats(measureBeats(trace, beats));
+    const assessment = assessPwTrace(trace, beats);
+    if (!isolated) {
+      expect(chain.sampleVolume.lastComposition.dominantVesselFraction).toBeLessThan(0.75);
+      expect(trace.some((p) => p.positiveCms! > 0 && p.negativeCms! < 0)).toBe(true);
+      expect(assessment.status).toBe('bidireccional');
+      expect(assessment.summary).toBeNull();
+      return;
+    }
+    const s = assessment.summary;
     expect(s).not.toBeNull();
     expect(Math.abs(s!.psvCms)).toBeGreaterThan(7);
     expect(Math.abs(s!.psvCms)).toBeLessThan(13);

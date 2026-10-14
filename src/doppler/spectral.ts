@@ -16,6 +16,8 @@ export interface SpectralColumn {
   /** Potencia en dB por bin, con fftshift: índice 0 ↔ −PRF/2, N/2 ↔ 0 Hz. */
   powerDb: Float32Array;
   prfHz: number;
+  /** Cadencia de adquisición hop/PRF (s), no distancia entre columnas recibidas. */
+  stepS?: number;
 }
 
 function powerAt(col: SpectralColumn, index: number): number {
@@ -94,7 +96,7 @@ export class SpectralProcessor {
     }
     // Centro de la ventana: la muestra sampleIndex − N/2
     const tCenter = this.t0 + (this.sampleIndex - half) / this.prfHz;
-    this.columns.push({ t: tCenter, powerDb: power, prfHz: this.prfHz });
+    this.columns.push({ t: tCenter, powerDb: power, prfHz: this.prfHz, stepS: this.hop / this.prfHz });
     if (this.columns.length > this.maxColumns) this.columns.splice(0, this.columns.length - this.maxColumns);
   }
 

@@ -5,6 +5,7 @@ import {
   lindegaardIndex,
   lindegaardInterpretation,
   lindegaardPattern,
+  pwStatusText,
   type LindegaardResult,
 } from '../doppler/measureMca';
 import type { ReferenceCase } from '../domain/referenceCase';
@@ -37,6 +38,7 @@ export interface DebriefEvent {
 /** Reconstruye solo velocidades y origen de la MISMA captura, nunca máximos de eventos distintos. */
 export function lindegaardFromEvent(event: DebriefEvent | undefined): LindegaardResult | null {
   if (!event || event.kind !== 'freeze' || event.data?.frozen === false) return null;
+  if (event.data?.pwStatus !== undefined && event.data.pwStatus !== 'valida') return null;
   const source = event.data?.lindegaardSource;
   if (source !== 'medida' && source !== 'referencia') return null;
   const mca = typeof event.data?.mcaTaMaxCms === 'number' ? event.data.mcaTaMaxCms : Number.NaN;
@@ -319,6 +321,18 @@ export function buildDebrief(
   }
   for (const event of events) {
     if (event.kind !== 'freeze') continue;
+    if (event.data?.frozen === false) continue;
+    const status = event.data?.pwStatus;
+    if (
+      status === 'bidireccional' ||
+      status === 'sin-senal' ||
+      status === 'tiempo-invalido' ||
+      status === 'cobertura-insuficiente'
+    ) {
+      add('pw-no-interpretable', 'aviso', pwStatusText(status), { status });
+      continue;
+    }
+    if (status === 'sin-captura') continue;
     const pi = numberData(event, 'pi');
     if (pi !== undefined && Math.abs(pi - hemo.expectedPi) > DOPPLER.params.debriefPiTolerance.value) {
       add(
