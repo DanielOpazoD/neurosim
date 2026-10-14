@@ -27,4 +27,4 @@
   de licencia en `docs/PROVENANCE.md` (lo exige `provenance:check`).
 - «Ventana óptima» (DEC-60): solver puro en `src/app/optimalWindow.ts`, botón
   `#optimal` / tecla O; en e2e la solución del caso normal es determinista
-  (Ojo D barrido −2,3 mm; Temporal D inclinación −5°, desplazamiento 6 mm).
+  (Ojo D barrido +2,3 mm desde DEC-76; Temporal D inclinación −5°, desplazamiento 6 mm).

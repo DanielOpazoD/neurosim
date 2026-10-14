@@ -15,9 +15,9 @@ test('cabeza escaneada, sin micro-movimiento y «Ventana óptima» lista para me
   await expect(page.locator('#headView')).toHaveAttribute('data-head-model', 'escaneo', { timeout: 60_000 });
   await expect(page.locator('#credits')).toContainText('Lee Perry-Smith');
 
-  // Ojo D: la ventana óptima centra el nervio (barrido lateral −2,3 mm).
+  // Ojo D: la ventana óptima centra el nervio (barrido lateral +2,3 mm; el signo se invirtió con el marco ocular de DEC-76).
   await page.keyboard.press('o');
-  await expect(page.locator('#shiftV')).toHaveText('-2.3 mm', { timeout: 10_000 });
+  await expect(page.locator('#shiftV')).toHaveText('2.3 mm', { timeout: 10_000 });
   await expect(page.locator('#hint')).toContainText('Ventana óptima (transversal)');
 
   // Temporal D: color encendido, puerta sobre M1; P mide sin más clics.

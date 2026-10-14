@@ -176,7 +176,7 @@ describe('marco de la sección del nervio (DEC-57)', () => {
         expect(dot(u, t)).toBeCloseTo(0, 9);
         expect(dot(v, t)).toBeCloseTo(0, 9);
         expect(dot(u, v)).toBeCloseTo(0, 9);
-        expect(u[0]).toBeGreaterThan(0.85);
+        expect(u[0]).toBeGreaterThan(0.85); // marco local: +x = temporal
         expect(v[1]).toBeGreaterThan(0.99);
         expect(dist(cross(u, t), v)).toBeLessThan(1e-9);
       }

@@ -216,3 +216,12 @@ a WebGL2 en bloques posteriores.
   perfil y la continuidad de forma ideal, y las velocidades de eje siguen
   siendo referencias docentes. Los caudales recalibrados son derivados del
   modelo y no han sido comparados con mediciones de caudal (p. ej. PC-MRI).
+
+- **LIM-35 · Coherencia regional del fixture, no registro anatómico**: DEC-76
+  garantiza nodos compartidos y ausencia de interpenetración, pero el radio es
+  constante por vaso (salto 2,2 → 1,73 mm en la base del cráneo, sin
+  afilamiento), las coordenadas de unión son del fixture (no hitos medidos ni
+  derivados de angioTAC), los terminales A2 quedan libres, el muestreo de
+  reentrada del volumen de muestra depende de la densidad de la polilínea y la
+  piel 3D, la tabla ósea y los vasos siguen sin ser una segmentación del mismo
+  individuo (H3). No existe ventana suboccipital.

@@ -70,9 +70,9 @@ describe('clasificación vascular ocular', () => {
 
   it('1 mm lateral a la ACR (lejos de la VCR) es nervioOptico', () => {
     // ACR offset (+0,35; −0,2) vs VCR (−0,35; +0,2): la normal alejada de la
-    // VCR en la sección del nervio es aprox. (0,87, −0,5) en local = paciente
-    // para el ojo derecho (temporal = +x).
-    const off: Vec3 = [mid[0] + 0.87, mid[1] - 0.5, mid[2]];
+    // VCR en la sección del nervio es aprox. (0,87, −0,5) en local; para el ojo
+    // derecho temporal = −x del paciente (DEC-76).
+    const off: Vec3 = [mid[0] - 0.87, mid[1] - 0.5, mid[2]];
     expect(classifyEye(sim.eyes.der, off)).toBe('nervioOptico');
   });
 });

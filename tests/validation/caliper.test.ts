@@ -121,7 +121,8 @@ describe('validación de calipers', () => {
       for (const rotDeg of [0, 90]) {
         const s = createInitialState();
         s.side = side;
-        s.offsetMm = side === 'der' ? -2.5 : 2.5;
+        // Barrido hacia nasal para centrar el nervio (marco DEC-76: nasal real).
+        s.offsetMm = side === 'der' ? 2.5 : -2.5;
         s.rotDeg = rotDeg;
         const pose = currentPose(sim, s);
         const g = sim.eyes[side];

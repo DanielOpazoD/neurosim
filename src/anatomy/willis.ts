@@ -133,6 +133,14 @@ function sideLabel(s: 1 | -1): Side {
  * segmento. `flowSign` invierte esa orientación solo cuando una variante
  * altera el sentido de una comunicante.
  */
+/**
+ * Nodos compartidos entre regiones (DEC-76): la ACI cervical de `neck.ts` debe
+ * terminar en `ACI_SKULL_BASE_MM` (lado derecho; se refleja en x) y ambas P1
+ * nacen en la punta basilar. Son coordenadas del fixture, no hitos medidos.
+ */
+export const ACI_SKULL_BASE_MM: Vec3 = [11, -4.2, -13];
+export const BASILAR_TIP_MM: Vec3 = [0, 8, -26];
+
 export function buildWillisVessels(
   variant: WillisVariant = 'normal',
   radiusScale: Readonly<Record<string, number>> = {},
@@ -217,6 +225,7 @@ export function buildWillisVessels(
         `ica-${side}`,
         side,
         [
+          [s * ACI_SKULL_BASE_MM[0], ACI_SKULL_BASE_MM[1], ACI_SKULL_BASE_MM[2]],
           [s * 9, -4, -10],
           [s * 10, 0, -4],
           [s * 9.5, 4, -8],
@@ -256,11 +265,7 @@ export function buildWillisVessels(
       v(
         `p1-${side}`,
         side,
-        [
-          [0, 8, -26],
-          [s * 5, 9, -26],
-          [s * 11, 10, -24],
-        ],
+        [BASILAR_TIP_MM, [s * 5, 9, -26], [s * 11, 10, -24]],
         fetal !== 0 && s === fetal ? 0.5 : HEAD.p1RadiusMm.value,
         p1Q(s),
         1,
@@ -314,11 +319,7 @@ export function buildWillisVessels(
     v(
       'basilar',
       'media',
-      [
-        [0, 0, -30],
-        [0, 3, -28],
-        [0, 6, -26],
-      ],
+      [[0, 0, -30], [0, 3, -28], BASILAR_TIP_MM],
       HEAD.basilarRadiusMm.value,
       p1Q(1) + p1Q(-1),
       1,

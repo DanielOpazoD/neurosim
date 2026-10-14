@@ -24,7 +24,7 @@ import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3'
 import { flowForMeanVelocity, meanVelocityForFlow, radialProfileMean } from '../core/flowProfile';
 import type { Side } from '../domain/contracts';
 import { vesselContains, type Vessel, type VesselScene } from './head';
-import { smoothPolyline } from './willis';
+import { ACI_SKULL_BASE_MM, smoothPolyline } from './willis';
 
 /**
  * Radio de la ACI cervical distal, mm. Con el caudal de Willis (M1+A1+AComP ≈
@@ -181,7 +181,7 @@ function buildNeckVessels(frame: NeckFrame, side: Side, headVessels: readonly Ve
       L(72, -3.5, -1.5),
       L(82, -4, -5),
       [s * 18, -4.5, -24],
-      [s * 11, -4.2, -13],
+      [s * ACI_SKULL_BASE_MM[0], ACI_SKULL_BASE_MM[1], ACI_SKULL_BASE_MM[2]],
     ],
     NECK_ICA_RADIUS_MM,
     icaMean,
