@@ -51,6 +51,22 @@ export function lateralFwhmMm(spec: BeamSpec, zMm: number): number {
   return 1 / Math.sqrt(1 / (tx * tx) + 1 / (rx * rx));
 }
 
+/** Anchura lateral del haz de transmisión solo (foco fijo), sin el término de recepción. */
+export function txLateralFwhmMm(spec: BeamSpec, zMm: number): number {
+  return fwhm(
+    spec.apertureMm,
+    spec.focusMm,
+    spec.frequencyMhz,
+    spec.soundSpeedMs,
+    zMm,
+    FISICA_US.params.beamDivergenceGamma.value,
+  );
+}
+
+export function axialFwhmMm(spec: BeamSpec): number {
+  return FWHM_TO_SIGMA * (FISICA_US.params.axialPulseMmMhz.value / spec.frequencyMhz);
+}
+
 export function elevationFwhmMm(spec: BeamSpec, zMm: number): number {
   return fwhm(
     spec.elevationApertureMm,

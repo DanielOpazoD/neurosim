@@ -1,2 +1,3 @@
 src/render/gl/shaders/*.glsl
 data/atlas/*.json
+data/acoustic/*.json

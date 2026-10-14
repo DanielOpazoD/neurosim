@@ -1,0 +1,335 @@
+{
+ "schemaVersion": 1,
+ "engine": {
+  "name": "PyMUST",
+  "version": "0.1.9",
+  "license": "LGPL-3.0",
+  "url": "https://github.com/creatis-ULTIM/PyMUST",
+  "reference": "Garcia D. SIMUS: an open-source simulator for medical ultrasound imaging. Part I: theory & examples. Comput Methods Programs Biomed 2022;218:106726.",
+  "numpy": "2.5.4",
+  "python": "3.12.15"
+ },
+ "method": {
+  "scatterer": "puntual, RC = 1, 2-D (sin foco en elevación)",
+  "tx": "foco fijo en focusMm (txdelay), 64 elementos, sin apodización",
+  "rx": "delay-and-sum (dasmtx) con apertura completa, fnumber = 0",
+  "bandwidthPct": 70,
+  "soundSpeedMs": 1540.0,
+  "metric": "anchura total a −6 dB de la envolvente (ida y vuelta) y del campo de presión de ida (pfield)",
+  "gridStepMm": "PSF: ventana ±max(8λ, 3 mm) con 241 muestras por eje; pfield: línea lateral ±15 mm con 601 muestras"
+ },
+ "presets": [
+  {
+   "id": "ocular-lineal",
+   "transducer": "linear",
+   "frequencyMhz": 10.0,
+   "apertureMm": 12.0,
+   "focusMm": 22.0,
+   "depthsMm": [
+    10,
+    15,
+    20,
+    22,
+    25,
+    30,
+    35,
+    40
+   ],
+   "steerDeg": [
+    0.0
+   ],
+   "elements": 64,
+   "pitchMm": 0.1875,
+   "points": [
+    {
+     "depthMm": 10,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.15,
+     "axialFwhmMm": 0.15,
+     "txOneWayFwhmMm": 6.3,
+     "sidelobeDb": -30.4,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 15,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.25,
+     "axialFwhmMm": 0.15,
+     "txOneWayFwhmMm": 3.5,
+     "sidelobeDb": -30.3,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 20,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.3,
+     "axialFwhmMm": 0.125,
+     "txOneWayFwhmMm": 0.8,
+     "sidelobeDb": -24.9,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 22,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.35,
+     "axialFwhmMm": 0.15,
+     "txOneWayFwhmMm": 0.3,
+     "sidelobeDb": -24.9,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 25,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.4,
+     "axialFwhmMm": 0.125,
+     "txOneWayFwhmMm": 1.4,
+     "sidelobeDb": -24.5,
+     "peakOffsetMm": [
+      0.0,
+      0.05
+     ]
+    },
+    {
+     "depthMm": 30,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.45,
+     "axialFwhmMm": 0.125,
+     "txOneWayFwhmMm": 4.0,
+     "sidelobeDb": -23.3,
+     "peakOffsetMm": [
+      0.0,
+      0.1
+     ]
+    },
+    {
+     "depthMm": 35,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.55,
+     "axialFwhmMm": 0.125,
+     "txOneWayFwhmMm": 6.6,
+     "sidelobeDb": -23.9,
+     "peakOffsetMm": [
+      0.0,
+      0.15
+     ]
+    },
+    {
+     "depthMm": 40,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 0.6,
+     "axialFwhmMm": 0.15,
+     "txOneWayFwhmMm": 9.1,
+     "sidelobeDb": -22.4,
+     "peakOffsetMm": [
+      0.0,
+      0.175
+     ]
+    }
+   ]
+  },
+  {
+   "id": "temporal-sectorial",
+   "transducer": "sector",
+   "frequencyMhz": 2.0,
+   "apertureMm": 15.0,
+   "focusMm": 50.0,
+   "depthsMm": [
+    30,
+    40,
+    50,
+    55,
+    60,
+    70,
+    80
+   ],
+   "steerDeg": [
+    0.0,
+    30.0
+   ],
+   "elements": 64,
+   "pitchMm": 0.2344,
+   "points": [
+    {
+     "depthMm": 30,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 1.951,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 4.9,
+     "sidelobeDb": -28.8,
+     "peakOffsetMm": [
+      0.0,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 40,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 2.464,
+     "axialFwhmMm": 0.667,
+     "txOneWayFwhmMm": 2.8,
+     "sidelobeDb": -29.2,
+     "peakOffsetMm": [
+      0.0,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 50,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 3.08,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 3.3,
+     "sidelobeDb": -29.8,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 55,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 3.388,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 3.7,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 60,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 3.696,
+     "axialFwhmMm": 0.667,
+     "txOneWayFwhmMm": 4.1,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.051,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 70,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 4.312,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 5.1,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.0,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 80,
+     "steerDeg": 0.0,
+     "lateralFwhmMm": 4.928,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 6.4,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.0,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 30,
+     "steerDeg": 30.0,
+     "lateralFwhmMm": 2.156,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 3.75,
+     "sidelobeDb": -28.8,
+     "peakOffsetMm": [
+      0.0,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 40,
+     "steerDeg": 30.0,
+     "lateralFwhmMm": 2.823,
+     "axialFwhmMm": 0.667,
+     "txOneWayFwhmMm": 3.15,
+     "sidelobeDb": -29.4,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 50,
+     "steerDeg": 30.0,
+     "lateralFwhmMm": 3.491,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 3.8,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 55,
+     "steerDeg": 30.0,
+     "lateralFwhmMm": 3.85,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 4.2,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "depthMm": 60,
+     "steerDeg": 30.0,
+     "lateralFwhmMm": 4.312,
+     "axialFwhmMm": 0.667,
+     "txOneWayFwhmMm": 4.6,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.051,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 70,
+     "steerDeg": 30.0,
+     "lateralFwhmMm": 4.979,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 5.6,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.0,
+      0.051
+     ]
+    },
+    {
+     "depthMm": 80,
+     "steerDeg": 30.0,
+     "lateralFwhmMm": 5.698,
+     "axialFwhmMm": 0.719,
+     "txOneWayFwhmMm": 6.65,
+     "sidelobeDb": null,
+     "peakOffsetMm": [
+      0.0,
+      0.051
+     ]
+    }
+   ]
+  }
+ ]
+}

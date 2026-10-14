@@ -76,3 +76,20 @@ Los SHA-256 de los ZIP de origen quedan dentro de cada JSON (`source.zipSha256`)
 the TopCoW Challenge»), datos en Zenodo 10.5281/zenodo.15692630; el subconjunto
 IXI procede de [IXI](https://brain-development.org/ixi-dataset/) (CC BY-SA 3.0).
 Uso docente no comercial; el uso comercial requiere permiso de los autores.
+
+## Banco acústico independiente (DEC-79)
+
+Anchuras de PSF (dispersor puntual) calculadas offline con PyMUST
+(`scripts/acoustic/pymust_psf.py`, puerto Python de MUST, LGPL-3.0; no forma
+parte de `npm run check` ni del bundle) para las sondas lineal ocular y
+sectorial temporal con la apertura, frecuencia y foco de `probeBeamSpec`. Solo
+se redistribuye el JSON con las anchuras; PyMUST no se enlaza ni se copia.
+
+| Archivo                         | Origen                             | SHA-256                                                          | Licencia        | Archivo de licencia                | Uso                                            |
+| ------------------------------- | ---------------------------------- | ---------------------------------------------------------------- | --------------- | ---------------------------------- | ---------------------------------------------- |
+| `data/acoustic/pymust-psf.json` | Simulación propia con PyMUST 0.1.9 | d3524c1cf287c7bf8f0819605c667034bbd37d38f041dc12240ca06fde1a5c41 | PyMUST LGPL-3.0 | `data/acoustic/PyMUST_LICENSE.txt` | FWHM lateral/axial/tx por profundidad y ángulo |
+
+**Atribución**: Garcia D. SIMUS: an open-source simulator for medical
+ultrasound imaging. Part I: theory & examples. _Comput Methods Programs
+Biomed_ 2022;218:106726 (`garcia-simus-2022`). Versiones fijadas dentro del
+JSON (`engine.version`, `engine.numpy`, `engine.python`).

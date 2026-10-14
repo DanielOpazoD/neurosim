@@ -76,3 +76,11 @@ las métricas del fixture fuera de la envolvente [mín, máx] del atlas sean
 exactamente las declaradas en LIM-36 (ninguna desde DEC-78). Regenerar los JSON con
 `python3 scripts/atlas/topcow_extract.py <subconjunto> <salida.json> --zip …`
 (numpy, scipy, nibabel, scikit-image) y actualizar los SHA-256 de PROVENANCE.
+
+`tests/validation/acousticBenchmark.test.ts` lee `data/acoustic/pymust-psf.json`
+(PSF de dispersor puntual simulada offline con PyMUST; DEC-79), comprueba
+procedencia, versión fijada y que los presets reproduzcan `probeBeamSpec`, y
+exige que los ratios modelo/motor de `lateralFwhmMm`, `txLateralFwhmMm` y
+`axialFwhmMm` permanezcan dentro de las bandas preregistradas en LIM-37.
+Regenerar con `python3 scripts/acoustic/pymust_psf.py data/acoustic/pymust-psf.json`
+(numpy, pymust) y actualizar el SHA-256 de PROVENANCE.

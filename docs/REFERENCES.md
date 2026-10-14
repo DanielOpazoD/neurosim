@@ -67,6 +67,11 @@ del motor.
   atenuación, propagación, apertura y resolución del haz.
 - **jensen-fieldii-1996** — Jensen JA. Field: A Program for Simulating
   Ultrasound Systems. Med Biol Eng Comput. 1996;34 Suppl 1:351-353.
+- **garcia-simus-2022** — Garcia D. SIMUS: an open-source simulator for
+  medical ultrasound imaging. Part I: theory & examples. _Comput Methods
+  Programs Biomed_ 2022;218:106726. Implementación PyMUST (LGPL-3.0),
+  https://github.com/creatis-ULTIM/PyMUST. Motor externo del banco acústico
+  (`data/acoustic/`, DEC-79): PSF de dispersor puntual frente a `beam.ts`.
 - **hedrick-hykes-ultrasound** — Hedrick WR, Hykes DL, Starchman DE.
   _Ultrasound Physics and Instrumentation_. 4th ed. Mosby; 2005.
 - **tablas-acusticas-estandar** — Tablas estándar de propiedades acústicas de

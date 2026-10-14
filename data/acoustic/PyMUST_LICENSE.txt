@@ -1,0 +1,12 @@
+PyMUST — Python port of MUST (Matlab UltraSound Toolbox)
+https://github.com/creatis-ULTIM/PyMUST — © CREATIS (Lyon), Damien Garcia et al.
+
+Licencia del software: GNU Lesser General Public License v3.0 (LGPL-3.0),
+https://www.gnu.org/licenses/lgpl-3.0.html
+
+PyMUST solo se ejecuta offline (scripts/acoustic/pymust_psf.py); no se
+redistribuye su código ni se enlaza en el bundle. El JSON derivado en
+data/acoustic/ contiene únicamente anchuras de PSF calculadas por este
+proyecto y se publica bajo la licencia del repositorio, citando:
+Garcia D. SIMUS: an open-source simulator for medical ultrasound imaging.
+Part I: theory & examples. Comput Methods Programs Biomed 2022;218:106726.
