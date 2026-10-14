@@ -18,10 +18,12 @@ siguiente existe todavía por diseño del plan:
 - **LIM-18 · Windkessel reducido**: la onda usa dos elementos y no modela
   reflexiones de onda, reservorios venosos ni autorregulación; el índice de
   pulsatilidad se conserva aproximadamente uniforme entre territorios.
-- **LIM-19 · Hemodinámica estática**: la autorregulación, la reactividad al
-  CO₂ y la PIC no evolucionan dinámicamente; no hay compliance craneal ni
-  dinámica de Monro–Kellie. El DVNO es una geometría estática condicionada por
-  la PIC del escenario docente.
+- **LIM-19 · Dinámica intracraneal reducida (DEC-80/81/82)**: la regulación tiene
+  constantes de tiempo de primer orden y la PIC emerge de un compartimento de
+  Monro–Kellie con un solo PVI, R_out constante y reserva de LCR fija; no hay
+  presión venosa variable, ondas de Lundberg, herniación ni retardo propio del
+  DVNO respecto a la PIC (sigue la curva estática `onsdForIcpMm`). La PIC
+  mostrada es la del modelo, no una medida.
 
 - **LIM-20 · ALARA acústico reducido**: MI/TI usan fórmulas ODS sobre presión
   derated y potencia estimadas; no hay campo de presión no lineal, hidrófono,

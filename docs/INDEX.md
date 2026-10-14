@@ -23,7 +23,7 @@
 | LIM-16 | Color Kasai reducido                                        | `src/doppler/color.ts`                                                       |
 | LIM-17 | Movimiento tisular reducido                                 | —                                                                            |
 | LIM-18 | Windkessel reducido                                         | —                                                                            |
-| LIM-19 | Hemodinámica estática                                       | —                                                                            |
+| LIM-19 | Dinámica intracraneal reducida (DEC-80/81/82)               | —                                                                            |
 | LIM-20 | ALARA acústico reducido                                     | —                                                                            |
 | LIM-21 | Protocolo DVNO reducido                                     | —                                                                            |
 | LIM-01 | Patología                                                   | —                                                                            |
@@ -143,6 +143,7 @@
 | DEC-79 | Banco acústico independiente con PyMUST (R09)                           | `src/ultrasound/acousticBenchmark.ts`, `tests/validation/acousticBenchmark.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | DEC-80 | Régimen de Starling cuando PAM ≤ CrCP + 1 mmHg (R12, parte 1)           | `src/physiology/hemodynamics.ts`, `tests/validation/hemodynamics.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | DEC-81 | Dinámica de la regulación cerebrovascular (R12, parte 2)                | `src/domain/cases.ts`, `src/domain/referenceCase.ts`, `src/physiology/dynamics.ts`, `tests/physiologyDynamics.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| DEC-82 | PIC emergente: compartimento intracraneal de Monro–Kellie (R13)         | `src/domain/referenceCase.ts`, `src/physiology/compartment.ts`, `src/ui/main.ts`, `tests/compartment.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## Parámetros registrados
 
@@ -151,5 +152,5 @@
 | `anatomia-ojo`       |         40 |
 | `anatomia-cabeza`    |         74 |
 | `doppler`            |         56 |
-| `fisiologia`         |         39 |
+| `fisiologia`         |         44 |
 | `fisica-ultrasonido` |         42 |

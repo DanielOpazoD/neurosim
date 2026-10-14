@@ -95,3 +95,9 @@ debe conservar espigas anterógradas y lóbulo retrógrado con neto ≈ 0.
 63 % en τ, retardo del CO₂, autorregulación alterada sin recuperación,
 continuidad al encadenar escalones, determinismo y transitorio visible en
 `physStateAt` tras `setPhysiology(…, atS)`.
+
+`tests/compartment.test.ts` (DEC-82): curva de Marmarou e inversa, punto fijo
+basal de Davson, salto y recuperación en minutos con lesión < reserva, PIC
+sostenida con lesión > reserva, `steadyForIcp` para los casos, drenaje,
+determinismo, y en el caso de referencia `setLesionVolume`/`syncIcp` (PIC
+derivada, revisión fisiológica y DVNO).

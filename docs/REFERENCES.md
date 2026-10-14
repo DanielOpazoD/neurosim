@@ -121,6 +121,18 @@ del motor.
   blood flow response to step changes in end-tidal PCO₂ and PO₂ in humans.
   _J Appl Physiol_ 1996;81:1084-1095. Retardo y constante de tiempo de la
   velocidad en ACM ante escalones de CO₂; base de `co2TauS` y `co2DelayS`.
+- **marmarou-1978** — Marmarou A, Shulman K, Rosende RM. A nonlinear analysis
+  of the cerebrospinal fluid system and intracranial pressure dynamics.
+  _J Neurosurg_ 1978;48:332-344. Curva presión–volumen exponencial e índice
+  PVI; base de `pviMl`.
+- **davson-1970** — Davson H, Hollingsworth G, Segal MB. The mechanism of
+  drainage of the cerebrospinal fluid. _Brain_ 1970;93:665-678. Ecuación de
+  Davson PIC = P_ss + I_f·R_out; base de `csfFormationMlMin` y
+  `csfOutflowResistanceMmHgMinMl`.
+- **czosnyka-2004-icp** — Czosnyka M, Pickard JD. Monitoring and
+  interpretation of intracranial pressure. _J Neurol Neurosurg Psychiatry_
+  2004;75:813-821. Revisión de PVI, R_out, compliance y reserva
+  compensatoria; base de `csfDisplaceableMl` e `icpCapMmHg`.
 - **czosnyka-varsos-crcp-2013** — Czosnyka M, Varsos GV. Critical closing
   pressure and cerebral perfusion pressure: CrCP as ICP plus effective vessel
   wall tension. Neurocritical care reference, 2013.
