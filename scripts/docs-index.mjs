@@ -97,13 +97,15 @@ function markdownTable(headers, rows, alignments = []) {
 
 function render() {
   const limitations = parseIds('docs/LIMITATIONS.md', 'LIM');
-  const decisions = [...read('docs/DECISIONS.md').matchAll(/^\d+\. \*\*(DEC-\d+)\*\* — ([^\n]+)/gm)].map(
-    (match) => ({
-      id: match[1],
-      title: match[2].trim(),
-      files: citations(match[1]),
-    }),
-  );
+  const decisions = [
+    ...read('docs/DECISIONS.md').matchAll(
+      /^(?:\d+\. \*\*(DEC-\d+)\*\* — ([^\n]+)|## (DEC-\d+) · ([^\n]+))/gm,
+    ),
+  ].map((match) => ({
+    id: match[1] ?? match[3],
+    title: (match[2] ?? match[4]).trim(),
+    files: citations(match[1] ?? match[3]),
+  }));
   const lines = [
     '# Índice documental',
     '',

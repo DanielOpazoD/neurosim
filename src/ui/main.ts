@@ -567,6 +567,7 @@ function toggleFreeze(): void {
   const composition = pw.composition();
   const summary = pw.latestMcaMeasure();
   const assessment = pw.latestPwAssessment();
+  const capture = pw.latestCapture();
   // Lindegaard (DEC-58): el índice registrado usa la ACI medida del mismo
   // lado si existe; se guardan también el medido y el de referencia.
   const li = pw.lindegaard();
@@ -574,23 +575,30 @@ function toggleFreeze(): void {
     li !== null ? lindegaardRatio(li.mcaTaMaxCms, sim.clinicalCase.icaExtracranialTamaxCms) : Number.NaN;
   const icaHere = s.station === 'submandibular' ? pw.measuredIca(s.side) : null;
   s.debrief.setTime(clock.t);
-  s.debrief.record('freeze', s.frozen ? 'congelar' : 'reanudar', {
-    frozen: s.frozen,
-    station: s.station,
-    side: s.side,
-    bloodFraction: composition?.bloodFraction ?? 0,
-    pi: summary?.pi ?? Number.NaN,
-    pwStatus: assessment?.status ?? 'sin-captura',
-    pwDirection: assessment?.direction ?? 'sin-senal',
-    pwCoverage: assessment?.coverageFraction ?? 0,
-    pwSignedEnvelopeMeanCms: assessment?.signedEnvelopeMeanCms ?? Number.NaN,
-    lindegaard: li?.ratio ?? Number.NaN,
-    lindegaardSource: li?.icaSource ?? '',
-    lindegaardMedido: li?.icaSource === 'medida' ? li.ratio : Number.NaN,
-    lindegaardReferencia: reference,
-    mcaTaMaxCms: li?.mcaTaMaxCms ?? Number.NaN,
-    icaTaMaxCms: li?.icaTaMaxCms ?? icaHere?.taMaxCms ?? Number.NaN,
-  });
+  s.debrief.record(
+    'freeze',
+    s.frozen ? 'congelar' : 'reanudar',
+    {
+      frozen: s.frozen,
+      station: s.station,
+      side: s.side,
+      bloodFraction: composition?.bloodFraction ?? 0,
+      pi: summary?.pi ?? Number.NaN,
+      pwStatus: capture?.status ?? 'sin-captura',
+      pwDirection: assessment?.direction ?? 'sin-senal',
+      pwCoverage: assessment?.coverageFraction ?? 0,
+      pwSignedEnvelopeMeanCms: assessment?.signedEnvelopeMeanCms ?? Number.NaN,
+      lindegaard: li?.ratio ?? Number.NaN,
+      lindegaardSource: li?.icaSource ?? '',
+      lindegaardInvalidReason: li?.invalidReason ?? '',
+      lindegaardMedido: li?.icaSource === 'medida' ? li.ratio : Number.NaN,
+      lindegaardReferencia: reference,
+      mcaTaMaxCms: li?.mcaTaMaxCms ?? Number.NaN,
+      icaTaMaxCms: li?.icaTaMaxCms ?? icaHere?.taMaxCms ?? Number.NaN,
+    },
+    capture ?? undefined,
+    s.icaMeasured[s.side]?.capture,
+  );
 }
 
 /** Mezcla la malla de color nueva con la persistencia (por celda) y

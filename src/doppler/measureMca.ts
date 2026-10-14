@@ -375,6 +375,7 @@ export function lindegaardRatio(tamaxMcaCms: number, icaCms: number): number {
 export type LindegaardIcaSource = 'medida' | 'referencia';
 
 export interface LindegaardResult {
+  readonly invalidReason?: string;
   readonly mcaTaMaxCms: number;
   readonly icaTaMaxCms: number;
   readonly ratio: number;
@@ -423,7 +424,9 @@ export function lindegaardPattern(result: LindegaardResult): LindegaardPattern {
 export function lindegaardInterpretation(result: LindegaardResult): string {
   switch (lindegaardPattern(result)) {
     case 'no-interpretable':
-      return 'No interpretable: se requieren velocidades ACM y ACI finitas y distintas de cero.';
+      return result.invalidReason
+        ? `No interpretable: ${result.invalidReason}`
+        : 'No interpretable: se requieren velocidades ACM y ACI finitas y distintas de cero.';
     case 'referencia':
       return 'Cociente con ACI de referencia: no gradúa vasoespasmo; falta ACI extracraneal ipsilateral medida.';
     case 'sin-patron':

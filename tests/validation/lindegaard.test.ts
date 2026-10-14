@@ -17,6 +17,7 @@ import { patientToImage } from '../../src/ultrasound/probe';
 import type { ReferenceCase } from '../../src/domain/referenceCase';
 import type { Side } from '../../src/domain/contracts';
 import { measureIcaWithChain, submandibularState } from './helpers';
+import { solveOptimalWindow } from '../../src/app/optimalWindow';
 
 function mcaTaMaxModel(sim: ReferenceCase, side: Side): number {
   const m1 = sim.head.vessels.find((v) => v.id === `m1-${side}`)!;
@@ -89,6 +90,15 @@ describe('Lindegaard con ACI medida', () => {
     const { u, z } = patientToImage(currentPose(sim, s), 'sector', target);
     s.gateUMm = u;
     s.gateDepthMm = z;
+    pw.reset();
+    runPw(pw, clock, 4);
+    nowMs += 1000;
+    expect(pw.latestCapture()?.status).toBe('puerta-no-fiable');
+    expect(pw.lindegaard()).toBeNull();
+    const w = solveOptimalWindow(sim, 'temporal', 'izq');
+    Object.assign(s, w.probe);
+    s.gateUMm = w.gate!.uMm;
+    s.gateDepthMm = w.gate!.depthMm;
     pw.reset();
     runPw(pw, clock, 4);
     nowMs += 1000;

@@ -221,6 +221,14 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['plan-simulador-2026'],
     note: 'Cobertura mínima del intervalo RR para incluir un latido en el resumen PW.',
   },
+  pwDominantFractionMin: {
+    value: 0.5,
+    unit: 'fracción',
+    range: [0.2, 1],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Fracción mínima del vaso dominante respecto de la sangre (no del peso total) en los bloques usados para aceptar PW; salvaguarda de software, no umbral clínico.',
+  },
   bloodReseedRadiusFraction: {
     value: 0.7,
     unit: 'fracción',

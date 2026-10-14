@@ -228,6 +228,7 @@ export function handlePwMessage(
       const sim = state.sim;
       if (msg.physiology && !samePhysiology(msg.physiology, sim.patient.physiology)) {
         sim.setPhysiology(msg.physiology);
+        state.chain = null;
       }
       const sceneKey = `${msg.station}-${msg.side}`;
       if (!state.chain || state.sceneKey !== sceneKey) {

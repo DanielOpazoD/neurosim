@@ -97,6 +97,8 @@ export interface IcaMeasure {
   readonly beats: number;
   readonly vesselId: string;
   readonly tSec: number;
+  readonly capture: import('./pwCapture').PwCapture;
+  readonly lastFailedAttempt?: import('./pwCapture').PwCapture;
 }
 
 export interface AppState {

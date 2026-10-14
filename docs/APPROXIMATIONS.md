@@ -137,6 +137,17 @@ calibración.
   Rechaza ruido residual frente a una señal dominante; puede no detectar
   componentes reales débiles. No está calibrado con adquisiciones clínicas.
 
+- **doppler.pwDominantFractionMin** — `0,5` del peso de SANGRE atribuido al
+  vaso dominante de cada bloque de la captura (DEC-72), calculado como
+  `dominantVesselFraction / bloodFraction`. Es estimado, no validado con datos
+  clínicos, y no elimina mezclas minoritarias. Se combina con el mínimo docente
+  de sangre `debriefBloodFractionMin = 0,25` y el límite angular existente de
+  60°. Ninguno certifica una adquisición clínica ni exactitud de TAMax.
+- **Vigencia PW/ACI** — sin plazo temporal clínico supuesto: exige el mismo
+  paciente/caso/revisión fisiológica y secuencia ACI→ACM. Los tiempos y ambas
+  técnicas quedan registrados. La compatibilidad es exclusivamente técnica
+  para el estado estático actual; habrá que revisarla con fisiología dinámica.
+
 - **doppler.colorReferenceSnrDb** — referencia de presentación de 20 dB sobre
   potencia media de ruido receptor; calibración visual pendiente con equipo
   y fantoma físicos, sin dependencia de anatomía ni transmisión del paciente.
