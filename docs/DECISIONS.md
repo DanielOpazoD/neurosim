@@ -1470,7 +1470,13 @@ basal y el flujo sigue a la PPC. Las entradas son constantes a trozos, así
 que la relajación tiene solución cerrada y `physStateAt(t)` es determinista
 e independiente de la cadencia de render (SimulationClock único). Sin `atS`
 el cambio sigue siendo instantáneo (pruebas, exportación, protocolo PW); los
-deslizadores de la UI pasan `clock.t`.
+deslizadores de la UI pasan `clock.t`. Los workers de render y PW no ven
+los escalones con `atS` (solo reciben `physiology`, que aplican al instante):
+el hilo principal adjunta `regulation = sim.regulation.snapshotAt(t)` a cada
+`RenderRequest` y `PwStepMessage` mientras hay transitorio, y el worker lo
+impone con `setOverride` en vez de relajar por su cuenta, de modo que B-mode
+color, espectro y hemodinámica del hilo principal coinciden fotograma a
+fotograma; en estacionario no se envía nada.
 
 **Límites.** Primer orden sin la oscilación amortiguada del ARI, sin
 asimetría hiper/hipocapnia, sin dinámica PIC–volumen (LIM-19) ni acople

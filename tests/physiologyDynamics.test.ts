@@ -110,3 +110,24 @@ describe('dinámica de la regulación (DEC-81)', () => {
     expect(sim.physStateAt(10).hemo.flowFactor).toBeCloseTo(steadyBefore, 9);
   });
 });
+
+describe('snapshot de regulación hacia los workers (DEC-81)', () => {
+  it('snapshotAt es undefined en estacionario y, durante el transitorio, reproduce el estado del hilo principal', () => {
+    const main = new RegulationDynamics(BASAL);
+    expect(main.snapshotAt(5)).toBeUndefined();
+    main.setTarget({ ...BASAL, mapMmHg: 70 }, 10);
+    const t = 10 + TAU / 2;
+    const snap = main.snapshotAt(t);
+    expect(snap).toBeDefined();
+    // El worker solo recibe la fisiología (instantánea → estacionaria) y el snapshot.
+    const worker = new RegulationDynamics(BASAL);
+    worker.setTarget({ ...BASAL, mapMmHg: 70 });
+    expect(worker.hemodynamicsAt(t).flowFactor).not.toBeCloseTo(main.hemodynamicsAt(t).flowFactor, 3);
+    worker.setOverride(snap!);
+    expect(worker.hemodynamicsAt(t).flowFactor).toBeCloseTo(main.hemodynamicsAt(t).flowFactor, 12);
+    expect(worker.hemodynamicsAt(t).crcpMmHg).toBeCloseTo(main.hemodynamicsAt(t).crcpMmHg, 12);
+    worker.setOverride(null);
+    expect(worker.hemodynamicsAt(t)).toBe(worker.steadyState);
+    expect(main.snapshotAt(10 + 30 * TAU)).toBeUndefined();
+  });
+});

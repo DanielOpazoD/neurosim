@@ -535,6 +535,7 @@ function sendRenderRequest(timing: RenderTiming): void {
       respiratoryPhase: timing.respiratoryPhase,
       flowModulation: timing.flowModulation,
       physiology: sim.patient.physiology,
+      regulation: sim.regulation.snapshotAt(timing.t),
       color: s.colorOn,
     })
     .then((response) => {

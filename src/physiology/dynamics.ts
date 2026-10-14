@@ -49,6 +49,8 @@ export class RegulationDynamics {
   private auto: Relaxation;
   private co2: Relaxation;
   private steady: HemodynamicState;
+  /** Snapshot impuesto desde el hilo principal (workers): sustituye a la relajación local. */
+  private override: Regulation | null = null;
   private readonly basalCvrAuto: number;
 
   constructor(
@@ -109,10 +111,25 @@ export class RegulationDynamics {
     return settled(this.auto, t) && settled(this.co2, t);
   }
 
+  /**
+   * Snapshot de regulación impuesto (workers de render/PW): el worker no ve
+   * los escalones con `atS`, así que el hilo principal le envía su estado en
+   * `t` y aquí se usa tal cual; `null` vuelve a la relajación local.
+   */
+  setOverride(reg: Regulation | null): void {
+    this.override = reg;
+  }
+
   /** Estado hemodinámico en `t`; devuelve el objeto estacionario cacheado si ya no hay transitorio. */
   hemodynamicsAt(t: number): HemodynamicState {
+    if (this.override) return hemodynamics(this.input, this.override);
     if (this.settledAt(t)) return this.steady;
     return hemodynamics(this.input, this.regulationAt(t));
+  }
+
+  /** Snapshot para enviar a un worker: `undefined` si ya está en estacionario (nada que imponer). */
+  snapshotAt(t: number): Regulation | undefined {
+    return this.settledAt(t) ? undefined : this.regulationAt(t);
   }
 
   get steadyState(): HemodynamicState {

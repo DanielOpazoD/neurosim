@@ -20,6 +20,7 @@ import { classifyNeck, type NeckGeometry } from '../anatomy/neck';
 import { DOPPLER } from '../doppler/params';
 import { pathAttenuationDb, windowTransmissionLossDb } from '../ultrasound/attenuation';
 import { FISIOLOGIA } from '../physiology/params';
+import type { Regulation } from '../physiology/hemodynamics';
 import { arterialShape, CerebralFlow } from '../physiology/flow';
 import type {
   AcquisitionSettings,
@@ -57,6 +58,8 @@ export interface RenderRequest {
   readonly respiratoryPhase: number;
   readonly flowModulation: number;
   readonly physiology?: BasalPhysiology;
+  /** Regulación en curso (DEC-81) cuando hay transitorio; el worker la impone en vez de relajar por su cuenta. */
+  readonly regulation?: Regulation;
   readonly color: boolean;
 }
 
@@ -388,6 +391,7 @@ export function renderRequest(req: RenderRequest, sim: ReferenceCase): RenderRes
   if (req.physiology && !samePhysiology(req.physiology, sim.patient.physiology)) {
     sim.setPhysiology(req.physiology);
   }
+  sim.regulation.setOverride(req.regulation ?? null);
   const poseInput: PoseInput = {
     side: req.side,
     station: req.station,
