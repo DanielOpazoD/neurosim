@@ -23,10 +23,13 @@ function load(path: string): AtlasDocument {
   return JSON.parse(readFileSync(path, 'utf8')) as AtlasDocument;
 }
 
-/** Métricas del fixture fuera de la envolvente del atlas (LIM-36). */
+/**
+ * Métricas del fixture fuera de la envolvente del atlas (LIM-36). Vacío desde
+ * DEC-78: terminales de ACI, punta basilar y P2 se ajustaron a las medianas.
+ */
 const DOCUMENTED_DEVIATIONS: Readonly<Record<string, readonly string[]>> = {
-  'data/atlas/topcow-cta-largeia.json': ['interIcaTerminusMm', 'basilarTip.z', 'pcaEnd.z'],
-  'data/atlas/topcow-mra-ixi-hh.json': ['interIcaTerminusMm', 'basilarTip.z', 'pcaEnd.z'],
+  'data/atlas/topcow-cta-largeia.json': [],
+  'data/atlas/topcow-mra-ixi-hh.json': [],
 };
 
 describe('atlas TopCoW derivado (DEC-77)', () => {

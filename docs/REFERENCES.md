@@ -57,6 +57,11 @@ del motor.
   spatial relationships. Invest Ophthalmol Vis Sci 2004;45:2660-5.
 - **plan-simulador-2026** — Plan del simulador de neurosonografía
   (documento de trabajo del usuario): fixture N1, decisiones de alcance.
+- **topcow-2024** — Yang K et al. Benchmarking the CoW with the TopCoW
+  Challenge: Topology-Aware Anatomical Segmentation of the Circle of Willis for
+  CTA and MRA. Datos: Zenodo 10.5281/zenodo.15692630 (TopCoW Data Usage
+  License). Derivados en `data/atlas/` (DEC-77): envolventes de radios,
+  distancia entre terminales de ACI, punta basilar y extremos de A2/P2/M1.
 - **szabo-diagnostic-ultrasound-2014** — Szabo TL. _Diagnostic Ultrasound
   Imaging: Inside Out_. 2nd ed. Academic Press; 2014: capítulos 4 y 6–7,
   atenuación, propagación, apertura y resolución del haz.

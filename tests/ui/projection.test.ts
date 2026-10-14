@@ -56,7 +56,8 @@ describe('proyección ortográfica del navegador', () => {
       Math.max(...m1Projected.map((point) => point.x)) - Math.min(...m1Projected.map((point) => point.x)),
       Math.max(...m1Projected.map((point) => point.y)) - Math.min(...m1Projected.map((point) => point.y)),
     );
-    expect(m1Extent).toBeGreaterThanOrEqual(40);
+    // M1 mide 17 mm desde DEC-78 (antes 25): ≥ 30 px a 300 px de lado ≈ 1,8 px/mm.
+    expect(m1Extent).toBeGreaterThanOrEqual(30);
 
     const eye = sim.eyes.der;
     const eyeFrame = navigatorFrame(sim, 'ojo', 'der', 300);

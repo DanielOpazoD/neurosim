@@ -226,12 +226,14 @@ a WebGL2 en bloques posteriores.
   piel 3D, la tabla ósea y los vasos siguen sin ser una segmentación del mismo
   individuo (H3). No existe ventana suboccipital.
 
-- **LIM-36 · Desviaciones del fixture respecto al atlas TopCoW (DEC-77)**: el
-  polígono de Willis sintético es más compacto que la anatomía observada en
-  40 casos (CTA y MRA): los terminales de ACI distan 18 mm (atlas 25–40 mm),
-  la punta basilar queda 20 mm posterior al punto medio de las ACI (atlas
-  8–16 mm) y la P2 termina solo 9 mm posterior (atlas 19–30 mm). Además el
-  atlas solo cubre el ROI del polígono (M1/ACI truncados), n=20 por cohorte,
-  la cohorte CTA son pacientes con aneurisma y los radios proceden de una
-  transformada de distancia sobre máscaras con vóxeles de 0,4–0,8 mm, no de
-  mediciones calibradas. El fixture no se ajustó todavía al atlas.
+- **LIM-36 · Alcance de la comparación con el atlas TopCoW (DEC-77/78)**: tras
+  DEC-78 las 15 métricas comparadas (radios, distancia entre terminales de ACI,
+  punta basilar, extremos de A2/P2/M1) caen dentro de la envolvente [mín, máx]
+  de las dos cohortes, pero «dentro de la envolvente» no es «anatomía
+  validada»: el atlas solo cubre el ROI del polígono (M1/ACI truncados), n=20
+  por cohorte, la cohorte CTA son pacientes con aneurisma, los radios proceden
+  de una transformada de distancia sobre máscaras de 0,4–0,8 mm (no de
+  mediciones calibradas) y la comparación es de extremos y radios medianos, no
+  de la forma completa de cada vaso (sin registro punto a punto ni
+  variabilidad por caso en el fixture). El cráneo, los ojos y el cuello siguen
+  sin referencia externa equivalente.

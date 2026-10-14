@@ -1349,3 +1349,38 @@ no valida imagen ecográfica, Doppler ni fisiología. n=20 por cohorte, con sesg
 de selección en la cohorte CTA (aneurismas). Licencia: TopCoW Data Usage
 License (uso abierto con cita; comercial con permiso); se amplió
 `provenance:check` a `data/atlas`.
+
+## DEC-78 · Ajuste del fixture de Willis a las medianas del atlas TopCoW
+
+**Decisión.** Mover tres nodos del polígono sintético a las medianas de las dos
+cohortes de DEC-77 (idénticas en CTA y MRA): terminales de ACI de x=±9 a ±15
+(`ICA_TERMINUS_MM`; 30 mm entre terminales, atlas 25–40, mediana ≈31), punta
+basilar de z=−26 a −19 (`BASILAR_TIP_MM`; 13 mm posterior al punto medio de las
+ACI, atlas 8–16) y P2 terminando en [±17, 11, −32] (26 mm posterior, atlas
+19–30). Arrastran: sifón de la ACI (x 9–10 → 12–15), A1 (ahora 14,6 mm, antes
+8,5), Pcoa (termina en la unión P1/P2 [±10, 10, −22]), P1, basilar y vertebrales
+(7 mm anteriores), los puntos de control de M1 (`m1OriginXmm` 9→15,
+`m1Point1Xmm` 15→19,5, `vesselM1PointXmm` 21→24, `m1Point3Xmm` 27→28; M1 queda
+de 17 mm) y el vértice petroso de la cresta ósea, que pasa de [14, 5, −4] a
+[8, 1, −15] para seguir medial al sifón desplazado (antes quedaba a 1,2 mm del
+tubo de la ACI). Los radios no cambian: ya estaban dentro de la envolvente.
+
+**Por qué medianas y no un caso.** El fixture sigue siendo sintético y simétrico;
+tomar un caso real introduciría su patología o su asimetría como «normal». Las
+medianas de 40 casos son el punto menos sorprendente para la docencia, y la
+prueba `atlasComparison` ahora exige que ninguna métrica quede fuera de la
+envolvente (LIM-36 pasa a describir el alcance de la comparación).
+
+**Dorados.** Cambian exactamente tres, todos por este desplazamiento geométrico:
+`temporalDerBmode` (basilar y P2 más anteriores/posteriores y M1 más lateral
+en el corte mesencefálico), `colorM1Der` y `pwM1Point2` (la puerta y la caja
+de color siguen a `vesselM1PointXmm`, 3 mm más lateral y sobre un sifón distinto).
+`eyeDerBmode`, `colorAcrDer` y los dorados cervicales no cambian.
+
+**Pruebas ajustadas por la nueva longitud de M1 (17 mm, antes 25).**
+`optimalWindow`: M1 en el plano ≥ 15 mm (≈ 88 % del vaso) en lugar de ≥ 25;
+`projection`: extensión proyectada ≥ 30 px a 300 px (≈ 1,8 px/mm) en lugar de
+≥ 40; `stenosis`: la puerta prestenótica se toma 6 mm proximal a la garganta
+(`sMm` 12) en vez de 8, porque a 4 mm del origen la puerta de 3 mm ya solapaba
+el terminal de la ACI y su PSV subía un 3 %. Los umbrales fisiológicos (jet
+≥ 2,5×, ancho espectral ≥ 1,5×, ángulo ≤ 30°) no cambian.

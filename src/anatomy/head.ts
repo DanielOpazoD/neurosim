@@ -1006,7 +1006,7 @@ export const BONE_RIDGES: readonly BoneRidge[] = ([1, -1] as const).flatMap((s) 
     [56, 12.5, 21], // pterión (tabla interna)
   ]),
   ridge('penasco', s, [
-    [14, 5, -4], // vértice petroso, junto al clivus
+    [8, 1, -15], // vértice petroso, junto al clivus y medial al sifón (DEC-78)
     [28, 8, -20],
     [42, 11, -36], // eminencia arcuata
     [50, 11, -44], // hacia la mastoides

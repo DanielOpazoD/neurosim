@@ -87,10 +87,10 @@ describe('polígono de Willis continuo', () => {
     const m1 = byId(sim, 'm1-der')!;
     // Puntos de control (definición anatómica); `points` es la spline suave.
     expect(m1.controlPoints).toEqual([
-      [-9, 12, -6],
-      [-15, 12.5, -4],
-      [-21, 13, -1.5],
-      [-27, 13.5, 1.5],
+      [-15, 12, -6],
+      [-19.5, 12.5, -4],
+      [-24, 13, -1.5],
+      [-28, 13.5, 1.5],
       [-32, 14, 4],
     ]);
     expect(m1.radiusMm).toBe(HEAD.m1RadiusMm.value);
