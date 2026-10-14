@@ -18,7 +18,7 @@ function syntheticHead(): HeadGeometry {
     radiusMm: 1,
     flowSign: 1,
     flowMlMin: 1,
-    meanCms: 55,
+    meanSpatialCms: 55,
     psvCms: 90,
     edvCms: 35,
   };

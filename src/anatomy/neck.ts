@@ -21,16 +21,14 @@
  */
 import type { MaterialId } from './materials';
 import { add, cross, dot, normalize, scale, sub, type Vec3 } from '../core/vec3';
+import { flowForMeanVelocity, meanVelocityForFlow, radialProfileMean } from '../core/flowProfile';
 import type { Side } from '../domain/contracts';
 import { vesselContains, type Vessel, type VesselScene } from './head';
 import { smoothPolyline } from './willis';
 
-/** Factor de `velocityForFlow` (Willis): Q[ml/min] = v̄[cm/s]·π·r²·0,6. */
-const FLOW_FACTOR = 0.6;
-
 /**
  * Radio de la ACI cervical distal, mm. Con el caudal de Willis (M1+A1+AComP ≈
- * 326 ml/min) y la misma relación Q = v̄·πr²·0,6, 2,2 mm da TAMax ≈ 36 cm/s y
+ * 187 ml/min tras DEC-75) y Q = v̄·πr²·0,6, 2,2 mm da una media axial ≈ 36 cm/s y
  * PSV/EDV ≈ 58/23 cm/s (objetivo 35–45 y ≈60/25). Un radio de 2,6 mm daría
  * ≈26 cm/s y un Lindegaard normal > 2 (DEC-58).
  */
@@ -44,7 +42,7 @@ export const NECK_ECA_PSV_CMS = 75;
 export const NECK_ECA_EDV_CMS = 8;
 /**
  * Media de la onda de alta resistencia `highResistanceShape` (physiology/flow):
- * v̄ = EDV + (PSV − EDV)·0,157 (comprobado en tests/neck.test.ts).
+ * axial = EDV + (PSV − EDV)·0,157 (redondeado; la onda se renormaliza por su media exacta, DEC-75).
  */
 export const HIGH_RESISTANCE_SHAPE_MEAN = 0.157;
 /** Piel y tejido subcutáneo bajo la sonda, mm. */
@@ -122,7 +120,7 @@ function mkVessel(
   side: Side,
   controlPoints: readonly Vec3[],
   radiusMm: number,
-  meanCms: number,
+  meanSpatialCms: number,
   psvCms: number,
   edvCms: number,
   extra: Partial<Pick<Vessel, 'venous' | 'waveform'>> = {},
@@ -136,8 +134,8 @@ function mkVessel(
     radiusMm,
     aabb: aabbOf(points, radiusMm),
     flowSign: 1,
-    flowMlMin: meanCms * Math.PI * radiusMm * radiusMm * FLOW_FACTOR,
-    meanCms,
+    flowMlMin: flowForMeanVelocity(meanSpatialCms, radiusMm),
+    meanSpatialCms,
     psvCms,
     edvCms,
     ...extra,
@@ -164,8 +162,8 @@ function buildNeckVessels(frame: NeckFrame, side: Side, headVessels: readonly Ve
   // PSV/EDV de la ACI escalados desde la M1 ipsilateral (misma forma de onda).
   const m1 = headVessels.find((v) => v.id === `m1-${side}`);
   const icaQ = neckIcaFlowMlMin(headVessels, side);
-  const icaMean = icaQ / (Math.PI * NECK_ICA_RADIUS_MM * NECK_ICA_RADIUS_MM * FLOW_FACTOR);
-  const k = m1 && m1.meanCms > 0 ? icaMean / m1.meanCms : 0.65;
+  const icaMean = meanVelocityForFlow(icaQ, NECK_ICA_RADIUS_MM);
+  const k = m1 && m1.meanSpatialCms > 0 ? icaMean / m1.meanSpatialCms : 0.65;
   const icaPsv = (m1?.psvCms ?? 90) * k;
   const icaEdv = (m1?.edvCms ?? 35) * k;
   // ACI: entra al plano por detrás, sube casi a lo largo del haz cruzando la
@@ -191,7 +189,9 @@ function buildNeckVessels(frame: NeckFrame, side: Side, headVessels: readonly Ve
     icaEdv,
     { waveform: 'baja' },
   );
-  const ecaMean = NECK_ECA_EDV_CMS + (NECK_ECA_PSV_CMS - NECK_ECA_EDV_CMS) * HIGH_RESISTANCE_SHAPE_MEAN;
+  const ecaMean =
+    (NECK_ECA_EDV_CMS + (NECK_ECA_PSV_CMS - NECK_ECA_EDV_CMS) * HIGH_RESISTANCE_SHAPE_MEAN) *
+    radialProfileMean();
   const eca = mkVessel(
     `ace-${side}`,
     side,
@@ -204,7 +204,7 @@ function buildNeckVessels(frame: NeckFrame, side: Side, headVessels: readonly Ve
   );
   const branchPsv = 50;
   const branchEdv = 5;
-  const branchMean = branchEdv + (branchPsv - branchEdv) * HIGH_RESISTANCE_SHAPE_MEAN;
+  const branchMean = (branchEdv + (branchPsv - branchEdv) * HIGH_RESISTANCE_SHAPE_MEAN) * radialProfileMean();
   const facial = mkVessel(
     `ace-facial-${side}`,
     side,
@@ -232,7 +232,7 @@ function buildNeckVessels(frame: NeckFrame, side: Side, headVessels: readonly Ve
     side,
     [L(85, 8, -3), L(65, 10, 1.5), L(45, 10.5, 3.5), L(28, 10, 4), L(14, 9.5, 7), L(8, 9, 12)],
     NECK_IJV_RADIUS_MM,
-    NECK_IJV_MEAN_CMS,
+    NECK_IJV_MEAN_CMS * radialProfileMean(),
     NECK_IJV_MEAN_CMS,
     NECK_IJV_MEAN_CMS,
     { venous: true },

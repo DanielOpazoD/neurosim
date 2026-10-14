@@ -18,6 +18,7 @@
 import { hash3, SeededRandom } from '../core/random';
 import type { Vec3 } from '../core/vec3';
 import { dist, scale } from '../core/vec3';
+import { meanNormalizedProfile, radialProfileMean } from '../core/flowProfile';
 import { dopplerShiftHz } from '../core/units';
 import { MATERIALS, type MaterialId } from '../anatomy/materials';
 import type { HeadGeometry, Vessel, VesselScene } from '../anatomy/head';
@@ -29,7 +30,7 @@ import {
   vesselLowerBound,
   vesselRadiusAt,
 } from '../anatomy/head';
-import { stenosisTurbulenceMms, vesselVelocityCms } from '../physiology/flow';
+import { stenosisTurbulenceMms, vesselMeanVelocityCms } from '../physiology/flow';
 import type { PhysState } from '../physiology/flow';
 import { FISIOLOGIA } from '../physiology/params';
 import { DOPPLER } from './params';
@@ -302,7 +303,7 @@ export class SampleVolumeIQ {
     const d = vesselDistance(v, m); // <0 dentro
     const radius = vesselRadiusAt(v, closest.sMm);
     const r = Math.min(1, Math.max(0, (radius + Math.max(d, -radius)) / radius));
-    const profile = Math.max(0, 1 - FISIOLOGIA.params.laminarProfile.value * r * r);
+    const profile = meanNormalizedProfile(r, FISIOLOGIA.params.laminarProfile.value);
     // Continuidad: la estenosis acelera el flujo local por (R/r(s))².
     const continuity = (v.radiusMm / Math.max(1e-6, radius)) ** 2;
     return scale(dir, profile * 10 * continuity);
@@ -548,12 +549,17 @@ export class SampleVolumeIQ {
               }
             }
             if (s.vessel) {
-              const u = vesselVelocityCms(s.vessel, cardiacPhase, phys.flowModulation, phys.hemo);
+              const u = vesselMeanVelocityCms(s.vessel, cardiacPhase, phys.flowModulation, phys.hemo);
               s.vMat[0] = s.flowBasis[0] * u;
               s.vMat[1] = s.flowBasis[1] * u;
               s.vMat[2] = s.flowBasis[2] * u;
               if (s.vessel.stenosis) {
-                const tb = stenosisTurbulenceMms(s.vessel, vesselClosest(s.vessel, s.m).sMm, s.m, u);
+                const tb = stenosisTurbulenceMms(
+                  s.vessel,
+                  vesselClosest(s.vessel, s.m).sMm,
+                  s.m,
+                  u / radialProfileMean(),
+                );
                 s.vMat[0] += tb[0];
                 s.vMat[1] += tb[1];
                 s.vMat[2] += tb[2];

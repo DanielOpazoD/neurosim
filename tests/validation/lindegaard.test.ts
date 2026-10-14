@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { caseById } from '../../src/domain/cases';
-import { vesselVelocityCms } from '../../src/physiology/flow';
+import { vesselAxialVelocityCms } from '../../src/physiology/flow';
 import { lindegaardIndex } from '../../src/doppler/measureMca';
 import { PwController, SyncPwTransport } from '../../src/app/pwController';
 import { SimulationClock } from '../../src/core/clock';
@@ -23,7 +23,7 @@ function mcaTaMaxModel(sim: ReferenceCase, side: Side): number {
   const m1 = sim.head.vessels.find((v) => v.id === `m1-${side}`)!;
   const hemo = sim.physStateAt(0).hemo;
   let acc = 0;
-  for (let i = 0; i < 400; i++) acc += vesselVelocityCms(m1, i / 400, 1, hemo) / 400;
+  for (let i = 0; i < 400; i++) acc += vesselAxialVelocityCms(m1, i / 400, 1, hemo) / 400;
   return acc;
 }
 

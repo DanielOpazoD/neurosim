@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { hemodynamics, onsdForIcpMm } from '../../src/physiology/hemodynamics';
 import { FISIOLOGIA } from '../../src/physiology/params';
+import { radialProfileMean } from '../../src/core/flowProfile';
 
 function extrema(state: ReturnType<typeof hemodynamics>): { min: number; max: number; mean: number } {
   let min = Infinity;
@@ -18,14 +19,14 @@ function extrema(state: ReturnType<typeof hemodynamics>): { min: number; max: nu
 }
 
 describe('acoplamiento hemodinámico latente', () => {
-  it('calibra N1 a PSV 90, EDV aproximada 33 y media 55 cm/s', () => {
+  it('distingue media espacial N1 de referencias axiales 90/33 y media axial 55', () => {
     const sim = buildReferenceCase();
     const state = hemodynamics({ mapMmHg: 85, paco2MmHg: 40, icpMmHg: 10 });
     const vessel = sim.head.vessels.find((v) => v.id === 'm1-der')!;
     const w = extrema(state);
-    const mean = vessel.meanCms * w.mean;
-    const psv = vessel.meanCms * w.max;
-    const edv = vessel.meanCms * w.min;
+    const mean = vessel.meanSpatialCms * w.mean;
+    const psv = (vessel.meanSpatialCms * w.max) / radialProfileMean();
+    const edv = (vessel.meanSpatialCms * w.min) / radialProfileMean();
     expect(vessel.psvCms).toBeCloseTo(90, 0);
     expect(vessel.edvCms).toBeGreaterThan(31);
     expect(vessel.edvCms).toBeLessThanOrEqual(35);
@@ -33,7 +34,8 @@ describe('acoplamiento hemodinámico latente', () => {
     expect(psv).toBeLessThanOrEqual(91);
     expect(edv).toBeGreaterThan(31);
     expect(edv).toBeLessThanOrEqual(35);
-    expect(mean).toBeCloseTo(vessel.meanCms!, 0);
+    expect(mean).toBeCloseTo(vessel.meanSpatialCms!, 0);
+    expect(mean).toBeCloseTo(55 * radialProfileMean(), 2);
     expect(state.expectedPi).toBeGreaterThan(0.9);
     expect(state.expectedPi).toBeLessThan(1.1);
     expect(state.flowFactor).toBe(1);

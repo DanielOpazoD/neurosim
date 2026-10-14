@@ -3,6 +3,7 @@
  * Los valores clínicos del manifiesto se referencian desde este registro.
  */
 import { defineParameters } from '../core/evidence';
+import { RADIAL_PROFILE_WEIGHT, radialProfileMean } from '../core/flowProfile';
 import { windkesselShapeTable } from './windkessel';
 
 export const FISIOLOGIA = defineParameters('fisiologia', {
@@ -215,12 +216,12 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     note: 'Amplitud de arritmia sinusal respiratoria.',
   },
   laminarProfile: {
-    value: 0.85,
+    value: RADIAL_PROFILE_WEIGHT,
     unit: 'fracción',
     range: [0, 1],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
-    note: 'Peso del perfil laminar parabólico del vaso.',
+    note: 'Peso a del perfil (1−a·(r/R)²)/(1−a/2), normalizado por área (DEC-75). No equivale a un perfil de Womersley.',
   },
   a1PsvCms: {
     value: 80,
@@ -255,28 +256,28 @@ export const FISIOLOGIA = defineParameters('fisiologia', {
     note: 'EDV del P1/P2 usado por el fixture.',
   },
   qM1MlMin: {
-    value: 233.26325452904214,
+    value: 233.26325452904214 * radialProfileMean(),
     unit: 'ml/min',
-    range: [180, 300],
+    range: [100, 180],
     evidence: 'derivado',
     sources: ['plan-simulador-2026'],
-    note: 'Derivado con vMedia ACM N1=55 cm/s: Q = vMedia·πr²·0,6, rM1=1,5 mm.',
+    note: 'Derivado de media temporal axial N1=55 cm/s: Q=55·(1−a/2)·π·1,5²·0,6. Corrige la confusión TAMax/Q/A previa (DEC-75); no es caudal medido.',
   },
   qA2MlMin: {
-    value: 92.63789745628456,
+    value: 92.63789745628456 * radialProfileMean(),
     unit: 'ml/min',
-    range: [60, 130],
+    range: [34, 75],
     evidence: 'derivado',
     sources: ['aium-tcd-guia', 'plan-simulador-2026'],
-    note: 'Q terminal A2 derivado de la media Windkessel y la onda A1 de referencia, rA2=1,0 mm.',
+    note: 'Q terminal A2 derivado de la onda axial de referencia, rA2=1,0 mm, con factor espacial (1−a/2) (DEC-75).',
   },
   qP2MlMin: {
-    value: 87.58748421149778,
+    value: 87.58748421149778 * radialProfileMean(),
     unit: 'ml/min',
-    range: [55, 125],
+    range: [31, 72],
     evidence: 'derivado',
     sources: ['aium-tcd-guia', 'plan-simulador-2026'],
-    note: 'Q terminal P2 derivado de la media Windkessel y la onda P1 de referencia, rP2=1,1 mm.',
+    note: 'Q terminal P2 derivado de la onda axial de referencia, rP2=1,1 mm, con factor espacial (1−a/2) (DEC-75).',
   },
   basilarPsvCms: {
     value: 55,

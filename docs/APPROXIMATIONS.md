@@ -91,8 +91,8 @@ calibración.
 - **fisiologia.onsdSlopeMmPerMmHg**, **fisiologia.onsdMaxMm** — relación
   educativa estática PIC–DVNO, con pendiente 0,06 mm/mmHg y saturación en
   7,5 mm; el parámetro está estimado.
-- **fisiologia.laminarProfile** — perfil parabólico de velocidad; calibrar contra perfiles Doppler intravasculares.
-- **fisiologia.qM1MlMin**, **fisiologia.qA2MlMin**, **fisiologia.qP2MlMin** — caudales terminales derivados de la media numérica de `arterialShape`; la continuidad de Murray se comprueba, no se impone. Las variantes representan aplasia/hipoplasia A1 (~10 %) y ACP fetal (~15–20 %) como escenarios docentes, no como prevalencia individual.
+- **fisiologia.laminarProfile** — peso a del perfil reducido (1−a·(r/R)²)/(1−a/2), normalizado para que su media sobre el área sea exactamente 1 (DEC-75); el eje va a 1/(1−a/2)≈1,74 veces la media espacial. No es Womersley ni un perfil medido; calibrar contra perfiles Doppler intravasculares.
+- **fisiologia.qM1MlMin**, **fisiologia.qA2MlMin**, **fisiologia.qP2MlMin** — caudales terminales derivados de la media numérica de `arterialShape` sobre la velocidad AXIAL de referencia y del factor espacial (1−a/2) (DEC-75; antes se igualaba TAMax a Q/A y los valores eran ≈1,74 veces mayores); la continuidad de Murray se comprueba, no se impone. Las variantes representan aplasia/hipoplasia A1 (~10 %) y ACP fetal (~15–20 %) como escenarios docentes, no como prevalencia individual.
 - **fisica-ultrasonido.linearPeakPressureMPa**, **fisica-ultrasonido.sectorPeakPressureMPa** — presiones pico máximas estimadas por transductor; no proceden de una calibración con hidrófono.
 - **fisica-ultrasonido.bmodePowerMw**, **fisica-ultrasonido.colorPowerMw**, **fisica-ultrasonido.pwPowerMw** — potencias temporales medias estimadas por modo; se usan para que TI emerja de la prescripción de adquisición.
 - **fisica-ultrasonido.defaultEyeOutputPowerDb**, **fisica-ultrasonido.defaultTemporalOutputPowerDb** — presets relativos de salida; la potencia ocular se ajusta para cumplir MI oftálmico con los p0 estimados, mientras la temporal parte de 0 dB.

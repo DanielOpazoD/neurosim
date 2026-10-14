@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { defaultEyeSettings } from '../../src/domain/settings';
 import { classifyEye, nerveCenterline, nerveSection, sheathRadiiAt, toEyeLocal } from '../../src/anatomy/eye';
-import { vesselVelocityCms } from '../../src/physiology/flow';
+import { vesselAxialVelocityCms } from '../../src/physiology/flow';
 import { CerebralFlow } from '../../src/physiology/flow';
 import { renderColorDoppler } from '../../src/doppler/color';
 import { insonationAngles } from '../../src/doppler/insonation';
@@ -30,7 +30,7 @@ describe('grafo vascular ocular', () => {
       expect(vessels.length).toBe(6);
       for (const v of vessels) {
         for (const phase of [0, 0.2, 0.5, 0.9]) {
-          expect(Number.isFinite(vesselVelocityCms(v, phase))).toBe(true);
+          expect(Number.isFinite(vesselAxialVelocityCms(v, phase))).toBe(true);
         }
       }
       const ids = vessels.map((v) => v.id);
@@ -56,7 +56,7 @@ describe('grafo vascular ocular', () => {
     // La VCR es venosa: velocidad plana, sin pulsatilidad.
     const vcr = sim.eyes.der.vessels.find((v) => v.id === 'vcr-der')!;
     expect(vcr.venous).toBe(true);
-    expect(vesselVelocityCms(vcr, 0)).toBeCloseTo(vesselVelocityCms(vcr, 0.25), 6);
+    expect(vesselAxialVelocityCms(vcr, 0)).toBeCloseTo(vesselAxialVelocityCms(vcr, 0.25), 6);
   });
 });
 

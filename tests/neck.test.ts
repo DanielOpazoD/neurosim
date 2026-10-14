@@ -15,7 +15,8 @@ import {
   neckLocal,
   neckPoint,
 } from '../src/anatomy/neck';
-import { highResistanceShape, vesselVelocityCms } from '../src/physiology/flow';
+import { highResistanceShape, vesselAxialVelocityCms } from '../src/physiology/flow';
+import { radialProfileMean } from '../src/core/flowProfile';
 import { currentPose, submandibularPose } from '../src/app/poses';
 import { neckDopplerScene } from '../src/app/renderRequest';
 import { insonationAngles } from '../src/doppler/insonation';
@@ -125,7 +126,7 @@ describe('cuello: caudal de la ACI = ramas intracraneales ipsilaterales', () => 
     const ica = sim.neck.der.vessels[0]!;
     const hemo = sim.physStateAt(0).hemo;
     let ta = 0;
-    for (let i = 0; i < 400; i++) ta += vesselVelocityCms(ica, i / 400, 1, hemo) / 400;
+    for (let i = 0; i < 400; i++) ta += vesselAxialVelocityCms(ica, i / 400, 1, hemo) / 400;
     expect(ta).toBeGreaterThanOrEqual(35);
     expect(ta).toBeLessThanOrEqual(45);
     expect(ica.psvCms).toBeGreaterThan(60 * 0.85);
@@ -139,17 +140,18 @@ describe('cuello: caudal de la ACI = ramas intracraneales ipsilaterales', () => 
     for (let i = 0; i < 2000; i++) acc += highResistanceShape(i / 2000);
     expect(acc / 2000).toBeCloseTo(HIGH_RESISTANCE_SHAPE_MEAN, 2);
     const eca = sim.neck.der.vessels.find((v) => v.id === 'ace-der')!;
-    expect(eca.meanCms).toBeCloseTo(
-      NECK_ECA_EDV_CMS + (NECK_ECA_PSV_CMS - NECK_ECA_EDV_CMS) * HIGH_RESISTANCE_SHAPE_MEAN,
+    expect(eca.meanSpatialCms).toBeCloseTo(
+      (NECK_ECA_EDV_CMS + (NECK_ECA_PSV_CMS - NECK_ECA_EDV_CMS) * HIGH_RESISTANCE_SHAPE_MEAN) *
+        radialProfileMean(),
       6,
     );
     // Incisura: mínimo local entre el pico sistólico y el rebote.
-    const v = (p: number) => vesselVelocityCms(eca, p);
+    const v = (p: number) => vesselAxialVelocityCms(eca, p);
     expect(v(0.24)).toBeLessThan(v(0.34));
     expect(v(0.24)).toBeLessThan(v(0.18));
     // La hemodinámica cerebral no la modula.
     const hyper = buildReferenceCase(undefined, 'normal', caseById('hipercapnia'));
-    expect(vesselVelocityCms(eca, 0.12, 1, hyper.physStateAt(0).hemo)).toBeCloseTo(v(0.12), 9);
+    expect(vesselAxialVelocityCms(eca, 0.12, 1, hyper.physStateAt(0).hemo)).toBeCloseTo(v(0.12), 9);
   });
 });
 

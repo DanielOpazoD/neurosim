@@ -10,10 +10,11 @@
 import { hash3, hashString } from '../core/random';
 import type { Vec3 } from '../core/vec3';
 import { scale, normalize } from '../core/vec3';
+import { meanNormalizedProfile, radialProfileMean } from '../core/flowProfile';
 import type { BasalPhysiology } from '../domain/contracts';
 import type { Vessel, VesselScene } from '../anatomy/head';
 import { vesselAt, vesselClosest, vesselDistance, vesselRadiusAt } from '../anatomy/head';
-import { arterialShapeTable, FISIOLOGIA } from './params';
+import { arterialShapeTable, arterialShapeMean, FISIOLOGIA } from './params';
 import { Respiration } from './respiration';
 import type { HemodynamicState } from './hemodynamics';
 
@@ -118,15 +119,40 @@ export function highResistanceShape(phase: number): number {
   return Math.min(1, systolic + rebound + tail);
 }
 
-/** Velocidad espacial media del vaso en la fase dada, cm/s. */
-export function vesselVelocityCms(v: Vessel, phase: number, modulation = 1, hemo?: HemodynamicState): number {
+const ARTERIAL_SHAPE_MEAN = arterialShapeMean();
+const HIGH_RESISTANCE_MEAN = (() => {
+  let sum = 0;
+  for (let i = 0; i < 4096; i++) sum += highResistanceShape(i / 4096);
+  return sum / 4096;
+})();
+
+/** Media sobre el área, antes de la aceleración local por estenosis; cm/s. */
+export function vesselMeanVelocityCms(
+  v: Vessel,
+  phase: number,
+  modulation = 1,
+  hemo?: HemodynamicState,
+): number {
   // Venoso: flujo cuasi estacionario — ignora la forma arterial y la onda hemodinámica.
-  if (v.venous) return v.meanCms * modulation;
-  // Alta resistencia (ACE): onda propia, sin reactividad cerebral.
-  if (v.waveform === 'alta')
-    return (v.edvCms + (v.psvCms - v.edvCms) * highResistanceShape(phase)) * modulation;
-  if (hemo) return v.meanCms * hemo.flowFactor * hemo.waveform(phase) * modulation;
-  return (v.edvCms + (v.psvCms - v.edvCms) * arterialShape(phase)) * modulation;
+  if (v.venous) return v.meanSpatialCms * modulation;
+  if (hemo && v.waveform !== 'alta')
+    return v.meanSpatialCms * hemo.flowFactor * hemo.waveform(phase) * modulation;
+  const high = v.waveform === 'alta';
+  const shape = high ? highResistanceShape(phase) : arterialShape(phase);
+  const shapeMean = high ? HIGH_RESISTANCE_MEAN : ARTERIAL_SHAPE_MEAN;
+  const mean = v.edvCms + (v.psvCms - v.edvCms) * shapeMean;
+  if (mean === 0) return 0;
+  return ((v.meanSpatialCms * (v.edvCms + (v.psvCms - v.edvCms) * shape)) / mean) * modulation;
+}
+
+/** Velocidad en el eje del tubo de referencia; NO es una medida de envolvente PW. */
+export function vesselAxialVelocityCms(
+  v: Vessel,
+  phase: number,
+  modulation = 1,
+  hemo?: HemodynamicState,
+): number {
+  return vesselMeanVelocityCms(v, phase, modulation, hemo) / radialProfileMean();
 }
 
 /** Query de flujo por posición: velocidad de la sangre (mm/s) en un punto. */
@@ -138,7 +164,7 @@ export class CerebralFlow {
 
   /**
    * Velocidad de la sangre en mm/s en un punto del paciente.
-   * Perfil laminar: v(r) = vEje·(1 − 0,85·(r/R)²) dentro del tubo.
+   * Perfil reducido normalizado por área; comparte base con el volumen IQ.
    */
   velocityAt(p: Vec3, phase: number, modulation = 1, hemo?: HemodynamicState): Vec3 {
     const v = vesselAt(this.scene, p);
@@ -148,13 +174,13 @@ export class CerebralFlow {
     const radius = vesselRadiusAt(v, closest.sMm);
     const r = radius + d; // distancia al eje (d ya descuenta el radio local)
     const x = Math.min(1, Math.max(0, r / radius));
-    const profile = 1 - 0.85 * x * x;
+    const profile = meanNormalizedProfile(x, FISIOLOGIA.params.laminarProfile.value);
     // Continuidad: la velocidad local escala con (R/r(s))² en la estenosis.
     const continuity = (v.radiusMm / Math.max(1e-6, radius)) ** 2;
-    const uCms = vesselVelocityCms(v, phase, modulation, hemo) * continuity;
+    const uCms = vesselMeanVelocityCms(v, phase, modulation, hemo) * continuity;
     const dir = normalize(closest.tangent);
     const vel = scale(dir, v.flowSign * uCms * 10 * Math.max(0, profile));
-    const turb = stenosisTurbulenceMms(v, closest.sMm, p, uCms);
+    const turb = stenosisTurbulenceMms(v, closest.sMm, p, uCms / radialProfileMean());
     return [vel[0] + turb[0], vel[1] + turb[1], vel[2] + turb[2]];
   }
 }

@@ -206,3 +206,13 @@ a WebGL2 en bloques posteriores.
   El contrato no migra todavía las escenas actuales, no infiere conectividad por
   proximidad y no importa datasets. La admisibilidad técnica no concede licencia
   de redistribución ni valida el uso clínico.
+
+- **LIM-34 · Conservación aritmética, no hemodinámica**: DEC-75 garantiza que el
+  campo de velocidades integra el caudal declarado y que los caudales prescritos
+  cuadran en los nodos declarados. No existe solver de presiones/resistencias,
+  los caudales no responden a radios ni a colaterales, el perfil radial es un
+  paraboloide reducido fijo (sin Womersley, curvatura, flujo secundario ni
+  dependencia de la frecuencia cardíaca), la garganta estenótica conserva el
+  perfil y la continuidad de forma ideal, y las velocidades de eje siguen
+  siendo referencias docentes. Los caudales recalibrados son derivados del
+  modelo y no han sido comparados con mediciones de caudal (p. ej. PC-MRI).

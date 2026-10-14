@@ -41,3 +41,19 @@ carga sin errores, B-mode ocular, Doppler temporal/PW, congelación y
 exportación. Ejecuta `npm run test:e2e`; si falta el navegador, instala Chromium
 con `npm run test:e2e:install`. No forman parte de `npm run check` local por su
 coste, pero se ejecutan en un job separado de CI.
+
+## Caudal, perfil y balances (DEC-75)
+
+`tests/validation/flowConservation.test.ts` integra numéricamente el campo real
+`CerebralFlow.velocityAt` sobre secciones (cuadratura polar uniforme en área) y
+comprueba que recupera el caudal nominal con error < 1 % en tubos sintéticos
+(arterial, venoso, alta resistencia, signo invertido, estado hemodinámico basal),
+que la garganta de una estenosis conserva el caudal instantáneo de una sección
+proximal, que el perfil normalizado tiene media 1 para cualquier peso admisible y
+que todas las escenas construidas (Willis, ojos, cuello) relacionan `flowMlMin`
+con `meanSpatialCms`, no con la envolvente. `tests/flowBalance.test.ts` prueba
+la contabilidad firmada de nodos en una bifurcación y una anastomosis sintéticas
+(fugas locales, terminales sin contorno, inversión total, cero explícito frente a
+dato ausente, no finitos, desbordamiento) y recorre las cinco variantes de Willis
+en cuatro fases y tres PIC exigiendo residuo nodal < 1e−9 ml/min. Son pruebas de
+software y aritmética: no validan caudales cerebrales reales ni perfiles medidos.
