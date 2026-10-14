@@ -195,3 +195,14 @@ a WebGL2 en bloques posteriores.
   y el soporte estimado requieren contraste externo antes de uso clínico.
   No se limita aquí el presupuesto PRF/rango del Doppler color, ni existe un
   secuenciador de emisión compartido con B-mode: sigue pendiente su modelado.
+
+- **LIM-33 · Grafo vascular verificado, no atlas validado**: DEC-74 verifica
+  estructura, coordenadas y topología de fixtures sintéticos, no anatomía
+  poblacional ni registro contra angioTAC/angioRM. La procedencia y su estado
+  de validación son declaraciones preservadas, no certificación automática.
+  La tolerancia de lateralidad es estimada. Los radios deben llegar en mm del
+  paciente; no se extraen de segmentaciones ni se transforman secciones elípticas.
+  Grados/ciclos no prueban caudal, continuidad, presiones ni circulación colateral.
+  El contrato no migra todavía las escenas actuales, no infiere conectividad por
+  proximidad y no importa datasets. La admisibilidad técnica no concede licencia
+  de redistribución ni valida el uso clínico.

@@ -27,6 +27,13 @@ desviación exista y quedará rojo automáticamente cuando el estimador se corri
 que sus fuentes están en `docs/REFERENCES.md`, que cada aproximación aparece
 en `docs/APPROXIMATIONS.md` y que no hay ids duplicados.
 
+`tests/vascularGraph.test.ts` comprueba el contrato vascular (DEC-74):
+round-trip afín/unidades, radios por punto, bifurcación, ciclo de anastomosis,
+componentes, rechazo de JSON inválido y lateralidad explícita. Sus coordenadas
+son arbitrarias, no un atlas. También comprueba invariantes geométricas de
+Willis, ojos y cuello existentes, sin atribuirles conectividad ni validación
+anatómica externa.
+
 ## E2E
 
 Las pruebas E2E de Playwright cubren el flujo docente completo en Chromium:

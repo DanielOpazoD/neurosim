@@ -22,7 +22,9 @@ La UI es el único lugar que conoce el DOM y el canvas.
 
 - **core**: reloj, RNG, unidades, vectores, FFT y validación de evidencia.
 - **anatomy**: materiales, ojo, cabeza y cuello; produce geometría y
-  clasificación.
+  clasificación. `vascularGraph.ts` valida un contrato JSON versionado de
+  centrolineas/topología y lo normaliza al paciente (DEC-74); todavía no
+  reemplaza `VesselScene` ni introduce lógica hemodinámica.
 - **physiology**: ciclo cardíaco y velocidades vasculares.
 - **ultrasound**: geometría de sonda, B-mode y atenuación.
 - **doppler**: volumen de muestra, cadena PW, filtro, espectro, color y medidas
