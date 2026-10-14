@@ -57,3 +57,12 @@ la contabilidad firmada de nodos en una bifurcación y una anastomosis sintétic
 dato ausente, no finitos, desbordamiento) y recorre las cinco variantes de Willis
 en cuatro fases y tres PIC exigiendo residuo nodal < 1e−9 ml/min. Son pruebas de
 software y aritmética: no validan caudales cerebrales reales ni perfiles medidos.
+
+## Coherencia regional (DEC-76)
+
+`tests/validation/regionalCoherence.test.ts` recorre las cinco variantes de
+Willis, el cuello y los ojos: extremos cercanos coinciden exactamente o están
+declarados libres, tubos sin nodo común no se interpenetran, las ramas de la ACE
+nacen sobre el tronco, la ACI cervical y el sifón comparten nodo, el eje temporal
+de cada ojo apunta hacia afuera y el nervio se acerca al plano medio, y los dos
+ojos son especulares. Invariantes geométricas del fixture; no validan anatomía.

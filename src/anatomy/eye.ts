@@ -75,7 +75,7 @@ export function buildReferenceEyes(
     const sign = side === 'izq' ? 1 : -1; // ojo izquierdo en +x
     const center: Vec3 = [sign * EYE.centerAbsXmm.value, EYE.centerYmm.value, EYE.centerZmm.value];
     const anterior = normalize(v3(0, 0, 1));
-    const temporal = normalize(v3(-sign, 0, 0)); // temporal = hacia afuera
+    const temporal = normalize(v3(sign, 0, 0)); // temporal = hacia afuera (lejos del plano medio) en ambos ojos
     const superior = v3(0, 1, 0);
     // Asimetrías documentadas del fixture (pequeñas, deterministas).
     const r = rng.fork(`eye-${side}`);

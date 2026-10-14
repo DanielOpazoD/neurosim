@@ -18,42 +18,43 @@
 
 ## IDs de limitaciones
 
-| ID     | Título                                       | Citas en `src/` y `tests/`                                                   |
-| ------ | -------------------------------------------- | ---------------------------------------------------------------------------- |
-| LIM-16 | Color Kasai reducido                         | `src/doppler/color.ts`                                                       |
-| LIM-17 | Movimiento tisular reducido                  | —                                                                            |
-| LIM-18 | Windkessel reducido                          | —                                                                            |
-| LIM-19 | Hemodinámica estática                        | —                                                                            |
-| LIM-20 | ALARA acústico reducido                      | —                                                                            |
-| LIM-21 | Protocolo DVNO reducido                      | —                                                                            |
-| LIM-01 | Patología                                    | —                                                                            |
-| LIM-02 | Lindegaard                                   | `src/domain/cases.ts`, `src/doppler/measureMca.ts`                           |
-| LIM-03 | DVNO y PIC                                   | —                                                                            |
-| LIM-04 | Realismo acústico parcial                    | —                                                                            |
-| LIM-05 | Normal de interfaz                           | `src/ultrasound/bmode.ts`                                                    |
-| LIM-06 | Tejido estático                              | —                                                                            |
-| LIM-07 | Audio                                        | —                                                                            |
-| LIM-08 | Medición DVNO                                | —                                                                            |
-| LIM-09 | Sesgo diastólico (reducido)                  | `src/doppler/measureMca.ts`                                                  |
-| LIM-10 | PSF analítica (resuelta/redirigida)          | —                                                                            |
-| LIM-11 | Advección en cuerda                          | `src/doppler/sampleVolume.ts`, `tests/validation/persistenciaSangre.test.ts` |
-| LIM-12 | Densidad de sangre sembrada                  | `src/doppler/sampleVolume.ts`                                                |
-| LIM-13 | PW en hilo principal (resuelta/redirigida)   | —                                                                            |
-| LIM-14 | Artefactos 1D                                | —                                                                            |
-| LIM-15 | Flujo vascular simplificado                  | —                                                                            |
-| LIM-22 | Debriefing por reglas                        | —                                                                            |
-| LIM-23 | Audio de equipo                              | —                                                                            |
-| LIM-24 | Paridad WebGL2                               | —                                                                            |
-| LIM-25 | Estenosis focal idealizada                   | `src/domain/cases.ts`                                                        |
-| LIM-26 | Vasos oculares estilizados                   | `src/anatomy/ocularVessels.ts`, `src/app/renderRequest.ts`                   |
-| LIM-27 | Navegación de sonda 2-D                      | —                                                                            |
-| LIM-28 | Desplazamiento de línea media supratentorial | —                                                                            |
-| LIM-29 | Escena submandibular simplificada            | `src/anatomy/neck.ts`                                                        |
-| LIM-30 | Medición bidireccional conservadora          | —                                                                            |
-| LIM-31 | Contexto PW no equivale a validación clínica | —                                                                            |
-| LIM-32 | Alcance PW ideal, no HPRF                    | —                                                                            |
-| LIM-33 | Grafo vascular verificado, no atlas validado | —                                                                            |
-| LIM-34 | Conservación aritmética, no hemodinámica     | —                                                                            |
+| ID     | Título                                                 | Citas en `src/` y `tests/`                                                   |
+| ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| LIM-16 | Color Kasai reducido                                   | `src/doppler/color.ts`                                                       |
+| LIM-17 | Movimiento tisular reducido                            | —                                                                            |
+| LIM-18 | Windkessel reducido                                    | —                                                                            |
+| LIM-19 | Hemodinámica estática                                  | —                                                                            |
+| LIM-20 | ALARA acústico reducido                                | —                                                                            |
+| LIM-21 | Protocolo DVNO reducido                                | —                                                                            |
+| LIM-01 | Patología                                              | —                                                                            |
+| LIM-02 | Lindegaard                                             | `src/domain/cases.ts`, `src/doppler/measureMca.ts`                           |
+| LIM-03 | DVNO y PIC                                             | —                                                                            |
+| LIM-04 | Realismo acústico parcial                              | —                                                                            |
+| LIM-05 | Normal de interfaz                                     | `src/ultrasound/bmode.ts`                                                    |
+| LIM-06 | Tejido estático                                        | —                                                                            |
+| LIM-07 | Audio                                                  | —                                                                            |
+| LIM-08 | Medición DVNO                                          | —                                                                            |
+| LIM-09 | Sesgo diastólico (reducido)                            | `src/doppler/measureMca.ts`                                                  |
+| LIM-10 | PSF analítica (resuelta/redirigida)                    | —                                                                            |
+| LIM-11 | Advección en cuerda                                    | `src/doppler/sampleVolume.ts`, `tests/validation/persistenciaSangre.test.ts` |
+| LIM-12 | Densidad de sangre sembrada                            | `src/doppler/sampleVolume.ts`                                                |
+| LIM-13 | PW en hilo principal (resuelta/redirigida)             | —                                                                            |
+| LIM-14 | Artefactos 1D                                          | —                                                                            |
+| LIM-15 | Flujo vascular simplificado                            | —                                                                            |
+| LIM-22 | Debriefing por reglas                                  | —                                                                            |
+| LIM-23 | Audio de equipo                                        | —                                                                            |
+| LIM-24 | Paridad WebGL2                                         | —                                                                            |
+| LIM-25 | Estenosis focal idealizada                             | `src/domain/cases.ts`                                                        |
+| LIM-26 | Vasos oculares estilizados                             | `src/anatomy/ocularVessels.ts`, `src/app/renderRequest.ts`                   |
+| LIM-27 | Navegación de sonda 2-D                                | —                                                                            |
+| LIM-28 | Desplazamiento de línea media supratentorial           | —                                                                            |
+| LIM-29 | Escena submandibular simplificada                      | `src/anatomy/neck.ts`                                                        |
+| LIM-30 | Medición bidireccional conservadora                    | —                                                                            |
+| LIM-31 | Contexto PW no equivale a validación clínica           | —                                                                            |
+| LIM-32 | Alcance PW ideal, no HPRF                              | —                                                                            |
+| LIM-33 | Grafo vascular verificado, no atlas validado           | —                                                                            |
+| LIM-34 | Conservación aritmética, no hemodinámica               | —                                                                            |
+| LIM-35 | Coherencia regional del fixture, no registro anatómico | —                                                                            |
 
 ## IDs de decisiones
 
@@ -133,6 +134,7 @@
 | DEC-73 | PRF, alcance y tiempo de ida/vuelta PW                                  | `src/doppler/pulseTiming.ts`, `tests/pulseTiming.test.ts`, `tests/validation/lindegaard.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | DEC-74 | Contrato vascular versionado y topología sintética                      | `src/anatomy/params.ts`, `src/anatomy/vascularGraph.ts`, `tests/vascularGraph.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | DEC-75 | Media espacial, velocidad de eje y caudal como magnitudes distintas     | `src/anatomy/neck.ts`, `src/physiology/params.ts`, `tests/validation/flowConservation.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| DEC-76 | Coherencia regional: marcos oculares hacia afuera y nodos compartidos   | `src/anatomy/willis.ts`, `tests/validation/caliper.test.ts`, `tests/validation/ocularDoppler.test.ts`, `tests/validation/regionalCoherence.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## Parámetros registrados
 

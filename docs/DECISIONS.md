@@ -1269,3 +1269,45 @@ cero. No es un solver: no resuelve presiones, resistencias ni redistribución
 colateral; la contabilidad de Willis se construye con conexiones declaradas en
 la prueba, no deducidas por proximidad. Un balance nulo demuestra coherencia
 aritmética de los caudales prescritos, no perfusión real (LIM-34).
+
+## DEC-76 · Coherencia regional: marcos oculares hacia afuera y nodos compartidos
+
+Hallazgos de la auditoría anatómica (H1/H2) reproducidos con pruebas rojas en
+`tests/validation/regionalCoherence.test.ts`:
+
+1. **Lateralidad ocular.** `buildEyes` definía `temporal = −sign·x` con el ojo
+   izquierdo en +x: en ambos ojos el eje «temporal» apuntaba al plano medio y el
+   nervio óptico (−x local, «nasal») se alejaba de la línea media. Ahora
+   `temporal = sign·x`; el marco local (temporal, superior, anterior) es imagen
+   especular entre lados (zurdo en el ojo derecho), lo que es lo esperable para
+   estructuras bilaterales. Las poses de sonda usan el eje lateral del paciente,
+   no `eye.temporal`, así que la navegación y la ventana óptima no cambian; sí
+   cambia qué lado del corte ocupa el nervio y los vasos lat/med.
+2. **Nodos compartidos.** La punta basilar es ahora el origen exacto de ambas P1
+   (`BASILAR_TIP_MM` = [0, 8, −26]; antes había 2 mm de hueco entre tubos). La
+   ACI cervical termina en `ACI_SKULL_BASE_MM` = [±11, −4,2, −13] y el sifón
+   `ica-*` empieza en ese mismo punto (antes 3,6 mm de hueco entre escenas). El
+   salto de radio 2,2 → 1,73 mm en ese nodo se mantiene explícito (LIM-35).
+3. **Invariantes verificadas.** Extremos a < 6 mm de otro extremo coinciden
+   exactamente salvo los terminales A2 declarados libres; tubos sin nodo común no
+   se interpenetran (distancia entre ejes ≥ r₁+r₂) en las cinco variantes de
+   Willis y en el cuello; las ramas de la ACE nacen sobre puntos de control del
+   tronco; los dos ojos son especulares salvo las asimetrías documentadas.
+
+Dorados regenerados, con causa aislada cambio a cambio (reversión selectiva):
+
+- `eyeDerBmode`, `colorAcrDer`: espejo horizontal de la anatomía orbitaria (1).
+- `temporalDerBmode`: la basilar es 2 mm más larga en el fondo del corte (2).
+- `colorM1Der`: 45/12288 celdas en las filas profundas de la caja, donde el
+  sifón proximal gana 3,6 mm y el primer tramo Catmull-Rom se desplaza ≤ 0,30 mm
+  al cambiar el punto fantasma inicial (2). Ningún otro píxel cambia.
+- `pwM1Point2`: la puerta está en el origen de M1, a < 1 mm del final de la
+  ACI; la reentrada de dispersores (`pointOnVesselInBox`) muestrea la polilínea
+  de la ACI por índice y esta pasa de 23 a 27 puntos, así que la realización
+  de speckle cambia por completo (todas las columnas) mientras la envolvente a
+  −20 dB promedia 97,19 → 97,20 bins. Es un cambio de realización, no de
+  física; se acepta en lugar de reescribir el muestreo para no tocar más dorados.
+
+Consecuencia en e2e: la «ventana óptima» del Ojo D pasa de barrido −2,3 mm a
++2,3 mm (mismo módulo, nervio ahora nasal real); `e2e/ux3d.spec.ts` y AGENTS.md
+se actualizan. Las cifras de DEC-59/60 quedan como registro histórico.
