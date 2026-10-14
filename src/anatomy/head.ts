@@ -34,17 +34,17 @@ export interface Vessel {
   readonly aabb: { readonly min: Vec3; readonly max: Vec3 };
   /** +1 orienta el flujo de points[0] hacia el último; −1 invierte esa dirección. */
   readonly flowSign: 1 | -1;
-  /** Flujo medio del segmento, ml/min, positivo en la orientación anatómica. */
+  /** Magnitud del caudal medio temporal basal, ml/min; flowSign aporta el sentido. */
   readonly flowMlMin: number;
-  /** Velocidad media derivada de Q/(πr²·0,6), cm/s. */
-  readonly meanCms: number;
-  /** Velocidad sistólica pico de referencia, cm/s. */
+  /** Media espacial y temporal basal Q/(πr²·0,6), cm/s; NO TAMax ni velocidad de eje. */
+  readonly meanSpatialCms: number;
+  /** Referencia axial sistólica para la forma de onda, cm/s; no medida PW. */
   readonly psvCms: number;
-  /** Velocidad telediastólica de referencia, cm/s. */
+  /** Referencia axial telediastólica para la forma de onda, cm/s; no medida PW. */
   readonly edvCms: number;
   /**
-   * Vaso venoso: flujo cuasi estacionario — `vesselVelocityCms` devuelve
-   * `meanCms·modulation` plano, sin forma arterial ni modulación hemodinámica.
+   * Vaso venoso: flujo cuasi estacionario — `vesselMeanVelocityCms` devuelve
+   * `meanSpatialCms·modulation` plano, sin forma arterial ni modulación hemodinámica.
    */
   readonly venous?: boolean;
   /**

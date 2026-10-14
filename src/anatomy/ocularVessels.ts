@@ -14,6 +14,7 @@
  * AO estilizado (cruza sobre el nervio ~15 mm retroglobo).
  */
 import { add, normalize, scale, type Vec3 } from '../core/vec3';
+import { flowForMeanVelocity, radialProfileMean } from '../core/flowProfile';
 import type { Side } from '../domain/contracts';
 import type { Vessel } from './head';
 import { smoothPolyline } from './willis';
@@ -22,21 +23,19 @@ import { fromEyeLocal, nerveFrame, sheathRadiiAt, type EyeGeometry } from './eye
 /** Geometría del ojo antes de insertar el grafo vascular (se construye tras el marco). */
 type EyeBase = Omit<EyeGeometry, 'vessels'>;
 
-/** Factor de `velocityForFlow` (Willis): Q[ml/min] = v̄[cm/s]·π·r²·0,6. */
-const FLOW_FACTOR = 0.6;
-
 function mkVessel(
   id: string,
   side: Side,
   controlLocal: readonly Vec3[],
   radiusMm: number,
-  meanCms: number,
+  meanAxisCms: number,
   psvCms: number,
   edvCms: number,
   eye: EyeBase,
   venous = false,
   stepMm = 0.5,
 ): Vessel {
+  const meanSpatialCms = meanAxisCms * radialProfileMean();
   const controlPoints = controlLocal.map((p) => fromEyeLocal(eye, p));
   const points = smoothPolyline(controlPoints, stepMm);
   // Los vasos oculares son submilimétricos: el AABB se infla 1,5 mm sobre el
@@ -60,8 +59,8 @@ function mkVessel(
     radiusMm,
     aabb: { min, max },
     flowSign: 1,
-    flowMlMin: meanCms * Math.PI * radiusMm * radiusMm * FLOW_FACTOR,
-    meanCms,
+    flowMlMin: flowForMeanVelocity(meanSpatialCms, radiusMm),
+    meanSpatialCms,
     psvCms,
     edvCms,
     ...(venous ? { venous: true } : {}),

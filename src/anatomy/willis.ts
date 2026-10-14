@@ -1,5 +1,6 @@
 import type { Side, WillisVariant } from '../domain/contracts';
 import type { Vec3 } from '../core/vec3';
+import { meanVelocityForFlow, radialProfileMean } from '../core/flowProfile';
 import type { Vessel } from './head';
 import { ANATOMIA_CABEZA } from './params';
 import { FISIOLOGIA } from '../physiology/params';
@@ -7,19 +8,18 @@ import { FISIOLOGIA } from '../physiology/params';
 const HEAD = ANATOMIA_CABEZA.params;
 const PHYS = FISIOLOGIA.params;
 
-const FLOW_SCALE_ML_MIN = 0.6;
 function velocityForFlow(
   flowMlMin: number,
   radiusMm: number,
 ): {
-  meanCms: number;
+  meanSpatialCms: number;
   psvCms: number;
   edvCms: number;
 } {
-  const meanCms = flowMlMin / (Math.PI * radiusMm * radiusMm * FLOW_SCALE_ML_MIN);
-  const scale = meanCms / 55;
+  const meanSpatialCms = meanVelocityForFlow(flowMlMin, radiusMm);
+  const scale = meanSpatialCms / (55 * radialProfileMean());
   return {
-    meanCms,
+    meanSpatialCms,
     psvCms: PHYS.psvCms.value * scale,
     edvCms: PHYS.edvCms.value * scale,
   };

@@ -5,7 +5,7 @@ import { buildReferenceCase } from '../../src/domain/referenceCase';
 import { measureBeats, observedTrace, summarizeBeats } from '../../src/doppler/measureMca';
 import { SpectralProcessor } from '../../src/doppler/spectral';
 import { WallFilter } from '../../src/doppler/wallFilter';
-import { vesselVelocityCms } from '../../src/physiology/flow';
+import { vesselAxialVelocityCms } from '../../src/physiology/flow';
 import { PwDopplerChain } from '../../src/doppler/pwChain';
 import { m1Gate } from './helpers';
 
@@ -31,7 +31,7 @@ function measureSynthetic(): {
     const im = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const t = (offset + i) * dt;
-      const vCms = vesselVelocityCms(vessel, sim.cardiac.phaseAt(t));
+      const vCms = vesselAxialVelocityCms(vessel, sim.cardiac.phaseAt(t));
       trueSum += vCms;
       const fd = dopplerShiftHz(vCms * 10, f0Hz, C_RECONSTRUCTION_MM_S);
       phase += 2 * Math.PI * fd * dt;

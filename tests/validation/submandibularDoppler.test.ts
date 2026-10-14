@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
-import { vesselVelocityCms } from '../../src/physiology/flow';
+import { vesselAxialVelocityCms } from '../../src/physiology/flow';
 import { neckLocal } from '../../src/anatomy/neck';
 import { patientToImage } from '../../src/ultrasound/probe';
 import { currentPose } from '../../src/app/poses';
@@ -21,7 +21,7 @@ describe('PW submandibular', () => {
     let psv = 0;
     let edv = Infinity;
     for (let i = 0; i < 400; i++) {
-      const v = vesselVelocityCms(ica, i / 400, 1, hemo);
+      const v = vesselAxialVelocityCms(ica, i / 400, 1, hemo);
       psv = Math.max(psv, v);
       edv = Math.min(edv, v);
     }

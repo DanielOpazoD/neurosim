@@ -28,10 +28,10 @@ describe('biblioteca de casos clínicos', () => {
     const spasm = buildReferenceCase(undefined, 'normal', caseById('vasoespasmo'));
     const n = normal.head.vessels.find((v) => v.id === 'm1-izq')!;
     const v = spasm.head.vessels.find((v2) => v2.id === 'm1-izq')!;
-    expect(v.meanCms).toBeGreaterThanOrEqual(2.5 * n.meanCms);
+    expect(v.meanSpatialCms).toBeGreaterThanOrEqual(2.5 * n.meanSpatialCms);
     const nDer = normal.head.vessels.find((x) => x.id === 'm1-der')!;
     const vDer = spasm.head.vessels.find((x) => x.id === 'm1-der')!;
-    expect(vDer.meanCms).toBeCloseTo(nDer.meanCms, 10);
+    expect(vDer.meanSpatialCms).toBeCloseTo(nDer.meanSpatialCms, 10);
   });
 
   it('ventanaPobre atenúa al menos 6 dB más que la ventana de referencia', () => {

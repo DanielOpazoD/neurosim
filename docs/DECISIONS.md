@@ -1222,3 +1222,50 @@ no inventa conexiones por proximidad. El contrato todavía no reemplaza
 `VesselScene` ni alimenta la imagen. No cambian goldens, parámetros fisiológicos
 ni recursos binarios. Integrar un atlas requerirá extracción/registro offline,
 licencia revisada, radios y validación externa (LIM-33).
+
+## DEC-75 · Media espacial, velocidad de eje y caudal como magnitudes distintas
+
+Antes, `meanCms` se derivaba de Q/(πr²·0,6) y a la vez se usaba como velocidad
+de eje de la onda (55 cm/s en M1) con un perfil 1−0,85·(r/R)² encima, cuya media
+sobre el disco es 0,575 del eje. El caudal declarado era por tanto ≈1,74 veces
+el que realmente transportaba el campo de velocidades, y el mismo nombre
+mezclaba TAMax (envolvente), velocidad de eje, media espacial y Q/A.
+
+R06 separa los contratos. `Vessel.meanSpatialCms` es la media espacial y
+temporal basal que define Q = v̄·πr²·0,6 (`core/flowProfile.ts`); `psvCms` y
+`edvCms` siguen siendo referencias AXIALES de forma de onda, no medidas PW.
+`vesselMeanVelocityCms` devuelve la media espacial instantánea; para la onda
+arterial y la de alta resistencia la forma se renormaliza por su media numérica
+exacta, de modo que la media temporal coincide con `meanSpatialCms` y Q se
+conserva; con estado hemodinámico se usa la onda Windkessel (media 1). La
+velocidad de eje es `vesselAxialVelocityCms` = media/(1−a/2) y es la que se
+compara con TAMax/PSV/EDV de referencia. El perfil compartido por
+`CerebralFlow.velocityAt` y el volumen de muestra IQ es
+(1−a·(r/R)²)/(1−a/2), de media exactamente 1 sobre el área; la continuidad en
+la estenosis escala la media con (R/r(s))², por lo que la integral sobre la
+garganta coincide con la de una sección proximal. La turbulencia sigue
+parametrizada por el exceso de velocidad de eje.
+
+Recalibración explícita: `qM1MlMin`, `qA2MlMin` y `qP2MlMin` se multiplican por
+(1−a/2) y sus rangos se reducen en consecuencia; con ello las velocidades de eje
+(90/35 cm/s, media 55 en M1; ACI cervical ≈60/25, TAMax 35–45) NO cambian y
+los goldens de M1, ACR, PW y B-mode permanecen idénticos. Los parámetros de
+caudal pasan a ser coherentes con el campo, no con una envolvente. Los nuevos
+valores (M1 ≈134 ml/min) son derivados del modelo, no mediciones.
+
+Único golden modificado: `colorAciDer` (78033930 → f765609f). Causa aislada:
+la ACE y sus ramas usaban la constante redondeada
+`HIGH_RESISTANCE_SHAPE_MEAN` = 0,157 para declarar Q, mientras la media exacta de
+`highResistanceShape` es 0,15717; al renormalizar la onda por la media exacta,
+1030 de 12288 celdas cambian como máximo 0,0084 cm/s (redondeo ×1000 del hash).
+No cambia ninguna otra imagen ni espectro. Se verificó comparando con una
+reimplementación de la fórmula previa antes de regenerar el dorado.
+
+`physiology/flowBalance.ts` contabiliza residuos nodales de caudales firmados
+según from→to sobre un `VascularGraph` (DEC-74), con contornos externos
+explícitos: un terminal sin contorno NO es un sumidero implícito, un flujo cero
+debe declararse, y los residuos locales se informan aunque la suma global sea
+cero. No es un solver: no resuelve presiones, resistencias ni redistribución
+colateral; la contabilidad de Willis se construye con conexiones declaradas en
+la prueba, no deducidas por proximidad. Un balance nulo demuestra coherencia
+aritmética de los caudales prescritos, no perfusión real (LIM-34).

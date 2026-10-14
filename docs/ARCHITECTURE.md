@@ -25,7 +25,12 @@ La UI es el único lugar que conoce el DOM y el canvas.
   clasificación. `vascularGraph.ts` valida un contrato JSON versionado de
   centrolineas/topología y lo normaliza al paciente (DEC-74); todavía no
   reemplaza `VesselScene` ni introduce lógica hemodinámica.
-- **physiology**: ciclo cardíaco y velocidades vasculares.
+- **physiology**: ciclo cardíaco y velocidades vasculares. `flow.ts` distingue
+  media espacial (`vesselMeanVelocityCms`, la que conserva Q) de velocidad de eje
+  (`vesselAxialVelocityCms`); `flowBalance.ts` contabiliza residuos nodales de
+  caudales prescritos sobre un `VascularGraph` (DEC-75). El perfil radial
+  normalizado y las conversiones Q↔v̄ viven en `core/flowProfile.ts` para que
+  anatomía, fisiología y Doppler compartan una sola definición.
 - **ultrasound**: geometría de sonda, B-mode y atenuación.
 - **doppler**: volumen de muestra, cadena PW, filtro, espectro, color y medidas
   MCA.
