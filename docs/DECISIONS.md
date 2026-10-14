@@ -1176,3 +1176,49 @@ propagación en las marcas temporales. Las columnas siguen usando tiempo
 de simulación y hop/PRF (DEC-71); ida/vuelta es un límite registrado, no una
 simulación de eventos de emisión/recepción. Compatibilidad no certifica
 factibilidad completa de hardware, validación externa ni exactitud clínica.
+
+## DEC-74 · Contrato vascular versionado y topología sintética
+
+R05 introduce `VascularGraphSource` (JSON, versión 1) y `buildVascularGraph`
+en `anatomy/vascularGraph.ts`, independiente de la acústica y la fisiología.
+La fuente declara marco de origen, unidades, afín al paciente, nodos, segmentos,
+etiquetas, lado, radios en mm del paciente, procedencia, revisión, licencia,
+derivación y estado de validación con nota. La validación de software NO eleva
+ese estado ni verifica derechos de redistribución.
+
+Convención inequívoca: afín 4×4 por filas sobre vectores columna, destino
+`x-left-y-superior-z-anterior` en mm (DEC-02). En fuentes mm/cm se convierte
+primero a mm y después se aplica la afín; para voxel la afín incorpora espaciado,
+orientación y origen. `toSourceCoordinates` deshace ambas operaciones. Los radios
+ya están medidos en mm del paciente: NO se escalan con la afín ni se deducen de
+vóxeles. Una transformación anisótropa no convierte automáticamente secciones
+elípticas en radios circulares; la extracción de radios queda fuera del contrato.
+
+Los extremos de cada segmento son los nodos referenciados; `via` contiene solo
+puntos intermedios. El radio es un escalar constante o exactamente uno por punto.
+Se rechazan JSON mal formado, metadatos ausentes, referencias rotas, IDs repetidos
+dentro de cada colección, puntos no finitos, pasos de longitud cero, radios no
+positivos, desbordamientos y afines proyectivas/singulares. La inversión usa
+determinante normalizado y un umbral numérico relativo 1e−12. No se corrigen ni
+recortan entradas silenciosamente.
+
+El lado se declara, nunca se deduce de x. Tras transformar se detectan cruces
+contrarios a la etiqueta der/izq, con tolerancia estimada de 0,5 mm registrada
+en `anatomia-cabeza.lateralityToleranceMm`; `media` admite cruces. No es una
+regla anatómica universal: un trayecto real que cruce la línea media requeriría
+segmentación/etiquetado explícito y revisión, no un cambio automático de lado.
+
+Grados, componentes (incluidos nodos aislados) y ciclos independientes E−V+C
+describen el grafo no dirigido. `from→to` ordena la polilínea, NO el flujo.
+Un ciclo indica una ruta topológica cerrada, no perfusión colateral. No se
+admiten aristas de un nodo a sí mismo; los ciclos se describen con varios nodos.
+No hay solver hemodinámico, conservación de caudal ni radios interpolados en
+esta capa.
+
+Los fixtures de bifurcación y anastomosis usan coordenadas arbitrarias, son
+sintéticos y no representan un atlas. `vesselProblems` aplica invariantes
+geométricas a los tubos actuales de Willis (cinco variantes), ojos y cuello;
+no inventa conexiones por proximidad. El contrato todavía no reemplaza
+`VesselScene` ni alimenta la imagen. No cambian goldens, parámetros fisiológicos
+ni recursos binarios. Integrar un atlas requerirá extracción/registro offline,
+licencia revisada, radios y validación externa (LIM-33).

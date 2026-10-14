@@ -24,6 +24,7 @@ calibración.
 - **anatomia-cabeza.skullCenterXmm**, **anatomia-cabeza.skullCenterYmm**, **anatomia-cabeza.skullCenterZmm** — centro craneal del fixture; calibrar con geometría adulta.
 - **anatomia-cabeza.skullRadiusXmm**, **anatomia-cabeza.skullRadiusYmm**, **anatomia-cabeza.skullRadiusZmm** — semiejes craneales; calibrar con geometría adulta.
 - **anatomia-cabeza.skullThicknessMm** — espesor craneal fuera de ventana; calibrar con CT o literatura anatómica.
+- **anatomia-cabeza.lateralityToleranceMm** — tolerancia de cruce de línea media para validar lateralidad del grafo vascular (DEC-74); no describe anatomía, acota el chequeo. Calibrar con atlas registrados.
 - **anatomia-cabeza.windowThicknessMm** — espesor efectivo de la ventana; calibrar con mediciones transtemporales.
 - **anatomia-cabeza.windowQuality** — calidad de ventana estable del fixture; calibrar con distribución de atenuación.
 - **anatomia-cabeza.windowRadiusMm** — radio útil de ventana; calibrar con mapas de accesibilidad.

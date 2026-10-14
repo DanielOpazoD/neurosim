@@ -912,4 +912,12 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     sources: ['plan-simulador-2026'],
     note: 'Coordenada z del punto M1 usado como puerta N1.',
   },
+  lateralityToleranceMm: {
+    value: 0.5,
+    unit: 'mm',
+    range: [0, 2],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Cruce de línea media tolerado al comprobar la lateralidad de un segmento vascular (DEC-74).',
+  },
 });
