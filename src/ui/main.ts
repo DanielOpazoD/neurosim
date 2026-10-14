@@ -1335,6 +1335,7 @@ function frameLoop(now: number): void {
       if (onsdReportPanel.open) updateOnsdReport();
       if (debriefPanel.open) updateDebriefPanel();
       updateAcousticLabel();
+      syncIntracranial(now);
       updateGuide(now);
     }
   } catch (err) {
@@ -1374,15 +1375,28 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
     (v: number) => `${v} mmHg`,
   ],
   [
-    'icp',
-    'icpV',
-    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, icpMmHg: v }, clock.t),
-    (v: number) => `${v} mmHg`,
+    'lesion',
+    'lesionV',
+    (v: number) => sim.setLesionVolume(v, clock.t),
+    (v: number) => `${v > 0 ? '+' : ''}${v} mL · PIC ${formatIcp(sim.patient.physiology.icpMmHg)}`,
   ],
 ];
 ($('map') as HTMLInputElement).value = String(initialPhysiology.mapMmHg);
 ($('paco2') as HTMLInputElement).value = String(initialPhysiology.paco2MmHg);
-($('icp') as HTMLInputElement).value = String(initialPhysiology.icpMmHg);
+($('lesion') as HTMLInputElement).value = String(Math.round(sim.compartment.current.lesionVolumeMl));
+function formatIcp(icp: number): string {
+  return `${Number.isInteger(icp) ? icp : icp.toFixed(1)} mmHg`;
+}
+/** DEC-82: la PIC emerge del compartimento; al cambiar, refresca la etiqueta del deslizador. */
+function syncIntracranial(now: number): void {
+  const lesion = $('lesion') as HTMLInputElement;
+  if (sim.syncIcp(now) || lesionLabelIcp !== sim.patient.physiology.icpMmHg) {
+    lesionLabelIcp = sim.patient.physiology.icpMmHg;
+    const v = Number(lesion.value);
+    $('lesionV').textContent = `${v > 0 ? '+' : ''}${v} mL · PIC ${formatIcp(lesionLabelIcp)}`;
+  }
+}
+let lesionLabelIcp = Number.NaN;
 ranges.forEach(([id, out, apply, fmt]) => bindRange(id, out, apply, fmt));
 
 const tgcInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-tgc]'));

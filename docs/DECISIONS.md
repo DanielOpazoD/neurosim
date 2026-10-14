@@ -1476,3 +1476,42 @@ deslizadores de la UI pasan `clock.t`.
 asimetría hiper/hipocapnia, sin dinámica PIC–volumen (LIM-19) ni acople
 entre territorios; `co2TauS`/`autoregTauS` son constantes efectivas
 (`evidence: 'estimado'`), no parámetros identificados por paciente.
+
+## DEC-82 · PIC emergente: compartimento intracraneal de Monro–Kellie (R13)
+
+**Problema.** La PIC era una entrada (deslizador 0–60 mmHg) que cambiaba al
+instante la hemodinámica y la geometría del DVNO (LIM-19): ni compliance ni
+reserva compensatoria ni tiempo; el alumno no veía por qué un mismo volumen
+descompensa a un paciente y no a otro.
+
+**Decisión.** `IntracranialCompartment` (`src/physiology/compartment.ts`)
+deriva la PIC del volumen: curva presión–volumen exponencial de Marmarou,
+`P = P₀·10^(ΔV/PVI)` con `pviMl` = 26 (saturada en `icpCapMmHg` = 80), y
+balance de LCR de Davson, `dV/dt = I_f − (P − P_ss)/R_out`, con
+`csfFormationMlMin` = 0,35, `csfOutflowResistanceMmHgMinMl` = 8 y
+`P_ss = P₀ − I_f·R_out` (= 7,2) de modo que la PIC basal es un punto fijo. La
+reserva compensatoria es finita (`csfDisplaceableMl` = 50): un volumen añadido
+(lesión/edema; negativo = drenaje) sube la PIC al instante por la curva y
+después baja en minutos (τ ≈ PVI·R_out/(ln10·P), ≈ 1,5 min a 60 mmHg y ≈ 9 min
+cerca de la basal) mientras el LCR se desplaza; si la lesión supera la
+reserva, la PIC queda sostenida por el volumen residual. Integración explícita
+a 1 s desde el último evento (entradas constantes a trozos): determinista e
+independiente de la cadencia de render.
+
+**Integración.** `ReferenceCase.compartment`, `setLesionVolume(mL, atS)` y
+`syncIcp(t)`; el bucle de la UI llama a `syncIcp` cada fotograma y
+`physiology.icpMmHg` pasa a ser la PIC derivada (cuantizada a 0,5 mmHg, así
+que la revisión fisiológica solo cambia cuando la PIC se mueve de verdad), con
+lo que hemodinámica, DVNO, Doppler, debrief y exportación siguen leyendo la
+misma variable y los workers reciben la PIC vigente por el canal de siempre.
+Los casos clínicos conservan `physiology.icpMmHg` como PIC **estacionaria**:
+`steadyForIcp` deriva el volumen equivalente (reserva agotada + residual), y
+cualquier PIC impuesta desde fuera (URL `?icp=`, pruebas, worker) recoloca el
+compartimento en ese estacionario. El deslizador «PIC» pasa a «Volumen
+añadido» (−30…+80 mL) y muestra la PIC derivada.
+
+**Límites (LIM-19 actualizado).** Un solo PVI y R_out constantes, sin
+dependencia de la presión venosa, la edad ni la herniación; la reserva es un
+volumen fijo; la saturación a 80 mmHg es arbitraria; el DVNO sigue a la PIC
+sin retardo propio; sin ondas de Lundberg ni acople con la presión arterial
+pulsátil.

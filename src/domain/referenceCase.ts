@@ -18,6 +18,7 @@ import type { BasalPhysiology } from './contracts';
 import type { Side } from './contracts';
 import { onsdForIcpMm } from '../physiology/hemodynamics';
 import { RegulationDynamics } from '../physiology/dynamics';
+import { IntracranialCompartment } from '../physiology/compartment';
 import type { ClinicalCase } from './cases';
 import { caseById } from './cases';
 
@@ -40,6 +41,15 @@ export interface ReferenceCase {
   /** Sin `atS` el cambio es instantáneo; con `atS` la regulación relaja desde ese instante (DEC-81). */
   readonly setPhysiology: (p: BasalPhysiology, atS?: number) => void;
   readonly regulation: RegulationDynamics;
+  /** Compartimento intracraneal (DEC-82): la PIC emerge del volumen añadido. */
+  readonly compartment: IntracranialCompartment;
+  /** Escalón del volumen de lesión/drenaje (mL) en `atS`; la PIC se deriva y se sincroniza con `syncIcp`. */
+  readonly setLesionVolume: (lesionVolumeMl: number, atS: number) => void;
+  /**
+   * Lleva `physiology.icpMmHg` a la PIC emergente en `t` (cuantizada a
+   * `stepMmHg`) y devuelve true si cambió. Llamar desde el bucle de la UI.
+   */
+  readonly syncIcp: (t: number, stepMmHg?: number) => boolean;
   /** Revisión local del estado fisiológico, también al cambiar y volver al valor previo. */
   readonly physiologyRevision: number;
   /** Verdades del modelo medibles en pantalla (docencia). */
@@ -88,7 +98,9 @@ export function buildReferenceCase(
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
   const flow = new CerebralFlow(head, physiology);
   const regulation = new RegulationDynamics(physiology, cc.autoregulation ?? 'conservada');
+  let compartment = IntracranialCompartment.steadyForIcp(physiology.icpMmHg);
   let physiologyRevision = 0;
+  let syncingIcp = false;
   const physStateAt = (t: number): PhysState => ({
     t,
     cardiacPhase: cardiac.phaseAt(t),
@@ -104,6 +116,12 @@ export function buildReferenceCase(
       )
     )
       physiologyRevision += 1;
+    // Una PIC impuesta desde fuera (caso, URL, worker, pruebas) recoloca el
+    // compartimento en su estado estacionario; `syncIcp` no lo toca.
+    if (!syncingIcp && next.icpMmHg !== physiology.icpMmHg) {
+      compartment = IntracranialCompartment.steadyForIcp(next.icpMmHg);
+      if (atS !== undefined) compartment.advanceTo(atS);
+    }
     physiology = { ...next };
     patient.physiology = physiology;
     regulation.setTarget(physiology, atS);
@@ -114,6 +132,22 @@ export function buildReferenceCase(
     const nextEyes = eyesFor(dvno);
     eyes.der = nextEyes.der;
     eyes.izq = nextEyes.izq;
+  };
+  const setLesionVolume = (lesionVolumeMl: number, atS: number): void => {
+    compartment.setLesionVolume(lesionVolumeMl, atS);
+    syncIcp(atS);
+  };
+  const syncIcp = (t: number, stepMmHg = 0.5): boolean => {
+    compartment.advanceTo(t);
+    const icp = Math.round(compartment.icpAt(t) / stepMmHg) * stepMmHg;
+    if (Math.abs(icp - physiology.icpMmHg) < stepMmHg / 2) return false;
+    syncingIcp = true;
+    try {
+      setPhysiology({ ...physiology, icpMmHg: icp }, t);
+    } finally {
+      syncingIcp = false;
+    }
+    return true;
   };
   setPhysiology(physiology);
   return {
@@ -129,6 +163,11 @@ export function buildReferenceCase(
     physStateAt,
     setPhysiology,
     regulation,
+    get compartment() {
+      return compartment;
+    },
+    setLesionVolume,
+    syncIcp,
     get physiologyRevision() {
       return physiologyRevision;
     },
