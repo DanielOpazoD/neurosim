@@ -26,11 +26,12 @@ for (const [, file, sha] of rows) {
  * | `ruta` | origen | SHA-256 | licencia | `archivo de licencia` | ...
  * Se comprueba que el archivo exista, que su SHA-256 coincida, que el archivo
  * de licencia exista y nombre la licencia declarada, y que no haya recursos
- * en public/models sin fila en la tabla.
+ * en public/models ni data/ sin fila en la tabla.
  */
 const LICENCES = {
   'CC BY 3.0': 'Creative Commons Attribution 3.0',
   'TopCoW Data Usage License': 'Use for commercial purposes requires permission',
+  'PyMUST LGPL-3.0': 'GNU Lesser General Public License v3.0',
 };
 const assetRows = [
   ...text.matchAll(
@@ -67,7 +68,11 @@ function walk(dir) {
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
 }
-for (const path of [...walk(join(root, 'public/models')), ...walk(join(root, 'data/atlas'))]) {
+for (const path of [
+  ...walk(join(root, 'public/models')),
+  ...walk(join(root, 'data/atlas')),
+  ...walk(join(root, 'data/acoustic')),
+]) {
   const file = relative(root, path).split('\\').join('/');
   const isLicence = assetRows.some(([, , , , licenceFile]) => licenceFile === file);
   if (!listed.has(file) && !isLicence && !file.endsWith('.DS_Store')) {

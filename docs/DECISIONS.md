@@ -1384,3 +1384,35 @@ de color siguen a `vesselM1PointXmm`, 3 mm más lateral y sobre un sifón distin
 (`sMm` 12) en vez de 8, porque a 4 mm del origen la puerta de 3 mm ya solapaba
 el terminal de la ACI y su PSV subía un 3 %. Los umbrales fisiológicos (jet
 ≥ 2,5×, ancho espectral ≥ 1,5×, ángulo ≤ 30°) no cambian.
+
+## DEC-79 · Banco acústico independiente con PyMUST (R09)
+
+**Decisión.** Antes de recalibrar la PSF (R10) se fija una referencia externa
+reproducible: `scripts/acoustic/pymust_psf.py` simula con PyMUST 0.1.9
+(`garcia-simus-2022`, LGPL-3.0; offline, versiones fijadas en el JSON) un
+dispersor puntual para las dos sondas del simulador con la misma apertura
+activa (12/15 mm, 64 elementos), frecuencia (10/2 MHz) y foco (22/50 mm) que
+`probeBeamSpec`, en 8 + 14 puntos (profundidad × steering 0°/30°). Se mide la
+anchura a −6 dB lateral y axial de la PSF de ida y vuelta (TX foco fijo, RX
+DAS con toda la apertura) y la del campo de presión de ida (`pfield`).
+`data/acoustic/pymust-psf.json` entra con SHA-256 y licencia en PROVENANCE;
+`tests/validation/acousticBenchmark.test.ts` compara `lateralFwhmMm`,
+`txLateralFwhmMm` y `axialFwhmMm` (nuevos exports de `beam.ts`) con el motor y
+**preregistra** las bandas observadas (LIM-37) en vez de ajustar el modelo.
+
+**Resultado de la primera corrida.** Transmisión: ratio modelo/motor 0,68–1,74,
+mediana 1,09, ±6 % en el foco y lejos de él, máximo en el campo cercano
+(0,5–0,8× el foco), donde el modelo lineal `defocus·D/F` sobreestima el
+ensanchamiento. Ida y vuelta: el modelo es sistemáticamente más estrecho
+(ratio 0,52–0,86, mediana 0,71): la combinación armónica tx/rx con
+`FWHM = λz/D` equivale a un −6 dB de ≈ 0,7·λz/D, mientras que la apertura
+rectangular sin apodización da ≈ 1,2·λz/D. Axial: `axialPulseMmMhz` = 2,2
+(FWHM 0,52 mm a 10 MHz, 2,6 mm a 2 MHz) es 3,4–4,1× el pulso de 70 % de ancho
+de banda del motor (≈ 1 λ).
+
+**Por qué no se ajusta aquí.** Cambiar `fwhmAtFocus` o `axialPulseMmMhz` mueve
+todos los dorados B-mode; eso corresponde a R10 con su propia decisión y con
+estas bandas como criterio de aceptación (acercar la mediana a 1 sin perder
+el acuerdo de transmisión). Un motor de acústica lineal no es verdad clínica:
+no incluye aberración por cráneo, no linealidad ni la respuesta real del
+transductor; acota el modelo, no lo valida.

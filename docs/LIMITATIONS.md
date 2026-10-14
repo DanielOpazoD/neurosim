@@ -237,3 +237,17 @@ a WebGL2 en bloques posteriores.
   de la forma completa de cada vaso (sin registro punto a punto ni
   variabilidad por caso en el fixture). El cráneo, los ojos y el cuello siguen
   sin referencia externa equivalente.
+- **LIM-37 · Sesgos conocidos del modelo de haz frente a PyMUST (DEC-79)**: El
+  banco acústico (DEC-79, `data/acoustic/pymust-psf.json`) muestra que el modelo
+  gaussiano de `beam.ts` es **≈ 29 % más estrecho** lateralmente de ida y vuelta
+  que una PSF de dispersor puntual con apertura rectangular (ratio 0,52–0,86 en
+  22 puntos; peor en la sonda sectorial con steering 30°), que su **pulso axial
+  es 3,4–4,1× más largo** que un pulso de 70 % de ancho de banda y que el
+  término de transmisión **sobreestima hasta 1,7×** el ensanchamiento en el
+  campo cercano (0,5–0,8× el foco) aunque coincide ±6 % en el foco. Las bandas
+  quedan preregistradas en `acousticBenchmark.test.ts`; corregirlas es objeto de
+  R10 (mueve dorados). Además: PyMUST se ejecuta en 2-D (sin foco de elevación),
+  sin apodización, sin atenuación ni aberración ósea, con 64 elementos ideales y
+  una rejilla de 0,025–0,05 mm (la anchura axial a 10 MHz cabe en 5–6 muestras).
+  Una segunda implementación de la acústica lineal acota el modelo; no sustituye
+  la medida en phantom ni la validación clínica.
