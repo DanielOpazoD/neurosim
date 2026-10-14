@@ -85,11 +85,12 @@ describe('ventana óptima (DEC-60)', () => {
     }
   });
 
-  it('temporal: M1 en el plano ≥ 25 mm y ángulo en la puerta ≤ 30°, ambos lados', () => {
+  it('temporal: M1 en el plano ≥ 15 mm y ángulo en la puerta ≤ 30°, ambos lados', () => {
     const sim = buildReferenceCase();
     for (const side of SIDES) {
       const w = timed(sim, 'temporal', side);
-      expect(w.metrics.inPlaneLengthMm!).toBeGreaterThanOrEqual(25);
+      // M1 mide 17 mm desde DEC-78: ≥ 15 mm equivale a ≥ 88 % del vaso en el plano.
+      expect(w.metrics.inPlaneLengthMm!).toBeGreaterThanOrEqual(15);
       expect(Math.abs(w.probe.tiltDeg)).toBeLessThanOrEqual(10);
       expect(Math.abs(w.probe.offsetMm)).toBeLessThanOrEqual(6);
       expect(Math.abs(w.probe.offsetVMm)).toBeLessThanOrEqual(6);

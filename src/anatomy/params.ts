@@ -441,12 +441,12 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Factor anteroposterior del centro de ventana.',
   },
   m1OriginXmm: {
-    value: 9,
+    value: 15,
     unit: 'mm',
-    range: [5, 14],
+    range: [5, 20],
     evidence: 'estimado',
-    sources: ['plan-simulador-2026'],
-    note: 'Punto proximal x de M1.',
+    sources: ['plan-simulador-2026', 'topcow-2024'],
+    note: 'Punto proximal x de M1 (terminal de ACI); 30 mm entre terminales, mediana del atlas TopCoW (DEC-78).',
   },
   m1OriginYmm: {
     value: 12,
@@ -465,9 +465,9 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Punto proximal z de M1.',
   },
   m1Point1Xmm: {
-    value: 15,
+    value: 19.5,
     unit: 'mm',
-    range: [10, 18],
+    range: [10, 24],
     evidence: 'estimado',
     sources: ['plan-simulador-2026'],
     note: 'Punto intermedio x de M1.',
@@ -489,7 +489,7 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Punto intermedio z de M1.',
   },
   m1Point3Xmm: {
-    value: 27,
+    value: 28,
     unit: 'mm',
     range: [22, 30],
     evidence: 'estimado',
@@ -889,7 +889,7 @@ export const ANATOMIA_CABEZA = defineParameters('anatomia-cabeza', {
     note: 'Radio del segmento V4 vertebral.',
   },
   vesselM1PointXmm: {
-    value: 21,
+    value: 24,
     unit: 'mm',
     range: [15, 25],
     evidence: 'estimado',

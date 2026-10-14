@@ -139,7 +139,9 @@ function sideLabel(s: 1 | -1): Side {
  * nacen en la punta basilar. Son coordenadas del fixture, no hitos medidos.
  */
 export const ACI_SKULL_BASE_MM: Vec3 = [11, -4.2, -13];
-export const BASILAR_TIP_MM: Vec3 = [0, 8, -26];
+export const BASILAR_TIP_MM: Vec3 = [0, 8, -19];
+/** Terminal de la ACI (bifurcación M1/A1), lado derecho reflejado en x (DEC-78). */
+export const ICA_TERMINUS_MM: Vec3 = [15, 12, -6];
 
 export function buildWillisVessels(
   variant: WillisVariant = 'normal',
@@ -226,11 +228,11 @@ export function buildWillisVessels(
         side,
         [
           [s * ACI_SKULL_BASE_MM[0], ACI_SKULL_BASE_MM[1], ACI_SKULL_BASE_MM[2]],
-          [s * 9, -4, -10],
-          [s * 10, 0, -4],
-          [s * 9.5, 4, -8],
-          [s * 9, 8, -7],
-          [s * 9, 12, -6],
+          [s * 12, -4, -10],
+          [s * 14, 0, -4],
+          [s * 14.5, 4, -8],
+          [s * 15, 8, -7],
+          [s * ICA_TERMINUS_MM[0], ICA_TERMINUS_MM[1], ICA_TERMINUS_MM[2]],
         ],
         HEAD.icaRadiusMm.value,
         icaQ,
@@ -252,9 +254,9 @@ export function buildWillisVessels(
         `pcoa-${side}`,
         side,
         [
-          [s * 9, 12, -6],
-          [s * 10, 10, -15],
-          [s * 11, 10, -24],
+          [s * ICA_TERMINUS_MM[0], ICA_TERMINUS_MM[1], ICA_TERMINUS_MM[2]],
+          [s * 13, 10.5, -14],
+          [s * 10, 10, -22],
         ],
         fetal !== 0 && s === fetal
           ? murrayRadius(HEAD.p2RadiusMm.value, 0.85 * qP2, qP2)
@@ -265,7 +267,7 @@ export function buildWillisVessels(
       v(
         `p1-${side}`,
         side,
-        [BASILAR_TIP_MM, [s * 5, 9, -26], [s * 11, 10, -24]],
+        [BASILAR_TIP_MM, [s * 5, 9, -20], [s * 10, 10, -22]],
         fetal !== 0 && s === fetal ? 0.5 : HEAD.p1RadiusMm.value,
         p1Q(s),
         1,
@@ -274,9 +276,9 @@ export function buildWillisVessels(
         `p2-${side}`,
         side,
         [
-          [s * 11, 10, -24],
-          [s * 15, 11, -20],
-          [s * 17, 12, -15],
+          [s * 10, 10, -22],
+          [s * 14, 10, -27],
+          [s * 17, 11, -32],
         ],
         HEAD.p2RadiusMm.value,
         qP2,
@@ -289,8 +291,8 @@ export function buildWillisVessels(
           `a1-${side}`,
           side,
           [
-            [s * 9, 12, -6],
-            [s * 5, 13, -1],
+            [s * ICA_TERMINUS_MM[0], ICA_TERMINUS_MM[1], ICA_TERMINUS_MM[2]],
+            [s * 8, 13, -2],
             [s * 1.5, 14, 2],
           ],
           aplasia !== 0 && s === -aplasia
@@ -319,7 +321,7 @@ export function buildWillisVessels(
     v(
       'basilar',
       'media',
-      [[0, 0, -30], [0, 3, -28], BASILAR_TIP_MM],
+      [[0, 0, -23], [0, 3, -21], BASILAR_TIP_MM],
       HEAD.basilarRadiusMm.value,
       p1Q(1) + p1Q(-1),
       1,
@@ -331,9 +333,9 @@ export function buildWillisVessels(
         `vertebral-${sideLabel(s)}`,
         sideLabel(s),
         [
-          [s * 4, -8, -32],
-          [s * 2, -4, -31],
-          [0, 0, -30],
+          [s * 4, -8, -25],
+          [s * 2, -4, -24],
+          [0, 0, -23],
         ],
         HEAD.vertebralRadiusMm.value,
         (p1Q(1) + p1Q(-1)) / 2,

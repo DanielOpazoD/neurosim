@@ -312,10 +312,10 @@ describe('cráneo de referencia N1', () => {
 
   it('la spline de M1 conserva extremos y segmentos ≤ 1,3 mm', () => {
     const ctrl = [
-      [-9, 12, -6],
-      [-15, 12.5, -4],
-      [-21, 13, -1.5],
-      [-27, 13.5, 1.5],
+      [-15, 12, -6],
+      [-19.5, 12.5, -4],
+      [-24, 13, -1.5],
+      [-28, 13.5, 1.5],
       [-32, 14, 4],
     ] as Vec3[];
     const pts = smoothPolyline(ctrl, 1.0);

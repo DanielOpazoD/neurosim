@@ -115,16 +115,16 @@ function runPwGate(sMm: number): { psvCms: number; widthCms: number } {
 }
 
 describe('PW sobre la estenosis de M1', () => {
-  it('el jet en la garganta da PSV ≥ 2,5× la puerta 8 mm proximal', () => {
+  it('el jet en la garganta da PSV ≥ 2,5× la puerta 6 mm proximal', () => {
     const throat = runPwGate(m1.stenosis!.sMm);
-    const pre = runPwGate(m1.stenosis!.sMm - 8);
+    const pre = runPwGate(m1.stenosis!.sMm - 6);
     expect(pre.psvCms).toBeGreaterThan(20);
     expect(throat.psvCms).toBeGreaterThan(pre.psvCms * 2.5);
   });
 
   it('el ancho espectral post-estenótico ≥ 1,5× el prestenótico', () => {
     const post = runPwGate(m1.stenosis!.sMm + 2 * m1.stenosis!.lengthMm);
-    const pre = runPwGate(m1.stenosis!.sMm - 8);
+    const pre = runPwGate(m1.stenosis!.sMm - 6);
     expect(post.widthCms).toBeGreaterThan(pre.widthCms * 1.5);
   });
 });
