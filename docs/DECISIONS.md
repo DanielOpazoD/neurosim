@@ -994,3 +994,34 @@ recibida menos media de ruido y una referencia fija de SNR 20 dB, estimada.
 No se divide por transmisión. Se conservan umbrales de varianza y velocidad.
 Se regeneran solo dorados color. Contrato, fuente primaria y límites de clutter:
 docs/B08-RUIDO-COLOR.md. No es calibración clínica externa.
+
+## DEC-70 · Lindegaard contextual y datos inválidos explícitos
+
+La división devuelve NaN ante velocidades nulas/no finitas o cociente no
+finito, sin un epsilon que cree razones enormes. Solo la ausencia de ACI
+medida permite usar la referencia; una ACI registrada pero inválida conserva
+su origen y produce «no interpretable». La dirección monodireccional negativa
+no invalida por sí misma el cociente de magnitudes.
+
+Una función común clasifica y explica velocidad ACM, cociente y origen en
+panel, guía, debrief y exportación. Con referencia no se gradúa vasoespasmo.
+Para una ACI medida se usan rangos orientativos de la revisión de Samagh
+2019: ACM <120 con LR <3 sin patrón (no lo excluye); ACM ≥120 con LR <3
+compatible con hiperemia; ACM 120–200 con LR 3–6 compatible con patrón
+leve-moderado tras HSA; ACM >200 con LR >6 compatible con patrón grave tras
+HSA. El resto es discordante: no se gradúa. El valor exacto 200 se incluye
+en el intervalo intermedio como convención educativa explícita, no frontera
+biológica. «Compatible» no equivale a diagnóstico ni etiología demostrada.
+
+El controlador exige M1 y ACI ipsilaterales identificadas, dos latidos y
+sangre suficiente. No sustituye una ACI contralateral por la referencia.
+El debrief usa velocidades de la misma última captura congelada, no máximos
+de diferentes eventos; distingue el caso de estenosis focal M1. La exportación
+conserva estado e interpretación e invalida la razón anterior si una captura
+posterior no tiene un cociente válido. No confunde reanudar con congelar.
+
+Pendiente: validez temporal completa, señal bidireccional, mezcla de vasos,
+antigüedad de ACI y modalidad TCD/TCCD/ángulo. No se ha validado la transferencia
+de criterios clínicos de velocidad media a la envolvente TAMax del simulador.
+Estas salvaguardas no son validación clínica ni corrigen la fisiología de
+cese circulatorio. No se cambian imágenes, física de flujo ni dorados.

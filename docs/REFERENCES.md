@@ -22,8 +22,14 @@ del motor.
 - **gosling-pi-referencia** — Índice de pulsatilidad de Gosling:
   PI = (PSV − EDV)/MFV, rango normal 0,5–1,19 en adulto.
 - **lindegaard-indice-1989** — Lindegaard et al.: razón MFV
-  ACM/ACI-extracraneal ipsilateral; <3 normal (hemodinámico), ≥3 compatible
-  con vasoespasmo. Se aplica en bloque post-N1.
+  ACM/ACI-extracraneal ipsilateral; el cociente debe interpretarse junto con
+  velocidad ACM, calidad de adquisición y contexto, no como diagnóstico.
+- **samagh-tcd-vasospasm-2019** — Samagh N et al. Monitoring cerebral
+  vasospasm: How much can we rely on transcranial Doppler. J Anaesthesiol
+  Clin Pharmacol. 2019. [Texto y tabla de criterios](https://pmc.ncbi.nlm.nih.gov/articles/PMC6495622/).
+  Revisión: velocidad media ACM 120–199 cm/s con Lindegaard 3–6; rango
+  grave >200 cm/s con cociente >6. DEC-70 explicita las fronteras docentes
+  y la ausencia de validación de estos umbrales sobre la TAMax simulada.
 - **silverman-3d-onsd-2026** — Reconstrucción 3D de la vaina del nervio
   óptico: excentricidad sustancial (eje mayor/menor ≈ 2) y curvatura; la
   DVNO axial puede sobrestimar.

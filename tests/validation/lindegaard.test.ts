@@ -97,6 +97,10 @@ describe('Lindegaard con ACI medida', () => {
     expect(li!.icaSource).toBe('medida');
     expect(li!.icaTaMaxCms).toBeCloseTo(ica!.taMaxCms, 9);
     expect(li!.ratio).toBeGreaterThanOrEqual(3);
+    // Una ACI contralateral mal almacenada no se transforma en referencia.
+    s.icaMeasured = { ...s.icaMeasured, izq: { ...ica!, vesselId: 'aci-der' } };
+    expect(pw.lindegaard()!.ratio).toBeNaN();
+    expect(pw.lindegaard()!.icaSource).toBe('medida');
     // Con la ACI de referencia (sin medida) el índice cambia de origen.
     s.icaMeasured = { der: null, izq: null };
     expect(pw.lindegaard()!.icaSource).toBe('referencia');

@@ -8,7 +8,7 @@
  * histéresis: la comprobación debe mantenerse `GUIDE_HOLD_MS` seguidos.
  */
 import type { Side, Station } from './contracts';
-import { lindegaardInterpretation } from '../doppler/measureMca';
+import { lindegaardIndex, lindegaardInterpretation, lindegaardPattern } from '../doppler/measureMca';
 import type { OnsdKey, OnsdPlane } from './onsdProtocol';
 import { DOPPLER } from '../doppler/params';
 
@@ -356,7 +356,10 @@ export const TCD_GUIDE: Guide = {
       instruction:
         'Vuelve a la ventana temporal del mismo lado con la puerta en la M1: Medidas muestra TAMax ACM / ACI medida.',
       check: (c) =>
-        c.lindegaard !== null && c.lindegaard !== undefined && c.lindegaard.icaSource === 'medida',
+        c.lindegaard !== null &&
+        c.lindegaard !== undefined &&
+        c.lindegaard.icaSource === 'medida' &&
+        Number.isFinite(c.lindegaard.ratio),
       capture: (c) =>
         c.lindegaard
           ? {
@@ -754,36 +757,33 @@ function tcdSummary(progress: GuideProgress, truth: GuideTruth): GuideSummary {
   const liCapture = progress.captures['lindegaard'];
   const measuredIca = (side: Side): number | null => {
     if (liCapture && liCapture.side === side && liCapture.icaSource === 'medida') {
-      return num(liCapture, 'icaTaMaxCms');
+      return num(liCapture, 'icaTaMaxCms') ?? Number.NaN;
     }
-    return icaCapture && icaCapture.side === side ? num(icaCapture, 'icaTaMaxCms') : null;
+    return icaCapture && icaCapture.side === side ? (num(icaCapture, 'icaTaMaxCms') ?? Number.NaN) : null;
   };
   for (const [label, side, c] of [
     ['D', 'der', der],
     ['I', 'izq', izq],
   ] as const) {
-    const fromStep = liCapture && liCapture.side === side ? num(liCapture, 'mcaTaMaxCms') : null;
-    const ta = num(c, 'taMaxCms') ?? fromStep;
+    const fromStep =
+      liCapture && liCapture.side === side ? (num(liCapture, 'mcaTaMaxCms') ?? Number.NaN) : null;
+    const ta = fromStep ?? num(c, 'taMaxCms');
     const ica = measuredIca(side);
-    const reference = truth.icaTamaxCms && truth.icaTamaxCms > 0 ? truth.icaTamaxCms : null;
-    const denominator = ica ?? reference;
-    if (ta === null || denominator === null) continue;
-    const li = ta / denominator;
-    const source = ica !== null ? 'ACI medida' : 'ACI de referencia';
-    values[`lindegaard${label}`] = li;
-    values[`lindegaard${label}Fuente`] = ica !== null ? 'medida' : 'referencia';
-    if (ica !== null) values[`aci${label}TaMaxCms`] = ica;
+    if (ta === null) continue;
+    const li = lindegaardIndex(ta, ica, truth.icaTamaxCms ?? Number.NaN);
+    const source = li.icaSource === 'medida' ? 'ACI medida' : 'ACI de referencia';
+    const pattern = lindegaardPattern(li);
+    values[`lindegaard${label}`] = Number.isFinite(li.ratio) ? li.ratio : null;
+    values[`lindegaard${label}Fuente`] = li.icaSource;
+    values[`lindegaard${label}Estado`] = pattern;
+    if (ica !== null) values[`aci${label}TaMaxCms`] = Number.isFinite(ica) ? ica : null;
     rows.push({
       label: `Lindegaard ${label}`,
-      value: `${fmt(li, 1)} (${source})`,
-      flag: li >= 3 ? 'warn' : 'ok',
+      value: `${Number.isFinite(li.ratio) ? fmt(li.ratio, 1) : '—'} (${source})`,
+      flag: pattern === 'sin-patron' || pattern === 'referencia' ? 'ok' : 'warn',
     });
     const meaning = lindegaardInterpretation(li);
-    interpretation.push(
-      li >= 3
-        ? `Lindegaard ${label} ${fmt(li, 1)} ≥ 3 (${source}): ${meaning}; velocidad alta por vasoespasmo más que por hiperemia.`
-        : `Lindegaard ${label} ${fmt(li, 1)} < 3 (${source}): ${meaning}, sin patrón de vasoespasmo${ta > 120 ? ' (velocidad alta → hiperemia)' : ''}.`,
-    );
+    interpretation.push(`Lindegaard ${label} (${source}): ${meaning}`);
   }
   if (!der || !izq) interpretation.push('Falta la medida de algún lado: completa ambos M1 para comparar.');
   return { guideId: TCD_GUIDE.id, title: TCD_GUIDE.title, rows, interpretation, values };

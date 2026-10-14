@@ -8,6 +8,8 @@ import { imagingMode, type AppState } from './state';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport } from '../domain/onsdProtocol';
 import { guideById, type GuideProgress, type GuideSummary } from '../domain/guides';
+import { lindegaardFromEvent } from './debrief';
+import { lindegaardInterpretation, lindegaardPattern } from '../doppler/measureMca';
 
 /**
  * Lindegaard exportado (DEC-58): último índice registrado al congelar (con la
@@ -17,24 +19,25 @@ import { guideById, type GuideProgress, type GuideSummary } from '../domain/guid
 function lindegaardExport(sim: ReferenceCase, s: AppState): Record<string, unknown> {
   const last = [...s.debrief.events()]
     .reverse()
-    .find(
-      (event) =>
-        event.kind === 'freeze' &&
-        typeof event.data?.lindegaard === 'number' &&
-        Number.isFinite(event.data.lindegaard as number),
-    );
+    .find((event) => event.kind === 'freeze' && event.data?.frozen !== false);
   const num = (key: string): number | undefined => {
     const v = last?.data?.[key];
     return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
   };
   const source = last?.data?.lindegaardSource;
+  const li = lindegaardFromEvent(last);
   return {
-    lindegaard: num('lindegaard'),
+    lindegaard: li && Number.isFinite(li.ratio) ? li.ratio : null,
     lindegaardDetalle: {
+      estado: li ? lindegaardPattern(li) : 'sin-captura',
+      interpretacion: li ? lindegaardInterpretation(li) : 'Sin captura de Lindegaard.',
+      tSec: last?.t,
+      lado: last?.data?.side,
       fuente: typeof source === 'string' && source ? source : undefined,
       medido: num('lindegaardMedido'),
       referencia: num('lindegaardReferencia'),
       mcaTaMaxCms: num('mcaTaMaxCms'),
+      icaTaMaxCms: num('icaTaMaxCms'),
       aciMedida: { der: s.icaMeasured.der, izq: s.icaMeasured.izq },
       aciReferenciaCms: sim.clinicalCase.icaExtracranialTamaxCms,
     },

@@ -1,6 +1,12 @@
 import { trueOnsdMm, nerveSection, toEyeLocal } from '../anatomy/eye';
 import type { HemodynamicState } from '../physiology/hemodynamics';
 import { DOPPLER } from '../doppler/params';
+import {
+  lindegaardIndex,
+  lindegaardInterpretation,
+  lindegaardPattern,
+  type LindegaardResult,
+} from '../doppler/measureMca';
 import type { ReferenceCase } from '../domain/referenceCase';
 import { buildReport } from '../domain/onsdProtocol';
 import type { Measurement } from '../domain/contracts';
@@ -26,6 +32,16 @@ export interface DebriefEvent {
   kind: DebriefEventKind;
   detail: string;
   data?: Record<string, number | string | boolean>;
+}
+
+/** Reconstruye solo velocidades y origen de la MISMA captura, nunca máximos de eventos distintos. */
+export function lindegaardFromEvent(event: DebriefEvent | undefined): LindegaardResult | null {
+  if (!event || event.kind !== 'freeze' || event.data?.frozen === false) return null;
+  const source = event.data?.lindegaardSource;
+  if (source !== 'medida' && source !== 'referencia') return null;
+  const mca = typeof event.data?.mcaTaMaxCms === 'number' ? event.data.mcaTaMaxCms : Number.NaN;
+  const ica = typeof event.data?.icaTaMaxCms === 'number' ? event.data.icaTaMaxCms : Number.NaN;
+  return lindegaardIndex(mca, source === 'medida' ? ica : null, ica);
 }
 
 export interface DebriefFinding {
@@ -316,29 +332,28 @@ export function buildDebrief(
       );
     }
   }
-  // Hallazgos por caso clínico: Lindegaard alto en espasmo/estenosis y DVNO
-  // dilatada en hipertensión intracraneal.
   const caseId = sim.clinicalCase.id;
   if (caseId === 'vasoespasmo' || caseId === 'estenosisM1') {
-    // DEC-58: si hay algún Lindegaard con ACI medida (ventana submandibular),
-    // la regla usa solo esos; si no, los calculados con la ACI de referencia.
-    const maxOf = (key: string) =>
-      events
-        .map((event) => numberData(event, key))
-        .filter((value): value is number => Number.isFinite(value))
-        .reduce((max, value) => Math.max(max, value), -Infinity);
-    const measured = maxOf('lindegaardMedido');
-    const useMeasured = Number.isFinite(measured);
-    const lindegaard = useMeasured ? measured : maxOf('lindegaard');
-    if (lindegaard >= DOPPLER.params.debriefLindegaardVasospasmMin.value) {
+    const lastCapture = [...events]
+      .reverse()
+      .find((event) => event.kind === 'freeze' && event.data?.frozen !== false);
+    const li = lindegaardFromEvent(lastCapture);
+    if (li) {
+      const pattern = lindegaardPattern(li);
+      const text = lindegaardInterpretation(li);
       add(
-        'vasoespasmo-probable',
-        'aviso',
-        `Lindegaard ${lindegaard.toFixed(1)} ≥ 3 (ACI ${useMeasured ? 'medida' : 'de referencia'}): vasoespasmo probable.`,
+        'lindegaard-contextual',
+        pattern === 'sin-patron' || pattern === 'referencia' ? 'info' : 'aviso',
+        `Última captura · ACI ${li.icaSource}: ${text}` +
+          (caseId === 'estenosisM1'
+            ? ' Este caso representa estenosis focal M1: el cociente no distingue su etiología de vasoespasmo.'
+            : ''),
         {
-          lindegaard,
-          icaSource: useMeasured ? 'medida' : 'referencia',
-          threshold: DOPPLER.params.debriefLindegaardVasospasmMin.value,
+          lindegaard: li.ratio,
+          mcaTaMaxCms: li.mcaTaMaxCms,
+          icaTaMaxCms: li.icaTaMaxCms,
+          icaSource: li.icaSource,
+          pattern,
         },
       );
     }
