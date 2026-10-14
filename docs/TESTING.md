@@ -89,3 +89,9 @@ Regenerar con `python3 scripts/acoustic/pymust_psf.py data/acoustic/pymust-psf.j
 exige caudal neto por ciclo ≥ 0, no creciente, finito y continuo al cruzar
 la frontera entre el régimen normal y el de Starling; `paradaCirculatoria`
 debe conservar espigas anterógradas y lóbulo retrógrado con neto ≈ 0.
+
+`tests/physiologyDynamics.test.ts` (DEC-81): escalones de PAM y PaCO₂ con
+`RegulationDynamics` — flujo pasivo a la presión al instante, recuperación
+63 % en τ, retardo del CO₂, autorregulación alterada sin recuperación,
+continuidad al encadenar escalones, determinismo y transitorio visible en
+`physStateAt` tras `setPhysiology(…, atS)`.

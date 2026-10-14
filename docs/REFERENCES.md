@@ -104,6 +104,18 @@ del motor.
   Wiley; 2000.
 - **westerhof-windkessel-2009** — Westerhof N, Lankhaaer JW, Westerhof BE.
   The arterial Windkessel. Med Biol Eng Comput. 2009.
+- **aaslid-1989** — Aaslid R, Lindegaard KF, Sorteberg W, Nornes H. Cerebral
+  autoregulation dynamics in humans. _Stroke_ 1989;20:45-52. Respuesta de la
+  velocidad en ACM a la caída brusca de presión (manguitos): recuperación en
+  segundos; base de `autoregTauS`.
+- **tiecks-1995** — Tiecks FP, Lam AM, Aaslid R, Newell DW. Comparison of
+  static and dynamic cerebral autoregulation measurements. _Stroke_
+  1995;26:1014-1019. Modelo de segundo orden del índice ARI (T, D, K) usado
+  como referencia del orden de magnitud de `autoregTauS`.
+- **poulin-1996** — Poulin MJ, Liang PJ, Robbins PA. Dynamics of the cerebral
+  blood flow response to step changes in end-tidal PCO₂ and PO₂ in humans.
+  _J Appl Physiol_ 1996;81:1084-1095. Retardo y constante de tiempo de la
+  velocidad en ACM ante escalones de CO₂; base de `co2TauS` y `co2DelayS`.
 - **czosnyka-varsos-crcp-2013** — Czosnyka M, Varsos GV. Critical closing
   pressure and cerebral perfusion pressure: CrCP as ICP plus effective vessel
   wall tension. Neurocritical care reference, 2013.

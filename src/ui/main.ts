@@ -1364,19 +1364,19 @@ const ranges: [string, string, (v: number) => void, (v: number) => string][] = [
   [
     'map',
     'mapV',
-    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, mapMmHg: v }),
+    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, mapMmHg: v }, clock.t),
     (v: number) => `${v} mmHg`,
   ],
   [
     'paco2',
     'paco2V',
-    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, paco2MmHg: v }),
+    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, paco2MmHg: v }, clock.t),
     (v: number) => `${v} mmHg`,
   ],
   [
     'icp',
     'icpV',
-    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, icpMmHg: v }),
+    (v: number) => sim.setPhysiology({ ...sim.patient.physiology, icpMmHg: v }, clock.t),
     (v: number) => `${v} mmHg`,
   ],
 ];
