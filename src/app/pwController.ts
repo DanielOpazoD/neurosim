@@ -29,6 +29,14 @@ import { currentPose } from './poses';
 import { DOPPLER } from '../doppler/params';
 import { FISICA_US } from '../ultrasound/params';
 import { logError } from '../core/errorLog';
+import {
+  pwAcquisitionContext,
+  samePwPatient,
+  icaValidityText,
+  type IcaValidity,
+  type PwAcquisitionContext,
+  type PwCapture,
+} from './pwCapture';
 import { insonationAngles, type InsonationAngles } from '../doppler/insonation';
 import {
   createPwHandlerState,
@@ -98,9 +106,11 @@ export class PwController {
   private transport: PwTransport;
   private audio: DopplerAudio | null = null;
   private configVersion = 0;
-  private configureKey = '';
   private sceneKey: string | null = null;
   private versionKey = '';
+  private acquiredContext: PwAcquisitionContext | null = null;
+  private acquiredAngle: InsonationAngles | null = null;
+  private qualityBlocks: { tStart: number; tEnd: number; composition: GateComposition | null }[] = [];
   private equipmentKey = '';
   private lastSentGate = '';
   private batchDt = 0;
@@ -114,7 +124,7 @@ export class PwController {
     revision: number;
     settingsKey: string;
     atMs: number;
-    value: PwAssessment | null;
+    value: PwCapture | null;
   } | null = null;
   /** Reloj de tiempo real para el tope de la medida (inyectable en pruebas). */
   nowMs: () => number = () => performance.now();
@@ -168,13 +178,10 @@ export class PwController {
       side: s.side,
       physiology: { ...physiology },
     });
-    this.configureKey = `${s.station}-${s.side}|${JSON.stringify(physiology)}`;
   }
 
   private forceReconfigure(): void {
-    this.configureKey = '';
-    this.equipmentKey = '';
-    this.lastSentGate = '';
+    this.reset();
   }
 
   /** Columnas recibidas (ventana temporal, orden creciente de t). */
@@ -286,6 +293,8 @@ export class PwController {
   private clearColumns(): void {
     this.cols.length = 0;
     this.lastComposition = null;
+    this.measureCache = null;
+    this.qualityBlocks = [];
     this.rev += 1;
   }
 
@@ -297,33 +306,25 @@ export class PwController {
     const s = this.state;
     if (!s.pwOn || s.frozen) {
       this.batchDt = 0;
+      this.needResync = true;
       return;
     }
     try {
-      const sceneKey = `${s.station}-${s.side}`;
-      const physiology = this.sim.patient.physiology;
-      const configureKey = `${sceneKey}|${JSON.stringify(physiology)}`;
-      if (sceneKey !== this.sceneKey) {
+      const context = pwAcquisitionContext(this.sim, s);
+      const versionKey = JSON.stringify(context);
+      if (versionKey !== this.versionKey) {
         this.bumpVersion();
         this.clearColumns();
         this.batchDt = 0;
         this.lastSentGate = '';
         this.equipmentKey = '';
-        this.sceneKey = sceneKey;
-        this.configureKey = '';
-      }
-      if (configureKey !== this.configureKey) this.postConfigure();
-      // Cambio de equipo o de la puerta elegida:
-      // lo pendiente pertenece a la configuración anterior y se envía antes.
-      const equipment = this.equipment();
-      const equipmentKey = JSON.stringify(equipment);
-      const versionKey = `${equipmentKey}|${s.gateUMm}|${s.gateDepthMm}|${s.settings.gateMm}`;
-      if (versionKey !== this.versionKey) {
-        // El lote pendiente se adquiere con la puerta/equipo anteriores (sin
-        // huecos en el tiempo de la cadena) y su respuesta se descarta.
-        if (this.batchDt > 0 && this.versionKey !== '') this.flushBatch(clock.t - elapsed, false);
-        this.bumpVersion();
+        this.sceneKey = `${s.station}-${s.side}`;
+        this.acquiredContext = context;
+        this.acquiredAngle = this.insonation();
         this.versionKey = versionKey;
+        this.needResync = true;
+        this.audio?.reset();
+        this.postConfigure();
       }
       this.batchDt += elapsed;
       if (this.batchDt > MAX_BATCH_S) {
@@ -334,20 +335,20 @@ export class PwController {
         this.needResync = true;
       }
       if (this.batchDt * 1000 < PW_STEP_INTERVAL_MS || this.inFlight >= MAX_IN_FLIGHT) return;
-      this.flushBatch(clock.t, true);
+      this.flushBatch(clock.t);
     } catch (err) {
       logError('pw', err);
     }
   }
 
-  /** Envía el lote [tEnd − dt, tEnd]; con `sendGate`, puerta/equipo actuales antes. */
-  private flushBatch(tEnd: number, sendGate: boolean): void {
+  /** Envía el lote [tEnd − dt, tEnd] con la puerta/equipo de este contexto. */
+  private flushBatch(tEnd: number): void {
     const s = this.state;
     const dt = this.batchDt;
     this.batchDt = 0;
     if (dt <= 0) return;
     const tStart = tEnd - dt;
-    if (sendGate) {
+    {
       const equipment = this.equipment();
       const equipmentKey = JSON.stringify(equipment);
       const pose = currentPose(this.sim, s);
@@ -366,8 +367,6 @@ export class PwController {
         this.equipmentKey = equipmentKey;
         this.needResync = false;
       }
-    } else if (this.equipmentKey === '') {
-      return; // la cadena aún no tiene equipo: nada que adquirir
     }
     this.inFlight += 1;
     try {
@@ -387,20 +386,38 @@ export class PwController {
   private receive(reply: PwReply): void {
     this.inFlight = Math.max(0, this.inFlight - 1);
     try {
-      if (reply.configVersion < this.configVersion || reply.sceneKey !== this.sceneKey) {
+      if (
+        reply.configVersion !== this.configVersion ||
+        reply.sceneKey !== this.sceneKey ||
+        !this.contextMatches()
+      ) {
         this.droppedReplies += 1;
         return;
       }
-      if (!this.state.pwOn) return;
+      if (!this.state.pwOn || this.state.frozen) {
+        this.needResync = true;
+        return;
+      }
       this.fft = reply.fftSize;
-      this.lastComposition = reply.composition;
       if (reply.count > 0) {
+        if (
+          reply.composition?.dominantVesselId !== this.lastComposition?.dominantVesselId ||
+          this.reliableComposition(reply.composition) !== this.reliableComposition(this.lastComposition)
+        )
+          this.measureCache = null;
+        this.lastComposition = reply.composition ? { ...reply.composition } : null;
+        this.qualityBlocks.push({
+          tStart: reply.times[0]!,
+          tEnd: reply.times[reply.count - 1]!,
+          composition: this.lastComposition,
+        });
         for (const col of unpackColumns(reply)) this.cols.push(col);
         const tEnd = this.cols[this.cols.length - 1]!.t;
         let drop = 0;
         while (drop < this.cols.length && this.cols[drop]!.t < tEnd - COLUMN_WINDOW_S) drop += 1;
         drop = Math.max(drop, this.cols.length - MAX_COLUMNS);
         if (drop > 0) this.cols.splice(0, drop);
+        this.qualityBlocks = this.qualityBlocks.filter((b) => b.tEnd >= tEnd - COLUMN_WINDOW_S);
         this.rev += 1;
       }
       if (this.audio && reply.iqRe.length > 0) {
@@ -413,6 +430,9 @@ export class PwController {
 
   reset(): void {
     this.bumpVersion();
+    this.versionKey = '';
+    this.acquiredContext = null;
+    this.acquiredAngle = null;
     this.batchDt = 0;
     this.needResync = false;
     this.clearColumns();
@@ -427,17 +447,35 @@ export class PwController {
    * revisión del búfer de columnas y ajustes de medida, así que solo se
    * recalcula cuando llegan columnas nuevas, y como mucho cada
    * MEASURE_MIN_INTERVAL_MS (la medida puede ir hasta ~0,5 s por detrás).
-   * Un cambio de ajuste de medida (ángulo, filtro…) recalcula en el acto.
+   * Ángulo/inversión recalculan; cambiar la adquisición exige señal nueva.
    */
   latestMcaMeasure(): ReturnType<typeof summarizeBeats> {
-    return this.latestPwAssessment()?.summary ?? null;
+    return this.latestCapture()?.summary ?? null;
   }
 
   latestPwAssessment(): PwAssessment | null {
+    if (!this.contextMatches()) return null;
+    return this.latestCapture()?.signal ?? null;
+  }
+
+  private contextMatches(): boolean {
+    return this.versionKey === JSON.stringify(pwAcquisitionContext(this.sim, this.state));
+  }
+
+  private reliableComposition(c: GateComposition | null): boolean {
+    return (
+      !!c?.dominantVesselId &&
+      Number.isFinite(c.bloodFraction) &&
+      c.bloodFraction >= DOPPLER.params.debriefBloodFractionMin.value &&
+      Number.isFinite(c.dominantVesselFraction) &&
+      c.dominantVesselFraction / c.bloodFraction >= DOPPLER.params.pwDominantFractionMin.value
+    );
+  }
+
+  latestCapture(): PwCapture | null {
     const s = this.state;
     if (!s.pwOn || this.cols.length <= 20) return null;
-    if (this.sceneKey !== `${s.station}-${s.side}`) return null;
-    const settingsKey = `${s.settings.frequencyMhz}|${s.settings.angleCorrectionDeg}|${s.settings.invertColor}|${s.settings.wallFilterHz}|${this.fft}`;
+    const settingsKey = `${s.settings.angleCorrectionDeg}|${s.settings.invertColor}|${this.fft}|${this.contextMatches()}`;
     const cached = this.measureCache;
     const now = this.nowMs();
     if (cached && cached.settingsKey === settingsKey) {
@@ -446,22 +484,30 @@ export class PwController {
     }
     const value = this.computeMcaMeasure();
     this.measureCache = { revision: this.rev, settingsKey, atMs: now, value };
-    this.recordIcaMeasure(value?.summary ?? null);
+    this.recordIcaMeasure(value);
     return value;
   }
 
   /**
-   * Ventana submandibular (DEC-58): con la puerta en la ACI (vaso dominante
-   * `aci-*`, ≥ 20 % de sangre) y ≥ 2 latidos, la medida queda como TAMax de
-   * ACI del lado explorado, con el tiempo de su última columna.
+   * ACI ipsilateral con calidad de captura y ≥ 2 latidos (DEC-72).
+   * Un intento posterior fallido conserva el historial, pero impide reutilizarlo.
    */
-  private recordIcaMeasure(value: ReturnType<typeof summarizeBeats>): void {
+  private recordIcaMeasure(capture: PwCapture | null): void {
     const s = this.state;
-    if (!value || value.beats < 2 || s.station !== 'submandibular') return;
-    if (this.sceneKey !== `${s.station}-${s.side}`) return;
-    const comp = this.lastComposition;
+    if (!capture || s.station !== 'submandibular' || !this.contextMatches()) return;
+    const value = capture.summary;
+    const comp = capture.composition;
     const vesselId = comp?.dominantVesselId ?? null;
-    if (vesselId !== `aci-${s.side}` || (comp?.bloodFraction ?? 0) < 0.2) return;
+    if (!value || value.beats < 2 || vesselId !== `aci-${s.side}`) {
+      const previous = s.icaMeasured[s.side];
+      if (previous && (vesselId === `aci-${s.side}` || capture.angle?.vesselId === `aci-${s.side}`)) {
+        s.icaMeasured = {
+          ...s.icaMeasured,
+          [s.side]: { ...previous, lastFailedAttempt: structuredClone(capture) },
+        };
+      }
+      return;
+    }
     const measure: IcaMeasure = {
       taMaxCms: Math.abs(value.taMaxCms),
       psvCms: Math.abs(value.psvCms),
@@ -470,13 +516,41 @@ export class PwController {
       beats: value.beats,
       vesselId,
       tSec: this.cols[this.cols.length - 1]?.t ?? 0,
+      capture: structuredClone(capture),
     };
     s.icaMeasured = { ...s.icaMeasured, [s.side]: measure };
   }
 
-  /** Última ACI medida de un lado (null si aún no se midió). */
+  /** ACI reutilizable; el historial incompatible sigue en el estado. */
   measuredIca(side: AppState['side'] = this.state.side): IcaMeasure | null {
-    return this.state.icaMeasured[side];
+    return this.icaValidity(side) === 'vigente' ? this.state.icaMeasured[side] : null;
+  }
+
+  icaValidity(side: AppState['side'] = this.state.side, mcaTime?: number): IcaValidity {
+    const ica = this.state.icaMeasured[side];
+    if (!ica) return 'sin-medida';
+    const c = ica.capture;
+    if (
+      !c ||
+      c.status !== 'valida' ||
+      !c.summary ||
+      !Number.isFinite(ica.taMaxCms) ||
+      ica.taMaxCms <= 0 ||
+      ica.beats < 2 ||
+      ica.lastFailedAttempt
+    )
+      return 'calidad-insuficiente';
+    if (
+      ica.vesselId !== `aci-${side}` ||
+      c.composition?.dominantVesselId !== `aci-${side}` ||
+      c.context.station !== 'submandibular' ||
+      c.context.side !== side
+    )
+      return 'identidad-incompatible';
+    if (!samePwPatient(c.context, pwAcquisitionContext(this.sim, this.state))) return 'contexto-incompatible';
+    if (!Number.isFinite(ica.tSec) || (mcaTime !== undefined && ica.tSec > mcaTime))
+      return 'tiempo-incompatible';
+    return 'vigente';
   }
 
   /**
@@ -486,28 +560,29 @@ export class PwController {
   lindegaard(): LindegaardResult | null {
     const s = this.state;
     if (s.station !== 'temporal') return null;
-    const summary = this.latestMcaMeasure();
-    if (
-      !summary ||
-      summary.beats < 2 ||
-      this.lastComposition?.dominantVesselId !== `m1-${s.side}` ||
-      this.lastComposition.bloodFraction < 0.2
-    )
+    const capture = this.latestCapture();
+    const summary = capture?.summary;
+    if (!summary || summary.beats < 2 || capture?.composition?.dominantVesselId !== `m1-${s.side}`)
       return null;
     const ica = s.icaMeasured[s.side];
-    return lindegaardIndex(
+    const validity = this.icaValidity(s.side, capture.tEnd);
+    const result = lindegaardIndex(
       summary.taMaxCms,
-      ica ? (ica.vesselId === `aci-${s.side}` ? ica.taMaxCms : Number.NaN) : null,
+      ica ? (validity === 'vigente' ? ica.taMaxCms : Number.NaN) : null,
       this.sim.clinicalCase.icaExtracranialTamaxCms,
     );
+    return validity === 'vigente' || validity === 'sin-medida'
+      ? result
+      : { ...result, invalidReason: icaValidityText(validity) };
   }
 
   /** Medida sin caché (coste ~30–60 ms con 2,5 s de columnas). */
-  private computeMcaMeasure(): PwAssessment | null {
+  private computeMcaMeasure(): PwCapture | null {
     try {
       const s = this.state;
       const cols = this.cols;
-      if (!s.pwOn || cols.length <= 20) {
+      const context = this.acquiredContext;
+      if (!s.pwOn || cols.length <= 20 || !context) {
         return null;
       }
       // Ventana por TIEMPO (~2,5 s), no por columnas: al subir el PRF las
@@ -516,19 +591,73 @@ export class PwController {
       const tEnd = cols[cols.length - 1]!.t;
       const windowCols = cols.filter((c) => c.t >= tEnd - 2.5);
       const trace = observedTrace(windowCols, {
-        f0Hz: s.settings.frequencyMhz * 1e6,
+        f0Hz: context.equipment.frequencyMhz * 1e6,
         angleCorrectionRad: (s.settings.angleCorrectionDeg * Math.PI) / 180,
         invert: s.settings.invertColor,
         fftSize: this.fft,
-        wallFilterHz: s.settings.wallFilterHz,
+        wallFilterHz: context.equipment.wallFilterHz,
       });
       const t0 = trace[0]?.t ?? 0;
       const t1 = trace[trace.length - 1]?.t ?? 0;
       const beats = this.sim.cardiac.beatsIn(t0, t1);
-      return assessPwTrace(
+      const signal = assessPwTrace(
         trace,
         beats.map((b) => ({ tStart: b.tStart, rr: b.rr })),
       );
+      const blocks = this.qualityBlocks.filter((b) => b.tEnd >= t0 && b.tStart <= t1);
+      const composition = this.lastComposition ? { ...this.lastComposition } : null;
+      const reliable =
+        blocks.length > 0 &&
+        blocks.every(
+          (b) =>
+            this.reliableComposition(b.composition) &&
+            b.composition?.dominantVesselId === composition?.dominantVesselId,
+        );
+      const angle = this.acquiredAngle ? { ...this.acquiredAngle } : null;
+      const correction = { angleDeg: s.settings.angleCorrectionDeg, inverted: s.settings.invertColor };
+      const angleOk =
+        angle &&
+        Number.isFinite(angle.realDeg) &&
+        angle.realDeg <= DOPPLER.params.debriefAngleMaxDeg.value &&
+        Number.isFinite(correction.angleDeg) &&
+        Math.abs(correction.angleDeg) <= DOPPLER.params.debriefAngleMaxDeg.value;
+      const status = !this.contextMatches()
+        ? 'contexto-incompatible'
+        : signal.status !== 'valida'
+          ? signal.status
+          : !reliable
+            ? 'puerta-no-fiable'
+            : !angleOk
+              ? 'angulo-invalido'
+              : 'valida';
+      const summary = status === 'valida' ? signal.summary : null;
+      const minimum = (values: number[]) =>
+        values.length > 0 && values.every(Number.isFinite) ? Math.min(...values) : null;
+      const quality = {
+        blocks: blocks.length,
+        bloodFractionMin: minimum(blocks.map((b) => b.composition?.bloodFraction ?? Number.NaN)),
+        dominantBloodFractionMin: minimum(
+          blocks.map((b) =>
+            b.composition ? b.composition.dominantVesselFraction / b.composition.bloodFraction : Number.NaN,
+          ),
+        ),
+        vesselIds: [...new Set(blocks.map((b) => b.composition?.dominantVesselId ?? null))],
+      };
+      return {
+        schemaVersion: 1,
+        context: structuredClone(context),
+        configVersion: this.configVersion,
+        fftSize: this.fft,
+        quality,
+        tStart: t0,
+        tEnd: t1,
+        correction,
+        composition,
+        angle,
+        signal: { ...signal, summary },
+        status,
+        summary,
+      };
     } catch (err) {
       logError('pw', err);
       return null;
@@ -536,7 +665,7 @@ export class PwController {
   }
 
   composition(): GateComposition | null {
-    return this.lastComposition;
+    return this.contextMatches() ? this.lastComposition : null;
   }
 }
 

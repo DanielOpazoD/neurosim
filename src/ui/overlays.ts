@@ -28,7 +28,8 @@ import { buildReport } from '../domain/onsdProtocol';
 import type { PwController } from '../app/pwController';
 import { angleCorrectionErrorFactor } from '../doppler/insonation';
 import { acousticOutput } from '../ultrasound/acousticOutput';
-import { lindegaardInterpretation, observedTrace, pwStatusText } from '../doppler/measureMca';
+import { lindegaardInterpretation, observedTrace } from '../doppler/measureMca';
+import { pwCaptureStatusText, icaValidityText } from '../app/pwCapture';
 import { DOPPLER } from '../doppler/params';
 
 export { canvasToImagePoint, imagePointToCanvas };
@@ -634,12 +635,12 @@ export function updateReadouts(
   controller: PwController,
 ): void {
   const summary = controller.latestMcaMeasure();
-  const assessment = controller.latestPwAssessment();
-  const validityRows = assessment
+  const capture = controller.latestCapture();
+  const validityRows = capture
     ? [
-        row('Medida PW', pwStatusText(assessment.status), {
+        row('Medida PW', pwCaptureStatusText(capture.status), {
           wide: true,
-          warn: assessment.status !== 'valida',
+          warn: capture.status !== 'valida',
         }),
       ]
     : [];
@@ -801,12 +802,32 @@ function lindegaardRows(s: AppState, controller: PwController): string[] {
         { wide: true, warn: !Number.isFinite(li.ratio) || li.ratio >= 3 },
       ),
       wide('Interpretación', lindegaardInterpretation(li)),
+      ...(li.icaSource === 'medida'
+        ? [
+            wide(
+              'Capturas',
+              `ACM t=${controller.latestCapture()!.tEnd.toFixed(1)} s · ACI t=${s.icaMeasured[s.side]!.tSec.toFixed(1)} s · ${icaValidityText(controller.icaValidity(s.side, controller.latestCapture()!.tEnd))}`,
+            ),
+          ]
+        : []),
     ];
   }
   const ica = s.station === 'submandibular' ? controller.measuredIca(s.side) : null;
   if (ica && controller.composition()?.dominantVesselId?.startsWith('aci-')) {
-    return [wide('ACI medida', `TAMax ${ica.taMaxCms.toFixed(0)} cm/s → Lindegaard ${s.side}`)];
+    return [
+      wide(
+        'ACI medida',
+        `TAMax ${ica.taMaxCms.toFixed(0)} cm/s · t=${ica.tSec.toFixed(1)} s → Lindegaard ${s.side}`,
+      ),
+    ];
   }
+  if (s.station === 'temporal' && controller.latestCapture()?.summary)
+    return [
+      row('Lindegaard', 'La puerta no identifica M1 ipsilateral: no calcular el cociente.', {
+        wide: true,
+        warn: true,
+      }),
+    ];
   return [];
 }
 

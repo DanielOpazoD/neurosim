@@ -13,6 +13,7 @@ import { buildReport } from '../domain/onsdProtocol';
 import type { Measurement } from '../domain/contracts';
 import type { AppState } from './state';
 import { GUIDES } from '../domain/guides';
+import { pwCaptureStatusText, pwCaptureReport, type PwCapture, type PwCaptureReport } from './pwCapture';
 
 export type DebriefEventKind =
   | 'station'
@@ -33,6 +34,8 @@ export interface DebriefEvent {
   kind: DebriefEventKind;
   detail: string;
   data?: Record<string, number | string | boolean>;
+  pwCapture?: PwCapture;
+  icaCapture?: PwCapture;
 }
 
 /** Reconstruye solo velocidades y origen de la MISMA captura, nunca máximos de eventos distintos. */
@@ -43,7 +46,9 @@ export function lindegaardFromEvent(event: DebriefEvent | undefined): Lindegaard
   if (source !== 'medida' && source !== 'referencia') return null;
   const mca = typeof event.data?.mcaTaMaxCms === 'number' ? event.data.mcaTaMaxCms : Number.NaN;
   const ica = typeof event.data?.icaTaMaxCms === 'number' ? event.data.icaTaMaxCms : Number.NaN;
-  return lindegaardIndex(mca, source === 'medida' ? ica : null, ica);
+  const result = lindegaardIndex(mca, source === 'medida' ? ica : null, ica);
+  const reason = event.data?.lindegaardInvalidReason;
+  return typeof reason === 'string' && reason ? { ...result, invalidReason: reason } : result;
 }
 
 export interface DebriefFinding {
@@ -55,7 +60,10 @@ export interface DebriefFinding {
 
 export interface DebriefReport {
   startedAt: number;
-  events: DebriefEvent[];
+  events: (Omit<DebriefEvent, 'pwCapture' | 'icaCapture'> & {
+    pwCapture?: PwCaptureReport;
+    icaCapture?: PwCaptureReport;
+  })[];
   findings: DebriefFinding[];
   measurements: {
     kind: Measurement['kind'];
@@ -173,8 +181,21 @@ export class DebriefLog {
     this.currentTime = Math.max(this.currentTime, t);
   }
 
-  record(kind: DebriefEventKind, detail: string, data?: Record<string, number | string | boolean>): void {
-    this.list.push({ t: this.currentTime, kind, detail, data });
+  record(
+    kind: DebriefEventKind,
+    detail: string,
+    data?: Record<string, number | string | boolean>,
+    pwCapture?: PwCapture,
+    icaCapture?: PwCapture,
+  ): void {
+    this.list.push({
+      t: this.currentTime,
+      kind,
+      detail,
+      data: data ? { ...data } : undefined,
+      ...(pwCapture ? { pwCapture: structuredClone(pwCapture) } : {}),
+      ...(icaCapture ? { icaCapture: structuredClone(icaCapture) } : {}),
+    });
   }
 
   events(): readonly DebriefEvent[] {
@@ -323,6 +344,10 @@ export function buildDebrief(
     if (event.kind !== 'freeze') continue;
     if (event.data?.frozen === false) continue;
     const status = event.data?.pwStatus;
+    if (status === 'contexto-incompatible' || status === 'puerta-no-fiable' || status === 'angulo-invalido') {
+      add('pw-contexto-invalido', 'aviso', pwCaptureStatusText(status), { status });
+      continue;
+    }
     if (
       status === 'bidireccional' ||
       status === 'sin-senal' ||
@@ -449,7 +474,11 @@ export function buildDebrief(
   const firstMeasure = events.find((event) => event.kind === 'measurement');
   return {
     startedAt: events[0]?.t ?? log.events()[0]?.t ?? 0,
-    events,
+    events: events.map((event) => ({
+      ...event,
+      pwCapture: pwCaptureReport(event.pwCapture, s.teachingMode),
+      icaCapture: pwCaptureReport(event.icaCapture, s.teachingMode),
+    })),
     findings,
     measurements,
     probe: {

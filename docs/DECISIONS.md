@@ -1068,3 +1068,60 @@ Pendiente: distinguir reversión diastólica de aliasing, mezcla o artefactos;
 cuantificar ondas bidireccionales sin una envolvente dominante única; validez
 de identidad/modalidad/ángulo y antigüedad de ACI; validación externa del
 detector y los umbrales. No son criterios clínicos de circulación cerebral.
+
+## DEC-72 · Identidad, calidad y vigencia técnica de PW
+
+R03 separa cada adquisición por paciente/semilla/caso, revisión fisiológica,
+estación/lado, pose, puerta y equipo PW. Un cambio descarta columnas, cachés
+y respuestas pendientes de otra versión, incluso antes del siguiente frame.
+Cambiar PAM, PIC, CO₂ o FC y volver al valor anterior sigue siendo una nueva
+revisión. El worker reconstruye también la escena al cambiar la fisiología.
+Congelado no recibe columnas tardías. La corrección angular e inversión son
+postprocesamiento explícito: pueden recalcular la misma señal sin adquirirla
+otra vez; ganancia de presentación y línea base no alteran el IQ.
+
+`PwCapture` conserva tiempos de columnas, contexto, versión, corrección,
+composición, ángulo, evaluación de señal y estado contextual. La aceptación
+comprueba todos los bloques de la ventana analizada: identidad estable,
+sangre ≥ 25 % (umbral docente ya existente) y vaso dominante ≥ 50 % de la
+sangre. `dominantVesselFraction` representa peso TOTAL: la pureza se calcula
+dividiéndola por `bloodFraction`. Los umbrales no son criterios clínicos.
+Ángulo real o corrección no finitos/fuera de 60° bloquean índices automáticos;
+se reutiliza el límite docente existente, sin certificar exactitud angular.
+Una captura de otra arteria puede tener velocidades, pero no Lindegaard:
+este requiere M1 ipsilateral y ACI submandibular ipsilateral con ≥ 2 latidos.
+
+La ACI guarda su captura, no solo una velocidad. Si pertenece a otro caso,
+paciente, estado fisiológico, lado, estación, tiene mala calidad o procede
+del futuro respecto de la ACM, el índice es no interpretable con motivo
+explícito. **Nunca se sustituye silenciosamente por la referencia.** Un nuevo
+intento ACI fallido en la misma región conserva la medida anterior como
+historial no reutilizable, hasta adquirir de nuevo una ACI válida. Guías y
+panel usan esta misma elegibilidad. El cambio necesario ACI→ACM de estación,
+puerta y frecuencia NO invalida por sí solo la ACI: ambas técnicas se guardan
+por separado y no se exige igualdad de equipo entre vasos diferentes.
+
+**Vigencia técnica, no caducidad clínica:** no se inventa un límite de segundos.
+En el estado fisiológico estático actual puede reutilizarse la ACI previa,
+mostrando los dos tiempos de adquisición. Esta política debe revisarse antes
+de introducir respuestas fisiológicas dinámicas. No garantiza que dos capturas
+clínicas separadas en el tiempo sean comparables.
+
+Freeze/debrief/JSON conservan copias de la captura PW y de la ACI asociada,
+además del motivo de invalidez; cambiar controles después no reescribe ese
+contexto. `aciMedida` sigue siendo el historial actual por lado; `aciCapturada`
+es la ACI asociada al evento congelado. En modo docente los snapshots incluyen
+fisiología del simulador para reproducción, no una estimación clínica de PIC.
+Los informes de alumno omiten fisiología latente y ángulo real también en
+capturas anidadas y debrief; el registro interno conserva los datos originales.
+Esto no convierte la aplicación local en una plataforma segura de examen.
+
+La prueba de vasoespasmo detecta ahora que su puerta anterior contenía solo
+~24,7 % de sangre: verifica el rechazo, recoloca mediante el solver existente
+«Ventana óptima» (~34,4 %) y verifica el índice. No se relaja el guardrail ni
+se alteran anatomía, velocidades, PRF predeterminada o dorados para pasarla.
+El E2E también comprueba el aviso de puerta insuficiente y la recuperación
+tras «Ventana óptima», y verifica los metadatos del JSON descargado.
+Quedan pendientes PRF/profundidad físicamente factibles (R04), calipers
+espectrales manuales, validación externa de umbrales y separación de aliasing,
+reversión y contaminación. Estos tests prueban contratos de software.

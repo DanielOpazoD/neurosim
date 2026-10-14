@@ -94,8 +94,8 @@ interface Scatterer {
 export interface GateComposition {
   bloodFraction: number;
   bloodWeight: number;
-  /** Fracción del peso dentro del vaso dominante. */
   dominantVesselId: string | null;
+  /** Fracción del peso TOTAL; dividir por bloodFraction para la fracción de sangre de este vaso. */
   dominantVesselFraction: number;
 }
 

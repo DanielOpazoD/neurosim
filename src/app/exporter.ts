@@ -4,12 +4,13 @@
  */
 import type { ReferenceCase } from '../domain/referenceCase';
 import { errors } from '../core/errorLog';
-import { imagingMode, type AppState } from './state';
+import { imagingMode, type AppState, type IcaMeasure } from './state';
 import { acousticOutput } from '../ultrasound/acousticOutput';
 import { buildReport } from '../domain/onsdProtocol';
 import { guideById, type GuideProgress, type GuideSummary } from '../domain/guides';
 import { lindegaardFromEvent } from './debrief';
 import { lindegaardInterpretation, lindegaardPattern } from '../doppler/measureMca';
+import { pwCaptureReport } from './pwCapture';
 
 /**
  * Lindegaard exportado (DEC-58): último índice registrado al congelar (con la
@@ -26,8 +27,17 @@ function lindegaardExport(sim: ReferenceCase, s: AppState): Record<string, unkno
   };
   const source = last?.data?.lindegaardSource;
   const li = lindegaardFromEvent(last);
+  const icaReport = (ica: IcaMeasure | null) =>
+    ica
+      ? {
+          ...ica,
+          capture: pwCaptureReport(ica.capture, s.teachingMode),
+          lastFailedAttempt: pwCaptureReport(ica.lastFailedAttempt, s.teachingMode),
+        }
+      : null;
   return {
     pwDetalle: {
+      captura: pwCaptureReport(last?.pwCapture, s.teachingMode),
       estado: last?.data?.pwStatus ?? 'sin-captura',
       direccionPantalla: last?.data?.pwDirection,
       coberturaTemporal: num('pwCoverage'),
@@ -47,7 +57,8 @@ function lindegaardExport(sim: ReferenceCase, s: AppState): Record<string, unkno
       referencia: num('lindegaardReferencia'),
       mcaTaMaxCms: num('mcaTaMaxCms'),
       icaTaMaxCms: num('icaTaMaxCms'),
-      aciMedida: { der: s.icaMeasured.der, izq: s.icaMeasured.izq },
+      aciMedida: { der: icaReport(s.icaMeasured.der), izq: icaReport(s.icaMeasured.izq) },
+      aciCapturada: pwCaptureReport(last?.icaCapture, s.teachingMode),
       aciReferenciaCms: sim.clinicalCase.icaExtracranialTamaxCms,
     },
   };

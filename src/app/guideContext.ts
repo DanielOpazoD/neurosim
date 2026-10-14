@@ -127,8 +127,8 @@ export function buildGuideContext(
     onsdSlots,
     nerveImageUMm: eyeNerveImageU(sim, s),
     icaMeasuredCms: {
-      der: s.icaMeasured.der?.taMaxCms ?? null,
-      izq: s.icaMeasured.izq?.taMaxCms ?? null,
+      der: pw.measuredIca('der')?.taMaxCms ?? null,
+      izq: pw.measuredIca('izq')?.taMaxCms ?? null,
     },
     lindegaard: lindegaard ? { side: s.side, ...lindegaard } : null,
   };

@@ -86,6 +86,8 @@ test('flujo docente completo sin errores', async ({ page }) => {
   await page.locator('#pw').click();
   await expect(page.locator('#color')).toHaveClass(/on/);
   await placeM1Gate(page);
+  await expect(page.locator('#readouts')).toContainText('muestra insuficiente', { timeout: 15_000 });
+  await page.locator('#optimal').click();
   await expect
     .poll(async () => readoutValue(await page.locator('#readouts').innerText(), 'PSV'), { timeout: 15_000 })
     .toBeGreaterThan(0);
@@ -106,6 +108,7 @@ test('flujo docente completo sin errores', async ({ page }) => {
     frame: unknown;
     measurements: unknown[];
     settings: { lineDensity: string };
+    pwDetalle: { estado: string; captura: { context: { station: string; side: string }; fftSize: number } };
     errores: unknown[];
   };
   expect(payload.frame).not.toBeNull();
@@ -113,6 +116,9 @@ test('flujo docente completo sin errores', async ({ page }) => {
   expect(payload.measurements).toEqual(expect.any(Array));
   expect(payload.settings.lineDensity).toBe('media');
   expect(payload.errores).toEqual([]);
+  expect(payload.pwDetalle.estado).toBe('valida');
+  expect(payload.pwDetalle.captura.context).toMatchObject({ station: 'temporal', side: 'der' });
+  expect(payload.pwDetalle.captura.fftSize).toBeGreaterThan(0);
 
   // Ventana submandibular (DEC-58): mismo examen DTC, lado D, B-mode pintado.
   await page.locator('.win[data-window="submandibular"]').click();

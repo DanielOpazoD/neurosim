@@ -37,6 +37,8 @@ export interface ReferenceCase {
   readonly clinicalCase: ClinicalCase;
   readonly physStateAt: (t: number) => PhysState;
   readonly setPhysiology: (p: BasalPhysiology) => void;
+  /** Revisión local del estado fisiológico, también al cambiar y volver al valor previo. */
+  readonly physiologyRevision: number;
   /** Verdades del modelo medibles en pantalla (docencia). */
   readonly truths: {
     readonly thirdVentricleWidthMm: number;
@@ -83,6 +85,7 @@ export function buildReferenceCase(
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
   const flow = new CerebralFlow(head, physiology);
   let currentHemo = hemodynamics(physiology);
+  let physiologyRevision = 0;
   const physStateAt = (t: number): PhysState => ({
     t,
     cardiacPhase: cardiac.phaseAt(t),
@@ -92,6 +95,12 @@ export function buildReferenceCase(
     hemo: currentHemo,
   });
   const setPhysiology = (next: BasalPhysiology): void => {
+    if (
+      Object.keys(physiology).some(
+        (key) => physiology[key as keyof BasalPhysiology] !== next[key as keyof BasalPhysiology],
+      )
+    )
+      physiologyRevision += 1;
     physiology = { ...next };
     patient.physiology = physiology;
     currentHemo = hemodynamics(physiology);
@@ -116,6 +125,9 @@ export function buildReferenceCase(
     clinicalCase: cc,
     physStateAt,
     setPhysiology,
+    get physiologyRevision() {
+      return physiologyRevision;
+    },
     truths: {
       thirdVentricleWidthMm: head.thirdVentricleWidthMm,
       midlineShiftMm: head.midlineShiftMm,

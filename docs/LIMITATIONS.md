@@ -168,3 +168,18 @@ a WebGL2 en bloques posteriores.
   firmada de envolvente NO representa caudal neto. Señal ausente no prueba
   cese circulatorio. La cadencia inferida para trazas sin hop/PRF no detecta
   pérdidas uniformes; la cadena PW de la aplicación sí transporta hop/PRF.
+
+- **LIM-31 · Contexto PW no equivale a validación clínica**: DEC-72 rechaza
+  mezcla de contextos, metadatos vasculares incompatibles, mala muestra y
+  ángulos no utilizables, pero la identidad se obtiene del modelo y la
+  composición es una estimación por bloque, no segmentación desde la señal
+  ni pureza garantizada por columna. Los límites de sangre/dominancia son
+  docentes. La ACI previa solo conserva vigencia técnica bajo el mismo estado
+  fisiológico estático; no tiene una caducidad clínica validada. El índice no
+  certifica equivalencia entre técnicas de adquisición o corrección angular.
+  El registro distingue PW con imagen, no un modo TCD ciego independiente.
+  La factibilidad PRF/profundidad, los calipers espectrales manuales y la
+  dinámica fisiológica siguen fuera de este guardrail. El JSON conserva
+  fisiología y anatomía de adquisición para reproducción en modo docente.
+  Los informes de alumno omiten fisiología latente y ángulo real, pero no
+  son un formato de examen protegido ni impiden inspeccionar el modelo local.
