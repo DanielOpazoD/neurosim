@@ -395,6 +395,7 @@ export class PwController {
         configVersion: this.configVersion,
         tStart,
         dt,
+        regulation: this.sim.regulation.snapshotAt(tStart),
         wantAudio: this.audio !== null,
       });
     } catch (err) {

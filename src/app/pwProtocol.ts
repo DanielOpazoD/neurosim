@@ -5,6 +5,7 @@
  * así las pruebas ejercitan la misma ruta sin Worker. No accede al DOM.
  */
 import type { BasalPhysiology, Side, Station, WillisVariant } from '../domain/contracts';
+import type { Regulation } from '../physiology/hemodynamics';
 import type { ReferenceCase } from '../domain/referenceCase';
 import type { VesselScene } from '../anatomy/head';
 import { PwDopplerChain, type AudioSink } from '../doppler/pwChain';
@@ -61,6 +62,8 @@ export interface PwStepMessage {
   readonly type: 'step';
   readonly configVersion: number;
   readonly tStart: number;
+  /** Regulación en curso en `tStart` (DEC-81); ausente en estacionario. */
+  readonly regulation?: Regulation;
   readonly dt: number;
   /** ¿Devolver el IQ filtrado para audio? */
   readonly wantAudio: boolean;
@@ -274,6 +277,7 @@ export function handlePwMessage(
       if (!chain || !sim || !state.equipment) return null;
       state.collectAudio = msg.wantAudio;
       // Sonda quieta: sin micro-movimiento de mano (DEC-59).
+      sim.regulation.setOverride(msg.regulation ?? null);
       chain.step((tt) => sim.physStateAt(tt), msg.tStart, STILL_PROBE, msg.dt);
       chain.flush();
       // Las columnas viajan al hilo principal: la cadena del worker no las guarda.

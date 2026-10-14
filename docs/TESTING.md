@@ -94,7 +94,7 @@ debe conservar espigas anterógradas y lóbulo retrógrado con neto ≈ 0.
 `RegulationDynamics` — flujo pasivo a la presión al instante, recuperación
 63 % en τ, retardo del CO₂, autorregulación alterada sin recuperación,
 continuidad al encadenar escalones, determinismo y transitorio visible en
-`physStateAt` tras `setPhysiology(…, atS)`.
+`physStateAt` tras `setPhysiology(…, atS)`. El bloque «snapshot de regulación hacia los workers» comprueba que `snapshotAt` + `setOverride` reproducen en un worker el transitorio del hilo principal.
 
 `tests/compartment.test.ts` (DEC-82): curva de Marmarou e inversa, punto fijo
 basal de Davson, salto y recuperación en minutos con lesión < reserva, PIC
