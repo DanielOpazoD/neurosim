@@ -777,13 +777,14 @@ function lindegaardRows(s: AppState, controller: PwController): string[] {
   const li = controller.lindegaard();
   if (li) {
     const label = li.icaSource === 'medida' ? 'ACI medida' : 'ACI de referencia';
+    const fmtVelocity = (v: number) => (Number.isFinite(v) ? v.toFixed(0) : '—');
     return [
       row(
         `Lindegaard · ${label}`,
-        `TAMax ACM ${li.mcaTaMaxCms.toFixed(0)} / ACI ${li.icaTaMaxCms.toFixed(0)} = ${li.ratio.toFixed(1)}`,
-        { wide: true, warn: li.ratio >= 3 },
+        `TAMax ACM ${fmtVelocity(li.mcaTaMaxCms)} / ACI ${fmtVelocity(li.icaTaMaxCms)} = ${Number.isFinite(li.ratio) ? li.ratio.toFixed(1) : '—'}`,
+        { wide: true, warn: !Number.isFinite(li.ratio) || li.ratio >= 3 },
       ),
-      wide('Interpretación', lindegaardInterpretation(li.ratio)),
+      wide('Interpretación', lindegaardInterpretation(li)),
     ];
   }
   const ica = s.station === 'submandibular' ? controller.measuredIca(s.side) : null;

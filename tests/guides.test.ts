@@ -397,6 +397,20 @@ describe('reductor advance (histéresis)', () => {
     expect(summary.rows.find((r) => r.label === 'Lindegaard D')!.value).toContain('ACI de referencia');
   });
 
+  it.each([0, Number.NaN, Infinity, 5])('no diagnostica por ACI inválida/baja en la guía (%s)', (ica) => {
+    const progress: GuideProgress = {
+      ...startGuide('dtc', 0),
+      captures: {
+        'medir-der': { side: 'der', taMaxCms: 40 },
+        'submandibular-aci': { side: 'der', icaTaMaxCms: ica },
+      },
+    };
+    const summary = guideSummary(progress, ctx({ station: 'temporal' }), TRUTH);
+    expect(summary.values.lindegaardDFuente).toBe('medida');
+    expect(summary.values.lindegaardDEstado).toBe(ica === 5 ? 'discordante' : 'no-interpretable');
+    expect(summary.interpretation.join(' ')).not.toContain('vasoespasmo grave');
+  });
+
   it('resumen DTC: Lindegaard con la ACI medida del mismo lado e interpretación', () => {
     const progress: GuideProgress = {
       ...startGuide('dtc', 0),
@@ -417,7 +431,7 @@ describe('reductor advance (histéresis)', () => {
     expect(summary.values.lindegaardDFuente).toBe('referencia');
     const text = summary.interpretation.join(' ');
     expect(text).toContain('vasoespasmo leve-moderado');
-    expect(text).toContain('hiperemia o normal');
+    expect(text).toContain('ACI de referencia: no gradúa vasoespasmo');
     expect(summary.rows.find((r) => r.label === 'Lindegaard I')!.flag).toBe('warn');
   });
 });

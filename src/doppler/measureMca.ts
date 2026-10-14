@@ -205,12 +205,16 @@ export function summarizeBeats(ms: readonly BeatMeasure[]): {
 
 /**
  * Índice de Lindegaard: TAMax de la ACM / TAMax de la ACI extracraneal.
- * Valores ≥3 sugieren vasoespasmo frente a hiperemia (lindegaard-indice-1989).
+ * El cociente aislado no permite graduar vasoespasmo (DEC-70).
  * El denominador es la TAMax de ACI medida en la ventana submandibular
  * (DEC-58) o, si aún no se midió, la de referencia del caso (LIM-02).
  */
 export function lindegaardRatio(tamaxMcaCms: number, icaCms: number): number {
-  return Math.abs(tamaxMcaCms) / Math.max(1e-6, Math.abs(icaCms));
+  if (!Number.isFinite(tamaxMcaCms) || !Number.isFinite(icaCms) || tamaxMcaCms === 0 || icaCms === 0) {
+    return Number.NaN;
+  }
+  const ratio = Math.abs(tamaxMcaCms) / Math.abs(icaCms);
+  return Number.isFinite(ratio) ? ratio : Number.NaN;
 }
 
 /** Origen del denominador del Lindegaard. */
@@ -224,19 +228,15 @@ export interface LindegaardResult {
 }
 
 /**
- * Lindegaard con la ACI medida del mismo lado si existe (`measuredIcaCms`
- * finito y > 0); si no, con la TAMax de referencia del caso.
+ * ACI medida del mismo lado si existe; referencia solo si falta la medida.
+ * Una medida inválida no se sustituye silenciosamente por la referencia.
  */
 export function lindegaardIndex(
   tamaxMcaCms: number,
   measuredIcaCms: number | null | undefined,
   referenceIcaCms: number,
 ): LindegaardResult {
-  const measured =
-    measuredIcaCms !== null &&
-    measuredIcaCms !== undefined &&
-    Number.isFinite(measuredIcaCms) &&
-    Math.abs(measuredIcaCms) > 0;
+  const measured = measuredIcaCms !== null && measuredIcaCms !== undefined;
   const ica = measured ? Math.abs(measuredIcaCms) : Math.abs(referenceIcaCms);
   return {
     mcaTaMaxCms: Math.abs(tamaxMcaCms),
@@ -246,10 +246,41 @@ export function lindegaardIndex(
   };
 }
 
-/** Interpretación docente: < 3 hiperemia/normal, 3–6 vasoespasmo leve-moderado, > 6 grave. */
-export function lindegaardInterpretation(ratio: number): string {
-  if (!Number.isFinite(ratio)) return '—';
-  if (ratio < 3) return 'hiperemia o normal';
-  if (ratio <= 6) return 'vasoespasmo leve-moderado';
-  return 'vasoespasmo grave';
+export type LindegaardPattern =
+  'no-interpretable' | 'referencia' | 'sin-patron' | 'hiperemia' | 'discordante' | 'leve-moderado' | 'grave';
+
+/** Rangos orientativos para ACM tras HSA; no validan adquisición ni etiología. */
+export function lindegaardPattern(result: LindegaardResult): LindegaardPattern {
+  const { mcaTaMaxCms: mca, icaTaMaxCms: ica } = result;
+  const ratio = lindegaardRatio(mca, ica);
+  if (!Number.isFinite(ratio)) return 'no-interpretable';
+  if (result.icaSource === 'referencia') return 'referencia';
+  const p = DOPPLER.params;
+  const elevated = Math.abs(mca) >= p.lindegaardMcaElevatedCms.value;
+  if (ratio < p.debriefLindegaardVasospasmMin.value) return elevated ? 'hiperemia' : 'sin-patron';
+  if (!elevated) return 'discordante';
+  const severeVelocity = Math.abs(mca) > p.lindegaardMcaSevereCms.value;
+  const severeRatio = ratio > p.lindegaardSevereRatio.value;
+  if (severeVelocity !== severeRatio) return 'discordante';
+  return severeVelocity ? 'grave' : 'leve-moderado';
+}
+
+/** Lenguaje común de panel, guía, exportación y debrief, sin diagnóstico absoluto. */
+export function lindegaardInterpretation(result: LindegaardResult): string {
+  switch (lindegaardPattern(result)) {
+    case 'no-interpretable':
+      return 'No interpretable: se requieren velocidades ACM y ACI finitas y distintas de cero.';
+    case 'referencia':
+      return 'Cociente con ACI de referencia: no gradúa vasoespasmo; falta ACI extracraneal ipsilateral medida.';
+    case 'sin-patron':
+      return 'Velocidad ACM y cociente bajos: sin patrón Doppler de vasoespasmo; no lo excluye.';
+    case 'hiperemia':
+      return 'Velocidad ACM elevada con cociente bajo: compatible con hiperemia; requiere contexto.';
+    case 'discordante':
+      return 'Velocidad ACM y cociente discordantes: no graduar vasoespasmo; revisar adquisición y contexto.';
+    case 'leve-moderado':
+      return 'Patrón compatible con vasoespasmo leve-moderado tras HSA; no diagnóstico.';
+    case 'grave':
+      return 'Patrón compatible con vasoespasmo grave tras HSA; no diagnóstico.';
+  }
 }

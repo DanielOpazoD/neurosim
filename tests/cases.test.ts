@@ -79,10 +79,10 @@ describe('biblioteca de casos clínicos', () => {
       icaSource: 'medida',
     });
     expect(lindegaardIndex(90, null, 45)).toMatchObject({ ratio: 2, icaSource: 'referencia' });
-    expect(lindegaardIndex(90, Number.NaN, 45).icaSource).toBe('referencia');
-    expect(lindegaardInterpretation(2.2)).toBe('hiperemia o normal');
-    expect(lindegaardInterpretation(4)).toBe('vasoespasmo leve-moderado');
-    expect(lindegaardInterpretation(6.5)).toBe('vasoespasmo grave');
+    expect(lindegaardIndex(90, Number.NaN, 45).icaSource).toBe('medida');
+    expect(lindegaardInterpretation(lindegaardIndex(99, 45, 45))).toContain('sin patrón');
+    expect(lindegaardInterpretation(lindegaardIndex(180, 45, 45))).toContain('vasoespasmo leve-moderado');
+    expect(lindegaardInterpretation(lindegaardIndex(260, 40, 45))).toContain('vasoespasmo grave');
   });
 
   it('parkinson: SN ≥ 0,25 cm² por lado (percentil 90) y más ecogénica', () => {

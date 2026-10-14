@@ -6,6 +6,8 @@ import { hemodynamics } from '../../src/physiology/hemodynamics';
 import type { Measurement } from '../../src/domain/contracts';
 import { fromEyeLocal, nerveCenterline, trueOnsdMm } from '../../src/anatomy/eye';
 import { exportPayload } from '../../src/app/exporter';
+import { caseById } from '../../src/domain/cases';
+import { lindegaardIndex, lindegaardInterpretation } from '../../src/doppler/measureMca';
 
 function measurement(sim: ReturnType<typeof buildReferenceCase>, value: number, offset: number): Measurement {
   const eye = sim.eyes.der;
@@ -29,6 +31,68 @@ function measurement(sim: ReturnType<typeof buildReferenceCase>, value: number, 
 }
 
 describe('debriefing docente', () => {
+  it.each(['vasoespasmo', 'estenosisM1'] as const)('no diagnostica por cociente aislado en %s', (caseId) => {
+    const sim = buildReferenceCase(undefined, 'normal', caseById(caseId));
+    const s = createInitialState();
+    s.debrief.record('freeze', 'congelar', {
+      frozen: true,
+      side: 'izq',
+      mcaTaMaxCms: 40,
+      icaTaMaxCms: 5,
+      lindegaardSource: 'medida',
+      lindegaard: 8,
+      lindegaardMedido: 8,
+    });
+    const report = buildDebrief(s.debrief, sim, s, sim.physStateAt(0).hemo);
+    const finding = report.findings.find((f) => f.code === 'lindegaard-contextual');
+    expect(finding?.text).toContain(lindegaardInterpretation(lindegaardIndex(40, 5, 45)));
+    expect(JSON.stringify(report)).not.toContain('vasoespasmo probable');
+    expect(JSON.stringify(report)).not.toContain('vasoespasmo grave');
+    if (caseId === 'estenosisM1') expect(JSON.stringify(finding)).toContain('estenosis focal');
+  });
+
+  it('exporta la interpretación de la última captura sin rescatar razones obsoletas', () => {
+    const sim = buildReferenceCase();
+    const s = createInitialState();
+    s.debrief.record('freeze', 'congelar', {
+      frozen: true,
+      side: 'der',
+      mcaTaMaxCms: 180,
+      icaTaMaxCms: 45,
+      lindegaardSource: 'medida',
+      lindegaard: 4,
+    });
+    expect(exportPayload(sim, s)).toMatchObject({
+      lindegaard: 4,
+      lindegaardDetalle: {
+        estado: 'leve-moderado',
+        interpretacion: lindegaardInterpretation(lindegaardIndex(180, 45, 45)),
+        mcaTaMaxCms: 180,
+        icaTaMaxCms: 45,
+        lado: 'der',
+      },
+    });
+    s.debrief.record('freeze', 'reanudar', { frozen: false });
+    expect(exportPayload(sim, s)).toMatchObject({ lindegaard: 4 });
+    s.debrief.record('freeze', 'congelar', {
+      frozen: true,
+      side: 'izq',
+      mcaTaMaxCms: 40,
+      icaTaMaxCms: 0,
+      lindegaardSource: 'medida',
+      lindegaard: Number.NaN,
+    });
+    expect(exportPayload(sim, s)).toMatchObject({
+      lindegaard: null,
+      lindegaardDetalle: { estado: 'no-interpretable' },
+    });
+    s.debrief.record('freeze', 'congelar sin medida', { frozen: true });
+    expect(exportPayload(sim, s)).toMatchObject({
+      lindegaard: null,
+      lindegaardDetalle: { estado: 'sin-captura' },
+    });
+  });
+
   it('detecta errores cuantitativos y protocolo incompleto', () => {
     const sim = buildReferenceCase();
     const s = createInitialState();

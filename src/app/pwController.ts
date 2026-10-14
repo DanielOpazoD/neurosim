@@ -455,7 +455,7 @@ export class PwController {
     if (this.sceneKey !== `${s.station}-${s.side}`) return;
     const comp = this.lastComposition;
     const vesselId = comp?.dominantVesselId ?? null;
-    if (!vesselId?.startsWith('aci-') || (comp?.bloodFraction ?? 0) < 0.2) return;
+    if (vesselId !== `aci-${s.side}` || (comp?.bloodFraction ?? 0) < 0.2) return;
     const measure: IcaMeasure = {
       taMaxCms: Math.abs(value.taMaxCms),
       psvCms: Math.abs(value.psvCms),
@@ -481,10 +481,17 @@ export class PwController {
     const s = this.state;
     if (s.station !== 'temporal') return null;
     const summary = this.latestMcaMeasure();
-    if (!summary || !this.lastComposition?.dominantVesselId?.startsWith('m1-')) return null;
+    if (
+      !summary ||
+      summary.beats < 2 ||
+      this.lastComposition?.dominantVesselId !== `m1-${s.side}` ||
+      this.lastComposition.bloodFraction < 0.2
+    )
+      return null;
+    const ica = s.icaMeasured[s.side];
     return lindegaardIndex(
       summary.taMaxCms,
-      s.icaMeasured[s.side]?.taMaxCms,
+      ica ? (ica.vesselId === `aci-${s.side}` ? ica.taMaxCms : Number.NaN) : null,
       this.sim.clinicalCase.icaExtracranialTamaxCms,
     );
   }
