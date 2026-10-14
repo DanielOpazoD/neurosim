@@ -15,7 +15,8 @@
  * con septos, cuatro rectos convergiendo al ápex y cono orbitario óseo.
  *
  * Dimensiones: adulto de referencia; el nervio NO es un cilindro perfecto —
- * excentricidad de la vaina ~0,5 según estudio 3D [silverman-3d-onsd-2026].
+ * sección elíptica con excentricidad geométrica e ≈ 0,5 (razón de ejes
+ * b/a = √(1 − e²) ≈ 0,86) según estudio 3D [silverman-3d-onsd-2026].
  */
 import { MATERIALS, type Material, type MaterialId } from './materials';
 import { add, cross, dist, dot, normalize, scale, smoothstep, sub, v3, type Vec3 } from '../core/vec3';
@@ -50,7 +51,7 @@ export interface EyeGeometry {
   readonly nerveRadiusMm: number;
   /** Grosor dural, mm. */
   readonly duraMm: number;
-  /** Excentricidad de la vaina (razón de ejes menor/mayor). */
+  /** Razón de ejes menor/mayor (b/a) de la sección de la vaina; no la excentricidad e (b/a = √(1 − e²)). */
   readonly sheathEcc: number;
   /** Desviación de la mirada (ángulo del eje ocular), rad — fase posterior; 0 en N1. */
   readonly gazeAngleRad: number;

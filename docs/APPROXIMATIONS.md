@@ -12,7 +12,7 @@ calibración.
 - **anatomia-ojo.irisApertureMm** — abertura pupilar representada; calibrar contra imágenes orbitales de referencia.
 - **anatomia-ojo.nerveRadiusMm** — radio ONND del fixture; calibrar contra mediciones ecográficas/3D.
 - **anatomia-ojo.duraMm** — grosor dural representado; calibrar contra anatomía publicada.
-- **anatomia-ojo.sheathEcc** — excentricidad de la vaina; calibrar con reconstrucciones 3D.
+- **anatomia-ojo.sheathEcc** — razón de ejes b/a de la vaina (no la excentricidad e; b/a = √(1 − e²)); 0,82 frente a ≈ 0,86 derivado de e = 0,51 ± 0,10 en 18 voluntarios (Silverman 3D). Calibrar con reconstrucciones 3D de más sujetos.
 - **anatomia-ojo.sheathEccJitter** — variación bilateral del fixture; calibrar con cohortes bilaterales.
 - **anatomia-ojo.sheathTaper** — taper hacia el ápex; calibrar con reconstrucciones longitudinales.
 - **anatomia-ojo.nerveTaper** — taper del nervio; calibrar con reconstrucciones longitudinales.

@@ -249,8 +249,17 @@ a WebGL2 en bloques posteriores.
   R10 (mueve dorados). Además: PyMUST se ejecuta en 2-D (sin foco de elevación),
   sin apodización, sin atenuación ni aberración ósea, con 64 elementos ideales y
   una rejilla de 0,025–0,05 mm (la anchura axial a 10 MHz cabe en 5–6 muestras).
-  Una segunda implementación de la acústica lineal acota el modelo; no sustituye
-  la medida en phantom ni la validación clínica.
+  Además, el ancho axial del modelo no lo fija `axialPulseMmMhz` sino el
+  muestreo: con dz = 1,5 λ, σ_axial = max(1 px, 2,2/f/dz) ≈ 0,95 px se recorta a
+  1 px en ambas sondas, así que la FWHM axial efectiva es ≈ 2,355·dz ≈ 3,5 λ y
+  bajar el parámetro no cambia nada; afinar el eje axial exige muestreo más fino
+  (coste ×2–3 en B-mode) y es una decisión de rendimiento (R10). La diferencia
+  lateral tampoco debe corregirse a ciegas: el término de transmisión coincide
+  con `pfield` y la combinación armónica tx/rx no puede dar una anchura de ida y
+  vuelta mayor que la de transmisión, luego la discrepancia está en la forma de
+  combinar (o en el motor) y requiere análisis antes de mover dorados. Una
+  segunda implementación de la acústica lineal acota el modelo; no sustituye la
+  medida en phantom ni la validación clínica.
 - **LIM-38 · Tono vasomotor y amplitudes cerca del colapso (DEC-80)**: el tono
   efectivo `TONE·cvrRatio` no se anula en la dilatación máxima, por lo que con
   PPC ≈ 0 la CrCP queda ~24 mmHg por encima de la PAM; el régimen de Starling
