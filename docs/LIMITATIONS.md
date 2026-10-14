@@ -251,3 +251,11 @@ a WebGL2 en bloques posteriores.
   una rejilla de 0,025–0,05 mm (la anchura axial a 10 MHz cabe en 5–6 muestras).
   Una segunda implementación de la acústica lineal acota el modelo; no sustituye
   la medida en phantom ni la validación clínica.
+- **LIM-38 · Tono vasomotor y amplitudes cerca del colapso (DEC-80)**: el tono
+  efectivo `TONE·cvrRatio` no se anula en la dilatación máxima, por lo que con
+  PPC ≈ 0 la CrCP queda ~24 mmHg por encima de la PAM; el régimen de Starling
+  evita el caudal neto negativo pero las espigas sistólicas de
+  `paradaCirculatoria` quedan pequeñas (≈ 0,05× el nominal) y, con PPC 20–25
+  mmHg, la normalización por 1 mmHg produce espigas de 7–11× el nominal y PI
+  saturado en 40. Recalibrar el tono con CrCP → PIC en dilatación máxima (Varsos 2013) exige revisar a la vez los umbrales docentes de PI con PIC 30/60 y los
+  casos. Sin cambios en el régimen normal.

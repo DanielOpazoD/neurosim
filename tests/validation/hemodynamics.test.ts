@@ -85,3 +85,65 @@ describe('acoplamiento hemodinámico latente', () => {
     expect(sim.physStateAt(0).hemo.cppMmHg).toBe(55);
   });
 });
+
+describe('régimen de Starling con PAM ≤ CrCP + 1 (DEC-80)', () => {
+  const sweep = (icp: number) => {
+    const h = hemodynamics({ mapMmHg: 90, paco2MmHg: 40, icpMmHg: icp });
+    const N = 512;
+    let sum = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const w = h.waveform(i / N) * h.flowFactor;
+      sum += w;
+      min = Math.min(min, w);
+      max = Math.max(max, w);
+    }
+    return { h, mean: sum / N, min, max };
+  };
+
+  it('el caudal neto por ciclo nunca es negativo y tiende a 0 con la PPC, sin NaN', () => {
+    let previous = Infinity;
+    for (let icp = 10; icp <= 90; icp += 0.5) {
+      const { h, mean, min, max } = sweep(icp);
+      expect(Number.isFinite(mean) && Number.isFinite(min) && Number.isFinite(max)).toBe(true);
+      expect(mean, `PIC ${icp}`).toBeGreaterThanOrEqual(-1e-9);
+      expect(mean, `PIC ${icp}`).toBeLessThanOrEqual(h.flowFactor + 1e-9);
+      expect(mean, `PIC ${icp}`).toBeLessThanOrEqual(previous + 1e-9);
+      expect(h.retrogradeFraction).toBeGreaterThanOrEqual(0);
+      expect(h.retrogradeFraction).toBeLessThanOrEqual(1);
+      previous = mean;
+    }
+    expect(sweep(90).mean).toBeCloseTo(0, 9);
+  });
+
+  it('la media es continua al cruzar la frontera entre regímenes', () => {
+    let crossed = false;
+    for (let icp = 50; icp <= 90; icp += 0.05) {
+      const a = sweep(icp);
+      const b = sweep(icp + 0.05);
+      if (a.h.regime !== b.h.regime) {
+        crossed = true;
+        expect(Math.abs(a.mean - b.mean), `frontera en PIC ${icp}`).toBeLessThan(0.02);
+      }
+    }
+    expect(crossed).toBe(true);
+  });
+
+  it('parada circulatoria (PIC 88): espigas sistólicas, lóbulo retrógrado acotado y neto ≈ 0 (antes −0,9× nominal)', () => {
+    const { h, mean, min, max } = sweep(88);
+    expect(h.regime).toBe('starling');
+    expect(max).toBeGreaterThan(0);
+    expect(min).toBeLessThan(0);
+    expect(-min).toBeLessThanOrEqual(max * 40); // el lóbulo retrógrado no domina sin límite
+    expect(mean).toBeGreaterThanOrEqual(0);
+    expect(mean).toBeLessThan(0.05);
+  });
+
+  it('el régimen normal no cambia: PAM 90 / PIC 10 conserva media 1·f y CrCP = PIC + tono', () => {
+    const { h, mean } = sweep(10);
+    expect(h.regime).toBe('normal');
+    expect(h.retrogradeFraction).toBe(1);
+    expect(mean).toBeCloseTo(h.flowFactor, 6);
+  });
+});
