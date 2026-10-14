@@ -1445,3 +1445,34 @@ protegen; queda como LIM-38 junto con las espigas de 7–11× el nominal con
 PPC 20–25 (herencia de la normalización por 1 mmHg). Pruebas: barrido PIC
 10–90 con caudal neto ≥ 0, monótono no creciente, sin NaN y continuo en la
 frontera (`tests/validation/hemodynamics.test.ts`).
+
+## DEC-81 · Dinámica de la regulación cerebrovascular (R12, parte 2)
+
+**Problema.** `setPhysiology` recalculaba `hemodynamics()` al instante: un
+escalón de PAM, PIC o PaCO₂ cambiaba el flujo en el mismo fotograma, sin la
+respuesta vascular que distingue autorregulación conservada de alterada
+(auditoría de fisiología: «funciones globales multiplicativas, sin tiempo de
+respuesta»).
+
+**Decisión.** `RegulationDynamics` (`src/physiology/dynamics.ts`) separa las
+entradas (presiones y CO₂, instantáneas) de la regulación (lenta). El estado
+es `{cvrAutoRatio, co2Factor}`: `hemodynamics(inp, regulation)` calcula
+`flowFactor = (PPC/PPC₀)/cvr` con `cvr = cvrAutoRatio/co2Factor`, de modo que
+en estado estacionario coincide exactamente con el modelo anterior
+(`autoregulationFactor·co2Factor`) y la CrCP sigue siendo `PIC + TONE·cvr`.
+Tras un escalón en `atS`, cada factor relaja de primer orden desde su valor
+instantáneo: la resistencia autorreguladora con `autoregTauS` (5 s; Aaslid
+1989, Tiecks 1995) y el CO₂ con retardo `co2DelayS` (3 s) y `co2TauS` (8 s;
+Poulin 1996). Justo tras una caída de PAM el flujo es pasivo a la presión
+(resistencia aún antigua) y luego se recupera; con `autoregulation:
+'alterada'` (campo opcional del caso clínico) `cvrAutoRatio` queda fijo en el
+basal y el flujo sigue a la PPC. Las entradas son constantes a trozos, así
+que la relajación tiene solución cerrada y `physStateAt(t)` es determinista
+e independiente de la cadencia de render (SimulationClock único). Sin `atS`
+el cambio sigue siendo instantáneo (pruebas, exportación, protocolo PW); los
+deslizadores de la UI pasan `clock.t`.
+
+**Límites.** Primer orden sin la oscilación amortiguada del ARI, sin
+asimetría hiper/hipocapnia, sin dinámica PIC–volumen (LIM-19) ni acople
+entre territorios; `co2TauS`/`autoregTauS` son constantes efectivas
+(`evidence: 'estimado'`), no parámetros identificados por paciente.

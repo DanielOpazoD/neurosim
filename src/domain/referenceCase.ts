@@ -16,7 +16,8 @@ import { Respiration } from '../physiology/respiration';
 import { FISIOLOGIA } from '../physiology/params';
 import type { BasalPhysiology } from './contracts';
 import type { Side } from './contracts';
-import { hemodynamics, onsdForIcpMm } from '../physiology/hemodynamics';
+import { onsdForIcpMm } from '../physiology/hemodynamics';
+import { RegulationDynamics } from '../physiology/dynamics';
 import type { ClinicalCase } from './cases';
 import { caseById } from './cases';
 
@@ -36,7 +37,9 @@ export interface ReferenceCase {
   /** Caso clínico activo (parámetros estáticos; ver src/domain/cases.ts). */
   readonly clinicalCase: ClinicalCase;
   readonly physStateAt: (t: number) => PhysState;
-  readonly setPhysiology: (p: BasalPhysiology) => void;
+  /** Sin `atS` el cambio es instantáneo; con `atS` la regulación relaja desde ese instante (DEC-81). */
+  readonly setPhysiology: (p: BasalPhysiology, atS?: number) => void;
+  readonly regulation: RegulationDynamics;
   /** Revisión local del estado fisiológico, también al cambiar y volver al valor previo. */
   readonly physiologyRevision: number;
   /** Verdades del modelo medibles en pantalla (docencia). */
@@ -84,7 +87,7 @@ export function buildReferenceCase(
   const respiration = new Respiration(FISIOLOGIA.params.respiratoryRatePerMin.value);
   const cardiac = new CardiacCycle(physiology.heartRateBpm, seed, respiration);
   const flow = new CerebralFlow(head, physiology);
-  let currentHemo = hemodynamics(physiology);
+  const regulation = new RegulationDynamics(physiology, cc.autoregulation ?? 'conservada');
   let physiologyRevision = 0;
   const physStateAt = (t: number): PhysState => ({
     t,
@@ -92,9 +95,9 @@ export function buildReferenceCase(
     heartRateBpm: physiology.heartRateBpm,
     respiratoryPhase: respiration.phaseAt(t),
     flowModulation: 1 + FISIOLOGIA.params.respFlowModulation.value * respiration.signalAt(t),
-    hemo: currentHemo,
+    hemo: regulation.hemodynamicsAt(t),
   });
-  const setPhysiology = (next: BasalPhysiology): void => {
+  const setPhysiology = (next: BasalPhysiology, atS?: number): void => {
     if (
       Object.keys(physiology).some(
         (key) => physiology[key as keyof BasalPhysiology] !== next[key as keyof BasalPhysiology],
@@ -103,7 +106,7 @@ export function buildReferenceCase(
       physiologyRevision += 1;
     physiology = { ...next };
     patient.physiology = physiology;
-    currentHemo = hemodynamics(physiology);
+    regulation.setTarget(physiology, atS);
     const dvno = {
       der: onsdForIcpMm(MANIFEST.case.dvnoIntMm.der, physiology.icpMmHg),
       izq: onsdForIcpMm(MANIFEST.case.dvnoIntMm.izq, physiology.icpMmHg),
@@ -125,6 +128,7 @@ export function buildReferenceCase(
     clinicalCase: cc,
     physStateAt,
     setPhysiology,
+    regulation,
     get physiologyRevision() {
       return physiologyRevision;
     },

@@ -27,6 +27,8 @@ export interface ClinicalCase {
   /** Viñeta clínica de 1–2 líneas mostrada en el panel del instructor. */
   readonly summary: string;
   readonly physiology: { mapMmHg: number; paco2MmHg: number; icpMmHg: number };
+  /** Autorregulación dinámica (DEC-81); por defecto conservada. */
+  readonly autoregulation?: 'conservada' | 'alterada';
   readonly willisVariant: WillisVariant;
   /** id de vaso → factor sobre el radio (1 = sin cambio; el flujo no varía). */
   readonly vesselRadiusScale: Readonly<Record<string, number>>;

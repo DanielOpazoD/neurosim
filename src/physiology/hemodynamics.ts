@@ -51,12 +51,12 @@ function shapeExtrema(): { min: number; max: number } {
   return { min, max };
 }
 
-function co2Factor(paco2MmHg: number): number {
+export function co2Factor(paco2MmHg: number): number {
   const p = Math.max(20, Math.min(80, paco2MmHg));
   return Math.exp(CO2_K * (p - 40));
 }
 
-function autoregulationFactor(cppMmHg: number): number {
+export function autoregulationFactor(cppMmHg: number): number {
   const slope = FISIOLOGIA.params.autoregSlopePer10.value;
   if (cppMmHg < 50) return (0.95 * Math.max(0, cppMmHg)) / 50;
   if (cppMmHg <= 150) return 1 + ((cppMmHg - CPP0) / 10) * slope;
@@ -76,10 +76,34 @@ function vasomotorToneMmHg(cvrRatio: number): number {
 const STARLING_DELTA_MMHG = 1;
 const CYCLE_SAMPLES = 512;
 
-export function hemodynamics(inp: HemodynamicInput): HemodynamicState {
+/** Razón de resistencia en la dilatación máxima del modelo (PPC < 50). */
+export const CVR_MIN_RATIO = 50 / CPP0 / 0.95;
+
+/**
+ * Estado de regulación: razón de resistencia autorreguladora (R/R₀ sin el
+ * efecto del CO₂) y factor de reactividad al CO₂. En estado estacionario
+ * `flowFactor = autoregulationFactor(PPC)·co2Factor(PaCO₂)`; la dinámica
+ * (`RegulationDynamics`) los hace relajar con constantes de tiempo.
+ */
+export interface Regulation {
+  readonly cvrAutoRatio: number;
+  readonly co2Factor: number;
+}
+
+export function steadyRegulation(inp: HemodynamicInput): Regulation {
+  const cpp = inp.mapMmHg - inp.icpMmHg;
+  const cvrAutoRatio =
+    cpp <= 0 ? CVR_MIN_RATIO : cpp / CPP0 / Math.max(Number.EPSILON, autoregulationFactor(cpp));
+  return { cvrAutoRatio, co2Factor: co2Factor(inp.paco2MmHg) };
+}
+
+export function hemodynamics(
+  inp: HemodynamicInput,
+  regulation: Regulation = steadyRegulation(inp),
+): HemodynamicState {
   const cppMmHg = inp.mapMmHg - inp.icpMmHg;
-  const flowFactor = co2Factor(inp.paco2MmHg) * autoregulationFactor(cppMmHg);
-  const cvrRatio = cppMmHg / CPP0 / Math.max(Number.EPSILON, flowFactor);
+  const cvrRatio = regulation.cvrAutoRatio / Math.max(Number.EPSILON, regulation.co2Factor);
+  const flowFactor = Math.max(0, cppMmHg) / CPP0 / Math.max(Number.EPSILON, cvrRatio);
   const crcpMmHg = inp.icpMmHg + vasomotorToneMmHg(cvrRatio);
   const pulsePressureMmHg = FISIOLOGIA.params.pulsePressureMmHg.value;
   const mean = shapeMean();
