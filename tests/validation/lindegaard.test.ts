@@ -1,8 +1,8 @@
 /**
  * Lindegaard con la ACI medida (DEC-58): la hiperemia (hipercapnia) sube la
  * ACM y la ACI a la vez (índice < 3); el vasoespasmo sube solo la ACM
- * (índice ≥ 3). La ACI se mide con PW en la ventana submandibular; la TAMax
- * de la ACM es la del modelo (M1 casi alineada con el haz temporal).
+ * (índice ≥ 3). La primera prueba usa TAMax del modelo; la ruta del
+ * controlador exige además alcance físico y señal interpretable (DEC-73).
  */
 import { describe, expect, it } from 'vitest';
 import { buildReferenceCase } from '../../src/domain/referenceCase';
@@ -64,8 +64,8 @@ describe('Lindegaard con ACI medida', () => {
     expect(liHyper.ratio).toBeLessThan(3);
   });
 
-  it('vasoespasmo ≥ 3 con la ACI medida por el controlador PW (ruta de la app)', () => {
-    const sim = buildReferenceCase(undefined, 'normal', caseById('vasoespasmo'));
+  it.each(['normal', 'vasoespasmo'])('ACI→ACM con PRF factible en %s por el controlador PW', (caseId) => {
+    const sim = buildReferenceCase(undefined, 'normal', caseById(caseId));
     const s = submandibularState(sim, 'izq');
     const pw = new PwController(sim, s, new SyncPwTransport());
     let nowMs = 0;
@@ -83,7 +83,7 @@ describe('Lindegaard con ACI medida', () => {
     expect(s.icaMeasured.der).toBeNull();
     // Sin puerta en M1 (estación submandibular) no hay índice.
     expect(pw.lindegaard()).toBeNull();
-    // Temporal izq con la puerta en la M1 espástica (PRF alta: PSV > 200 cm/s).
+    // El antiguo fixture de 16 kHz a ~62 mm no es PW de rango único.
     s.station = 'temporal';
     s.settings = { ...defaultTemporalSettings(), prfHz: 16000 };
     const target = sim.head.vessels.find((v) => v.id === 'm1-izq')!.points[2]!;
@@ -93,20 +93,29 @@ describe('Lindegaard con ACI medida', () => {
     pw.reset();
     runPw(pw, clock, 4);
     nowMs += 1000;
-    expect(pw.latestCapture()?.status).toBe('puerta-no-fiable');
+    expect(pw.latestCapture()?.status).toBe('prf-inviable');
     expect(pw.lindegaard()).toBeNull();
     const w = solveOptimalWindow(sim, 'temporal', 'izq');
     Object.assign(s, w.probe);
     s.gateUMm = w.gate!.uMm;
     s.gateDepthMm = w.gate!.depthMm;
+    s.settings = { ...s.settings, prfHz: 11000 };
+    expect(pw.pulseTiming().status).toBe('compatible');
     pw.reset();
     runPw(pw, clock, 4);
     nowMs += 1000;
     const li = pw.lindegaard();
+    if (caseId === 'vasoespasmo') {
+      // Un PRF realizable no elimina el aliasing del fixture a 2 MHz.
+      expect(pw.latestCapture()?.status).toBe('bidireccional');
+      expect(pw.latestMcaMeasure()).toBeNull();
+      expect(li).toBeNull();
+      return;
+    }
     expect(li).not.toBeNull();
     expect(li!.icaSource).toBe('medida');
     expect(li!.icaTaMaxCms).toBeCloseTo(ica!.taMaxCms, 9);
-    expect(li!.ratio).toBeGreaterThanOrEqual(3);
+    expect(li!.ratio).toBeLessThan(3);
     // Una ACI contralateral mal almacenada no se transforma en referencia.
     s.icaMeasured = { ...s.icaMeasured, izq: { ...ica!, vesselId: 'aci-der' } };
     expect(pw.lindegaard()!.ratio).toBeNaN();

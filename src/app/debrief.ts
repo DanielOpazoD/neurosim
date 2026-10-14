@@ -344,7 +344,13 @@ export function buildDebrief(
     if (event.kind !== 'freeze') continue;
     if (event.data?.frozen === false) continue;
     const status = event.data?.pwStatus;
-    if (status === 'contexto-incompatible' || status === 'puerta-no-fiable' || status === 'angulo-invalido') {
+    if (
+      status === 'contexto-incompatible' ||
+      status === 'puerta-no-fiable' ||
+      status === 'angulo-invalido' ||
+      status === 'prf-inviable' ||
+      status === 'parametros-invalidos'
+    ) {
       add('pw-contexto-invalido', 'aviso', pwCaptureStatusText(status), { status });
       continue;
     }

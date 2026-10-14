@@ -178,8 +178,20 @@ a WebGL2 en bloques posteriores.
   fisiológico estático; no tiene una caducidad clínica validada. El índice no
   certifica equivalencia entre técnicas de adquisición o corrección angular.
   El registro distingue PW con imagen, no un modo TCD ciego independiente.
-  La factibilidad PRF/profundidad, los calipers espectrales manuales y la
-  dinámica fisiológica siguen fuera de este guardrail. El JSON conserva
+  Los calipers espectrales manuales y la dinámica fisiológica siguen fuera
+  de este guardrail; el límite ideal PRF/alcance se aborda en DEC-73. El JSON conserva
   fisiología y anatomía de adquisición para reproducción en modo docente.
   Los informes de alumno omiten fisiología latente y ángulo real, pero no
   son un formato de examen protegido ni impiden inspeccionar el modelo local.
+
+- **LIM-32 · Alcance PW ideal, no HPRF**: DEC-73 impide interpretar la captura
+  automática cuando PRF supera el tiempo ideal de ida/vuelta del soporte
+  nominal. No representa puertas fantasma ni ambigüedad de rango, no simula
+  secuenciación duplex/triplex ni tiempos muertos y no garantiza ausencia
+  de contaminación desde fuera de puerta aunque el límite se cumpla. Los
+  timestamps son de muestreo simulado, sin retardo de propagación. Restaurar
+  alcance bajando PRF no elimina el aliasing de velocidad; el fixture de
+  vasoespasmo a 2 MHz puede seguir sin índice interpretable. La cota geométrica
+  y el soporte estimado requieren contraste externo antes de uso clínico.
+  No se limita aquí el presupuesto PRF/rango del Doppler color, ni existe un
+  secuenciador de emisión compartido con B-mode: sigue pendiente su modelado.

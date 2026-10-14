@@ -164,9 +164,10 @@ export class SampleVolumeIQ {
       Math.abs(g.lengthMm - this.gate.lengthMm) > 0.5;
     this.gate = g;
     if (!Number.isFinite(this.transmissionNow)) this.transmissionNow = g.transmission;
-    this.halfAxial = g.lengthMm / 2 + 2.5 * g.pulseSigmaMm;
-    this.halfLateral = 2.5 * g.lateralSigmaMm;
-    this.halfElev = 2.5 * g.elevationSigmaMm;
+    const support = DOPPLER.params.sampleVolumeSupportSigma.value;
+    this.halfAxial = g.lengthMm / 2 + support * g.pulseSigmaMm;
+    this.halfLateral = support * g.lateralSigmaMm;
+    this.halfElev = support * g.elevationSigmaMm;
     if (moved || this.scatterers.length === 0) this.reseed();
   }
 

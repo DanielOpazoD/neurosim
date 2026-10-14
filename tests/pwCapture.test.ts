@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { DopplerAudio } from '../src/doppler/audio';
+
 import { SimulationClock } from '../src/core/clock';
 import { buildReferenceCase } from '../src/domain/referenceCase';
 import { defaultTemporalSettings } from '../src/domain/settings';
@@ -11,6 +13,13 @@ import { exportPayload } from '../src/app/exporter';
 import { buildGuideContext } from '../src/app/guideContext';
 import { buildDebrief } from '../src/app/debrief';
 import { submandibularState } from './validation/helpers';
+
+vi.mock('../src/doppler/audio', () => ({
+  DopplerAudio: class {
+    reset = vi.fn();
+    pushIQ = vi.fn();
+  },
+}));
 
 function fixture(station: 'temporal' | 'submandibular' = 'temporal') {
   const sim = buildReferenceCase();
@@ -135,6 +144,73 @@ describe('contexto adquirido PW (R03)', () => {
     expect(f.pw.columns).toHaveLength(0);
     f.deliver(f.reply(4));
     expect(f.pw.columns[0]!.t).toBe(4);
+  });
+
+  it('no mide ni calcula Lindegaard con PRF físicamente inviable a esa profundidad', () => {
+    const f = fixture();
+    f.s.settings = { ...f.s.settings, prfHz: 16000 };
+    f.pw.step(f.clock, 0.064);
+    f.deliver();
+    expect(f.pw.latestCapture()?.status).toBe('prf-inviable');
+    expect(f.pw.latestMcaMeasure()).toBeNull();
+    expect(f.pw.lindegaard()).toBeNull();
+    expect(f.pw.latestCapture()).toMatchObject({
+      schemaVersion: 2,
+      timing: { status: 'prf-inviable', prfHz: 16000, nyquistHz: 8000 },
+      summary: null,
+    });
+  });
+
+  it('profundizar la puerta cambia el alcance; zoom y baseline no lo corrigen', () => {
+    const f = fixture();
+    f.s.settings = { ...f.s.settings, prfHz: 10000 };
+    const original = f.pw.pulseTiming();
+    expect(original.status).toBe('compatible');
+    f.s.settings = { ...f.s.settings, depthMm: 150, baseline: 0.8, angleCorrectionDeg: 45 };
+    expect(f.pw.pulseTiming()).toEqual(original);
+    f.s.gateDepthMm = 100;
+    expect(f.pw.pulseTiming().status).toBe('prf-inviable');
+    f.pw.step(f.clock, 0.064);
+    f.deliver();
+    expect(f.pw.latestCapture()?.status).toBe('prf-inviable');
+    f.s.settings = { ...f.s.settings, prfHz: 4000 };
+    f.pw.step(f.clock, 0.064);
+    f.deliver();
+    expect(f.pw.latestCapture()?.timing.status).toBe('compatible');
+  });
+
+  it('no envía audio de una configuración inviable y lo recupera con PRF admisible', () => {
+    const f = fixture();
+    const audio = new DopplerAudio();
+    f.pw.setAudioSink(audio);
+    f.s.settings = { ...f.s.settings, prfHz: 16000 };
+    f.pw.step(f.clock, 0.064);
+    const data = { iqRe: new Float32Array([1]), iqIm: new Float32Array([0]) };
+    f.deliver({ ...f.reply(), ...data });
+    expect(audio.pushIQ).not.toHaveBeenCalled();
+    expect(f.pw.columns).toEqual([]);
+    f.s.settings = { ...f.s.settings, prfHz: 4000 };
+    f.pw.step(f.clock, 0.064);
+    f.deliver({ ...f.reply(), ...data });
+    expect(audio.pushIQ).toHaveBeenCalledOnce();
+    expect(f.pw.columns.length).toBeGreaterThan(0);
+  });
+
+  it('conserva el límite físico original en la captura exportada aunque cambien los controles', () => {
+    const f = fixture();
+    f.s.teachingMode = true;
+    f.s.settings = { ...f.s.settings, prfHz: 16000 };
+    f.pw.step(f.clock, 0.064);
+    f.deliver();
+    const capture = f.pw.latestCapture()!;
+    f.s.debrief.record('freeze', 'congelar', { frozen: true, pwStatus: capture.status }, capture);
+    f.s.settings = { ...f.s.settings, prfHz: 4000 };
+    expect(exportPayload(f.sim, f.s)).toMatchObject({
+      pwDetalle: {
+        estado: 'prf-inviable',
+        captura: { timing: capture.timing, status: 'prf-inviable', summary: null },
+      },
+    });
   });
 
   it.each(['mapMmHg', 'icpMmHg', 'paco2MmHg', 'heartRateBpm'] as const)(
@@ -305,24 +381,27 @@ describe('contexto adquirido PW (R03)', () => {
     expect(f.s.debrief.events()[0]!.pwCapture?.context.physiology.icpMmHg).toBe(10);
   });
 
-  it.each(['contexto-incompatible', 'puerta-no-fiable', 'angulo-invalido'] as const)(
-    'debrief/export conservan %s sin índices automáticos',
-    (status) => {
-      const f = fixture();
-      f.s.debrief.record('freeze', 'congelar', {
-        frozen: true,
-        pwStatus: status,
-        lindegaardSource: 'referencia',
-        mcaTaMaxCms: 200,
-        icaTaMaxCms: 40,
-        pi: 5,
-      });
-      const report = buildDebrief(f.s.debrief, f.sim, f.s, f.sim.physStateAt(0).hemo);
-      expect(report.findings.some((item) => item.code === 'pw-contexto-invalido')).toBe(true);
-      expect(report.findings.some((item) => item.code === 'pi-vs-esperado')).toBe(false);
-      expect(exportPayload(f.sim, f.s)).toMatchObject({ lindegaard: null, pwDetalle: { estado: status } });
-    },
-  );
+  it.each([
+    'contexto-incompatible',
+    'puerta-no-fiable',
+    'angulo-invalido',
+    'prf-inviable',
+    'parametros-invalidos',
+  ] as const)('debrief/export conservan %s sin índices automáticos', (status) => {
+    const f = fixture();
+    f.s.debrief.record('freeze', 'congelar', {
+      frozen: true,
+      pwStatus: status,
+      lindegaardSource: 'referencia',
+      mcaTaMaxCms: 200,
+      icaTaMaxCms: 40,
+      pi: 5,
+    });
+    const report = buildDebrief(f.s.debrief, f.sim, f.s, f.sim.physStateAt(0).hemo);
+    expect(report.findings.some((item) => item.code === 'pw-contexto-invalido')).toBe(true);
+    expect(report.findings.some((item) => item.code === 'pi-vs-esperado')).toBe(false);
+    expect(exportPayload(f.sim, f.s)).toMatchObject({ lindegaard: null, pwDetalle: { estado: status } });
+  });
 
   it('el evento conserva la ACI asociada aunque después se mida otra', () => {
     const f = fixture('submandibular');

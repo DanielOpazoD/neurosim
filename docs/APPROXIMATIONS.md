@@ -151,6 +151,14 @@ calibración.
 - **doppler.colorReferenceSnrDb** — referencia de presentación de 20 dB sobre
   potencia media de ruido receptor; calibración visual pendiente con equipo
   y fantoma físicos, sin dependencia de anatomía ni transmisión del paciente.
+
+- **doppler.sampleVolumeSupportSigma** — alcance PW (DEC-73) bajo un límite ideal con velocidad de reconstrucción
+  homogénea de 1540 m/s; soporte nominal acotado por `sampleVolumeSupportSigma`
+  = 2,5 σ, valor estimado heredado del volumen IQ, no un ancho acústico
+  validado. Considera los vértices de la caja y su base sectorial no
+  ortogonal; ignora tiempos muertos, refracción, heterogeneidad de velocidad
+  y ecos fuera de puerta. Las marcas de columnas no incluyen retardo de
+  propagación. Es un guardrail docente necesario, no un secuenciador real.
 - **doppler.colorFalseAlarmProbability** — cota elegida de 10⁻⁴ por celda para
   ruido gaussiano puro mediante desigualdad chi-cuadrado; validar en fantomas
   reales y modelar clutter no gaussiano antes de extrapolarla clínicamente.

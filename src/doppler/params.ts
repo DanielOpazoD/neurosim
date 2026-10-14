@@ -29,6 +29,14 @@ export const DOPPLER = defineParameters('doppler', {
     sources: ['plan-simulador-2026'],
     note: 'Población virtual total por puerta.',
   },
+  sampleVolumeSupportSigma: {
+    value: 2.5,
+    unit: 'σ',
+    range: [2, 4],
+    evidence: 'estimado',
+    sources: ['plan-simulador-2026'],
+    note: 'Soporte finito nominal del volumen IQ en sigmas; cota geométrica docente para el alcance PW.',
+  },
   scatterersVesselMax: {
     value: 32,
     unit: 'dispersores',
