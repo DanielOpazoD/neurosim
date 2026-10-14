@@ -66,3 +66,13 @@ declarados libres, tubos sin nodo común no se interpenetran, las ramas de la AC
 nacen sobre el tronco, la ACI cervical y el sifón comparten nodo, el eje temporal
 de cada ojo apunta hacia afuera y el nervio se acerca al plano medio, y los dos
 ojos son especulares. Invariantes geométricas del fixture; no validan anatomía.
+
+## Atlas TopCoW (DEC-77)
+
+`tests/validation/atlasComparison.test.ts` lee `data/atlas/*.json` (derivados
+de TopCoW; ver PROVENANCE), comprueba procedencia, lateralidad y ejes de cada
+caso, la coherencia entre el yml de topología y las etiquetas presentes, y que
+las métricas del fixture fuera de la envolvente [mín, máx] del atlas sean
+exactamente las declaradas en LIM-36. Regenerar los JSON con
+`python3 scripts/atlas/topcow_extract.py <subconjunto> <salida.json> --zip …`
+(numpy, scipy, nibabel, scikit-image) y actualizar los SHA-256 de PROVENANCE.

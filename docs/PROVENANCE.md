@@ -55,3 +55,24 @@ Distribuido con los ejemplos de three.js (MIT el código; el modelo conserva su
 licencia CC BY 3.0). Cambios: ninguno en los archivos; en tiempo de ejecución
 se escala y traslada la malla (semejanza, `src/ui/headFit.ts`) y se le aplica
 un material propio. La atribución también figura en el pie de la interfaz.
+
+## Derivados de datos externos (DEC-77)
+
+Métricas del polígono de Willis extraídas offline de las máscaras multiclase de
+TopCoW (Zenodo 10.5281/zenodo.15692630) con `scripts/atlas/topcow_extract.py`
+(Python: numpy, scipy, nibabel, scikit-image; no forma parte de `npm run
+check`). Solo se redistribuye el JSON derivado (centerlines submuestreadas,
+radios, longitudes y topología por caso); ningún volumen NIfTI ni imagen entra
+en el repositorio. `provenance:check` verifica el SHA-256 de cada derivado, el
+archivo de licencia y que no haya archivos en `data/atlas` sin fila.
+
+| Archivo                              | Origen                                  | SHA-256                                                          | Licencia                  | Archivo de licencia             | Uso                                         |
+| ------------------------------------ | --------------------------------------- | ---------------------------------------------------------------- | ------------------------- | ------------------------------- | ------------------------------------------- |
+| `data/atlas/topcow-cta-largeia.json` | TopCoW · `CTA_LargeIA.zip` (Zenodo)     | ad37ac755cc556306b4e873ed83764403eac80e069ee22bbb78a515a873cd5f7 | TopCoW Data Usage License | `data/atlas/TopCoW_License.txt` | 20 casos CTA, aneurisma intracraneal grande |
+| `data/atlas/topcow-mra-ixi-hh.json`  | TopCoW · `MRA_IXI_HH.zip` (Zenodo; IXI) | 81d00f938565bd0ec6c09a7cbd9f6ad205da8f6f7adb2641757cce58700b5daa | TopCoW Data Usage License | `data/atlas/TopCoW_License.txt` | 20 casos MRA-TOF, voluntarios sanos         |
+
+Los SHA-256 de los ZIP de origen quedan dentro de cada JSON (`source.zipSha256`).
+**Atribución**: Yang K. et al., TopCoW challenge («Benchmarking the CoW with
+the TopCoW Challenge»), datos en Zenodo 10.5281/zenodo.15692630; el subconjunto
+IXI procede de [IXI](https://brain-development.org/ixi-dataset/) (CC BY-SA 3.0).
+Uso docente no comercial; el uso comercial requiere permiso de los autores.
