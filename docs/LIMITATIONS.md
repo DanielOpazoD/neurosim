@@ -55,7 +55,10 @@ siguiente existe todavía por diseño del plan:
   interfaz axiales y laterales (DEC-64) y refracción del cristalino; aún no
   modela reverb de multicamino, shadowing complejo fuera de esa interfaz ni
   espesor de corte elevacional (el haz B-mode es infinitamente fino en
-  elevación: `elevationFwhmMm` solo alimenta el Doppler color).
+  elevación: `elevationFwhmMm` solo alimenta el Doppler color). Desde DEC-83
+  la absorción integra distancia física, pero los cruces siguen localizados
+  a un paso de marcha: las capas más finas pueden omitirse. La pérdida
+  escalar de ventana no modela aberración de fase ni refracción ósea.
 - **LIM-05 · Normal de interfaz**: se estima contando cambios de material por
   eje (±0,3 mm); desde DEC-65 conserva los signos relativos, pero sigue
   cuantizada. No estima una normal continua ni el Jacobiano de la deformación.
