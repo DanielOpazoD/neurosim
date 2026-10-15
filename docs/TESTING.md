@@ -109,3 +109,11 @@ registro tiempo–profundidad y concordancia con `pathAttenuationDb`; placas
 óseas de dos espesores con tres pasos y cota analítica del error de cruce.
 La comparación no valida α ni la transmisión real del cráneo: comprueba
 que el renderer usa la longitud física que efectivamente recorre.
+
+`tests/validation/artifactPaths.test.ts` (DEC-84): pantalla controlada de
+10 dB en el trayecto de un reflector → pérdidas de 10/20/30 dB en primario
+y reverberaciones de segundo/tercer orden; fuente superficial sin pérdida
+y espejo con 20 dB adicionales; láminas de 0,5/1 mm → seis réplicas de cometa
+separadas por el tránsito de la lámina. Una pérdida frontal escala todas
+por igual; una pérdida de vuelta interna escala según el número de vueltas.
+La inspección se hace sobre IQ, antes de que la PSF mezcle ecos no resueltos.

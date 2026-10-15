@@ -58,11 +58,12 @@ interface InterfaceEvent {
   readonly zi: number;
   readonly rc: number;
   readonly attDb: number;
+  readonly amplitude: number;
 }
 
-interface ThinStrongEntry {
-  readonly zi: number;
-  readonly rc: number;
+interface CometEvent extends InterfaceEvent {
+  readonly stepSamples: number;
+  readonly layerLossDb: number;
 }
 
 const EPS = FISICA_US.params.interfaceEpsMm.value;
@@ -194,9 +195,9 @@ export function renderBMode(
     let dir = line.dir;
     let travelledMm = 0;
     const interfaceEvents: InterfaceEvent[] = [];
-    const cometEvents: ThinStrongEntry[] = [];
-    let mirror: { zi: number; rc: number } | null = null;
-    let thinStrong: ThinStrongEntry | null = null;
+    const cometEvents: CometEvent[] = [];
+    let mirror: InterfaceEvent | null = null;
+    let thinStrong: InterfaceEvent | null = null;
 
     for (let zi = 0; zi < height; zi++) {
       const q = scene.warp ? scene.warp(p) : p;
@@ -218,20 +219,33 @@ export function renderBMode(
         const gain = Math.pow(Math.min(1, cosA), specularPow(m)); // haz ∥ normal → retorno máximo
         const amp = rc * (0.4 + 0.6 * gain) * INTERFACE_ECHO_GAIN;
         re += amp;
+        const event: InterfaceEvent = {
+          zi,
+          rc,
+          attDb: attDb + lensShadowDb,
+          amplitude: amp * txGainLin[zi]!,
+        };
         const involvesLens = matId === 'cristalino' || prevMat === 'cristalino';
         if (rc > FISICA_US.params.reverbRcThreshold.value && zi * dz >= 2 && !involvesLens) {
-          interfaceEvents.push({ zi, rc, attDb });
+          interfaceEvents.push(event);
         }
         const involvesBone = matId === 'hueso' || prevMat === 'hueso';
         if (involvesBone && rc > 0.5 && cosA > 0.8 && (!mirror || rc > mirror.rc)) {
-          mirror = { zi, rc };
+          mirror = event;
         }
         if (isThinStrongMaterial(matId) && rc > 0.5) {
-          thinStrong = { zi, rc };
+          thinStrong = event;
         } else if (thinStrong && isThinStrongMaterial(prevMat)) {
-          const thicknessMm = (zi - thinStrong.zi) * dz;
+          const stepSamples = zi - thinStrong.zi;
+          const thicknessMm = stepSamples * dz * (prevM.cMs / cRef);
           if (thicknessMm < 1.5) {
-            cometEvents.push({ zi, rc: thinStrong.rc });
+            cometEvents.push({
+              ...thinStrong,
+              zi,
+              attDb: event.attDb,
+              stepSamples,
+              layerLossDb: Math.max(0, event.attDb - thinStrong.attDb),
+            });
           }
           thinStrong = null;
         }
@@ -269,21 +283,20 @@ export function renderBMode(
 
     if (mirror && mirror.zi > 0) {
       const mirrorLength = Math.min(mirror.zi, Math.round(15 / dz));
-      const mirrorScale = mirror.rc * FISICA_US.params.mirrorGain.value;
       for (let offset = 1; offset <= mirrorLength; offset++) {
         const sourceZi = mirror.zi - offset;
         const targetZi = mirror.zi + offset;
         if (targetZi >= height) break;
         const source = (sourceZi * width + li) * 2;
         const target = (targetZi * width + li) * 2;
+        const extraLossDb = 2 * Math.max(0, mirror.attDb - attGrid[sourceZi * width + li]!);
+        const mirrorScale = mirror.rc * FISICA_US.params.mirrorGain.value * 10 ** (-extraLossDb / 20);
         iQ[target]! += iQ[source]! * mirrorScale;
         iQ[target + 1]! += iQ[source + 1]! * mirrorScale;
       }
     }
 
     for (const event of interfaceEvents) {
-      const eventDepthMm = Math.max(dz, (event.zi + 1) * dz);
-      const attenuationRate = event.attDb / eventDepthMm;
       const secondZi = event.zi * 2;
       const thirdZi = event.zi * 3;
       addArtifactEcho(
@@ -292,8 +305,8 @@ export function renderBMode(
         height,
         li,
         secondZi,
-        event.rc * event.rc * FISICA_US.params.reverbGain.value * 0.5 * INTERFACE_ECHO_GAIN,
-        attenuationRate * Math.max(0, secondZi - event.zi) * dz,
+        event.amplitude * event.rc * FISICA_US.params.reverbGain.value * 0.5,
+        2 * event.attDb,
       );
       addArtifactEcho(
         iQ,
@@ -301,17 +314,12 @@ export function renderBMode(
         height,
         li,
         thirdZi,
-        event.rc *
-          event.rc *
-          event.rc *
-          Math.pow(FISICA_US.params.reverbGain.value, 2) *
-          0.25 *
-          INTERFACE_ECHO_GAIN,
-        attenuationRate * Math.max(0, thirdZi - event.zi) * dz,
+        event.amplitude * event.rc * event.rc * Math.pow(FISICA_US.params.reverbGain.value, 2) * 0.25,
+        3 * event.attDb,
       );
     }
     for (const event of cometEvents) {
-      addCometEchoes(iQ, width, height, li, event.zi, event.rc, dz);
+      addCometEchoes(iQ, width, height, li, event);
     }
   }
 
@@ -372,11 +380,11 @@ function addArtifactEcho(
   lineIndex: number,
   zi: number,
   amplitude: number,
-  extraAttenuationDb: number,
+  attenuationDb: number,
 ): void {
   if (zi < 0 || zi >= height) return;
   const k = (zi * width + lineIndex) * 2;
-  const attenuation = Math.pow(10, -extraAttenuationDb / 20);
+  const attenuation = Math.pow(10, -attenuationDb / 20);
   iQ[k]! += amplitude * attenuation;
 }
 
@@ -385,14 +393,19 @@ function addCometEchoes(
   width: number,
   height: number,
   lineIndex: number,
-  startZi: number,
-  rc: number,
-  dz: number,
+  event: CometEvent,
 ): void {
-  const stepSamples = Math.max(1, Math.round(FISICA_US.params.cometStepMm.value / dz));
   for (let n = 1; n <= 6; n++) {
-    const zi = startZi + n * stepSamples;
+    const zi = event.zi + n * event.stepSamples;
     if (zi >= height) break;
-    addArtifactEcho(iQ, width, height, lineIndex, zi, rc * Math.pow(0.6, n) * INTERFACE_ECHO_GAIN, 0);
+    addArtifactEcho(
+      iQ,
+      width,
+      height,
+      lineIndex,
+      zi,
+      event.amplitude * Math.pow(0.6, n),
+      event.attDb + n * event.layerLossDb,
+    );
   }
 }
