@@ -97,9 +97,12 @@ siguiente existe todavía por diseño del plan:
 - **LIM-14 · Artefactos 1D**: espejo y cola de cometa se aproximan copiando
   muestras sobre una línea de adquisición; no modelan propagación 2D/3D,
   aperturas múltiples ni trayectorias reverberantes completas. Desde DEC-65
-  todos escalan con emisión y el ruido receptor se añade después. Las réplicas
-  conservan amplitudes heurísticas: no integran la pérdida completa ni el foco
-  de cada trayecto múltiple. No constituyen validación cuantitativa de artefactos.
+  todos escalan con emisión y el ruido receptor se añade después. Desde DEC-84
+  las reverberaciones repiten la pérdida primaria y su foco, el espejo absorbe
+  el recorrido adicional y la cola de cometa usa el tránsito y la pérdida de
+  la lámina. No hay trazado de rayos reflejados: reutilizan el trayecto axial,
+  con amplitudes de acoplamiento heurísticas, seis réplicas de cometa y umbral
+  de lámina fina de 1,5 mm. No constituyen validación cuantitativa de artefactos.
 - **LIM-15 · Flujo vascular simplificado**: el índice de pulsatilidad es
   uniforme por segmento, no hay autorregulación territorial ni resistencia
   distal explícita; las comunicantes normales se modelan como tubos con

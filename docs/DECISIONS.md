@@ -1561,3 +1561,55 @@ refracción ósea, conversión a cizalla y referencia externa con placa/cráneo.
 La marcha asigna un material a cada paso: puede saltarse estructuras más
 finas que ese paso. Refinar el muestreo/los cruces sigue siendo R10; no se
 añade coste por subpasos ni se oculta esa limitación con un ajuste de α.
+
+## DEC-84 · Artefactos con pérdida del recorrido completo (R11b)
+
+**Problema.** Las réplicas de reverberación se construían desde un coeficiente
+sin la absorción primaria; solo recibían una tasa media para el tramo extra.
+El espejo copiaba IQ sin pérdida adicional. La cola de cometa no absorbía
+nada y sus ecos estaban separados por 0,5 mm, independientemente del espesor
+o velocidad de la lámina. Eso podía producir réplicas demasiado brillantes
+cuando el retorno directo ya se había perdido.
+
+**Decisión.** Mantener el modelo reducido 1D, pero conservar su contabilidad
+de propagación. Para pérdida primaria ida y vuelta `A` en dB, las
+reverberaciones a `2z`/`3z` reciben `2A`/`3A`, incluido el término adicional
+de interfaz y la sombra acumulada del cristalino. Heredan la amplitud angular
+y el foco del reflector real, no del lugar aparente del eco. Se conservan
+los factores pedagógicos de acoplamiento; no se aumenta la ganancia.
+
+El espejo conserva el IQ de la fuente a `zs` y añade `2·(A(zm)−A(zs))` dB
+para la trayectoria extra fuente–reflector–fuente (la diferencia `A` ya es
+ida y vuelta). La cola de cometa usa `Δzi = zi_salida−zi_entrada`, el tiempo
+de tránsito reconstruido de la lámina: cada réplica interna añade `Δzi` y
+`A_salida−A_entrada` dB a la absorción primaria hasta la salida. El umbral
+de lámina fina, 1,5 mm, ahora usa espesor físico `Δzi·dz·c/c_ref`, no aparente.
+Se retira `cometStepMm`; los tres parámetros de acoplamiento restantes
+pasan de «consenso» a «estimado»: las fuentes describen el mecanismo, no
+validan esos valores exactos.
+
+**Verificación.** Siete regresiones fallaban antes del cambio. Una pantalla
+de 10 dB produce 10/20/30 dB en primario/segunda/tercera reverberación;
+una pérdida en el reflector deja intacta la fuente superficial y atenúa
+el espejo 20 dB. Láminas de 0,5/1 mm producen separaciones distintas y
+absorben tanto el trayecto frontal como cada vuelta interna. Siguen
+pasando las pruebas de emisión, ruido no reflejado y absorción de DEC-83.
+La prueba antigua de cuatro cometas visibles a separaciones fijas se
+sustituye por estas comprobaciones IQ: la PSF puede mezclarlos y la
+absorción puede ocultarlos. El ensayo visual de reverberación se hace a
+2 MHz en vez de 7,5 MHz para que las réplicas sean resolubles sobre el suelo;
+no se relaja su umbral ni se fuerza el brillo en tejido muy absorbente.
+
+**Dorados.** Mismas consultas geométricas (SHA-256 idéntico antes/después),
+sin cambios de color o PW. Cambian ojo `166dfe5a → 69670ac3`, temporal
+`fefb9be0 → 625a9269` y cuello `4404fc46 → 59b98678`. Diferencia media
+absoluta de imagen: 0,058/0,951/0,218 dB; la mediana de la diferencia es
+cero en los tres. La modificación se concentra en réplicas y sus vecindades
+tras PSF, no en las trayectorias ni en las propiedades de los tejidos.
+
+**Límites (LIM-14).** No hay solución de ondas, conversión a cizalla,
+propagación multiaxial, signos/fases de todas las reflexiones ni calibración
+externa. Las réplicas repiten el mismo camino; el espejo no demuestra una
+geometría especular 3D. La cola conserva seis repeticiones y acoplamiento
+`0,6^n` heurísticos: no modela ring-down de burbujas. Esto no completa R11
+ni sustituye el banco externo para aberración ósea.

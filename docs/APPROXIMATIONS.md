@@ -51,7 +51,7 @@ calibración.
   tejidos y líquidos siguen Duck 1990 y Szabo 2014 cap. 4, con ajustes
   explícitos para conservar referencias del modelo lineal anterior.
 - **fisica-ultrasonido.reverbRcThreshold**, **fisica-ultrasonido.reverbGain**,
-  **fisica-ultrasonido.mirrorGain**, **fisica-ultrasonido.cometStepMm** —
+  **fisica-ultrasonido.mirrorGain** —
   reglas de reverberación, espejo y cola de cometa basadas en Kremkau 1986 y
   Feldman 2009; espejo y cometa son aproximaciones unidimensionales.
 - **adquisicion.lineDensity** — número de líneas por cuadro (128, 176 o 256);
