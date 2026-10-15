@@ -1521,3 +1521,43 @@ dependencia de la presión venosa, la edad ni la herniación; la reserva es un
 volumen fijo; la saturación a 80 mmHg es arbitraria; el DVNO sigue a la PIC
 sin retardo propio; sin ondas de Lundberg ni acople con la presión arterial
 pulsátil.
+
+## DEC-83 · Absorción por distancia física, no reconstruida (R11a)
+
+**Problema.** La marcha B-mode avanzaba `ds = dz·c/c_ref` en el paciente,
+pero integraba `2·α(f)·dz/10` dB: atenuaba por profundidad reconstruida en
+vez de longitud física. En hueso (2800 m/s) cada tramo absorbía solo el
+55 % de lo debido; en aire (343 m/s) lo sobrestimaba 4,49 veces. También
+añadía una pérdida de un paso en la primera muestra, todavía en el origen.
+El Doppler ya integra distancia física; no corresponde cambiar sus ganancias
+para compensar esta incoherencia de B-mode.
+
+**Decisión.** Guardar la longitud del último avance y absorberla con el
+material que lo originó; la primera muestra recorre cero. No se cambia la
+trayectoria, el tiempo de vuelo, la semilla, la PSF, la ganancia, el ruido
+receptor ni la pérdida adicional de ventana. La fórmula es `A = 2·Σα(f)·ds/10`
+con `ds` en mm y `α` en dB/cm (Szabo 2014; propiedades de Duck 1990).
+
+**Verificación.** Doce regresiones fallaban antes del cambio: cuatro medios
+homogéneos (grasa, cerebro, piel y hueso) a 2/4 MHz, incluidos origen y
+registro `z_físico = z_imagen·c/c_ref`, y placas óseas de 2/6 mm a 2/4 MHz
+con pasos de 0,4/0,1/0,025 mm. En homogéneos, IQ recupera la absorción
+analítica y la integral Doppler a 1e-5 dB; en placas, el error queda bajo
+la cota de localización de dos interfaces de una marcha de primer orden.
+No es validación experimental del cráneo ni del coeficiente de absorción.
+
+**Dorados.** Comparación del renderer anterior y nuevo sobre las mismas
+escenas: las coordenadas de todas las consultas de material tienen SHA-256
+idéntico. Solo cambian los tres B-mode: ojo `619964ba → 166dfe5a`, temporal
+`5fb7793c → fefb9be0` y cuello `90ebb39c → 4404fc46`. Cambios medios absolutos
+de imagen: 0,231/4,285/1,727 dB, respectivamente. El cambio medio temporal
+es +4,134 dB: corregir la absorción del corto tramo superficial de aire y
+quitar el paso ficticio inicial compensa con creces el aumento en hueso.
+Los tres dorados color y PW permanecen idénticos. Las diferencias locales
+tras interferencia/PSF no equivalen a un cambio uniforme de ganancia.
+
+**Límites.** R11 aún no está completo: falta pantalla de fase heterogénea,
+refracción ósea, conversión a cizalla y referencia externa con placa/cráneo.
+La marcha asigna un material a cada paso: puede saltarse estructuras más
+finas que ese paso. Refinar el muestreo/los cruces sigue siendo R10; no se
+añade coste por subpasos ni se oculta esa limitación con un ajuste de α.

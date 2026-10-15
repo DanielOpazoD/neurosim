@@ -101,3 +101,11 @@ basal de Davson, salto y recuperación en minutos con lesión < reserva, PIC
 sostenida con lesión > reserva, `steadyForIcp` para los casos, drenaje,
 determinismo, y en el caso de referencia `setLesionVolume`/`syncIcp` (PIC
 derivada, revisión fisiológica y DVNO).
+
+`tests/validation/physicalAttenuation.test.ts` (DEC-83): recupera la pérdida
+de amplitud desde IQ sin ruido, foco ni interfaces laterales y la compara
+con `2·α(f)·L`. Cuatro medios, dos frecuencias, cero recorrido inicial,
+registro tiempo–profundidad y concordancia con `pathAttenuationDb`; placas
+óseas de dos espesores con tres pasos y cota analítica del error de cruce.
+La comparación no valida α ni la transmisión real del cráneo: comprueba
+que el renderer usa la longitud física que efectivamente recorre.

@@ -192,6 +192,7 @@ export function renderBMode(
     let lensShadowDb = 0;
     let p = line.origin;
     let dir = line.dir;
+    let travelledMm = 0;
     const interfaceEvents: InterfaceEvent[] = [];
     const cometEvents: ThinStrongEntry[] = [];
     let mirror: { zi: number; rc: number } | null = null;
@@ -203,7 +204,7 @@ export function renderBMode(
       const m = MATERIALS[matId];
 
       // Atenuación del tramo recorrido (ida y vuelta).
-      attDb += attenuationDbCm(prevM, f0) * (dz / 10) * 2;
+      attDb += attenuationDbCm(prevM, f0) * (travelledMm / 10) * 2;
 
       let re = 0;
       let im = 0;
@@ -262,7 +263,8 @@ export function renderBMode(
 
       prevMat = matId;
       prevM = m;
-      p = addScaled(p, dir, dz * (m.cMs / cRef));
+      travelledMm = dz * (m.cMs / cRef);
+      p = addScaled(p, dir, travelledMm);
     }
 
     if (mirror && mirror.zi > 0) {
